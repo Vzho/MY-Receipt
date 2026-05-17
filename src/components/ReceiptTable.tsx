@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  ImageIcon,
   Loader2,
   RefreshCcw,
   Trash2,
@@ -15,6 +16,7 @@ import { WarningPanel } from './WarningPanel'
 
 interface ReceiptTableLabels {
   merchantLabel: string
+  thumbnailLabel: string
   financialsLabel: string
   tagsLabel: string
   auditLabel: string
@@ -38,6 +40,7 @@ interface ReceiptTableProps {
   onToggleSelectAll: () => void
   onToggleSelectRow: (id: string, event: React.MouseEvent) => void
   onOpenReceipt: (item: any) => void
+  onOpenThumbnail: (imageUrl: string) => void
   onCopyText: (value: string | null | undefined, label: string, event?: React.MouseEvent) => void
   onRetry: (id: string) => void
   onDelete: (id: string, event?: React.MouseEvent) => void
@@ -52,6 +55,7 @@ export function ReceiptTable({
   onToggleSelectAll,
   onToggleSelectRow,
   onOpenReceipt,
+  onOpenThumbnail,
   onCopyText,
   onRetry,
   onDelete,
@@ -83,72 +87,101 @@ export function ReceiptTable({
               />
             </th>
             <th className="px-6 py-4">{labels.merchantLabel}</th>
+            <th className="px-4 py-4 w-[120px]">{labels.thumbnailLabel}</th>
             <th className="px-6 py-4">{labels.financialsLabel}</th>
             <th className="px-6 py-4">{labels.tagsLabel}</th>
             <th className="px-6 py-4 text-right">{labels.auditLabel}</th>
           </tr>
         </thead>
         <tbody className={`divide-y ${config.colorMode === 'Dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>
-          {pageItems.map((item) => (
-            <tr
-              key={item.id}
-              className={`transition-colors group cursor-pointer ${selectedRowIds.includes(item.id) ? (config.colorMode === 'Dark' ? 'bg-indigo-900/20' : 'bg-indigo-50/50') : ''} ${config.colorMode === 'Dark' ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'}`}
-              onClick={() => onOpenReceipt(item)}
-            >
-              <td className="px-6 py-5" onClick={(event) => onToggleSelectRow(item.id, event)}>
-                <input
-                  type="checkbox"
-                  checked={selectedRowIds.includes(item.id)}
-                  disabled={!isSelectableForBulk(item)}
-                  onChange={() => {}}
-                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                />
-              </td>
-              <td className="px-6 py-5">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5">
-                    {item.status === 'Failed' ? (
-                      <AlertCircle className="w-5 h-5 text-rose-500" />
-                    ) : item.status === 'Processing' ? (
-                      <Loader2 className={`w-5 h-5 animate-spin ${config.colorMode === 'Dark' ? 'text-indigo-400' : 'text-indigo-600'}`} />
-                    ) : item.status === 'Uploaded' ? (
-                      <Clock className={`w-5 h-5 ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`} />
-                    ) : (
-                      <CheckCircle className={`w-5 h-5 ${config.colorMode === 'Dark' ? 'text-amber-600' : 'text-amber-500'}`} />
-                    )}
-                  </div>
-                  <div>
-                    <div className="mb-1 flex items-center gap-2">
-                      <p className={`text-sm font-black leading-tight ${item.status === 'Failed' ? 'text-rose-600' : config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-800'}`}>
-                        {item.merchant_name || item.filename || 'Processing receipt'}
-                      </p>
-                      {item.merchant_name && (
-                        <button type="button" onClick={(event) => onCopyText(item.merchant_name, 'Merchant', event)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="复制商户名">
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
+          {pageItems.map((item) => {
+            const thumbnailUrl = item.processed_image_url || item.image_url || item.original_image_url
+            return (
+              <tr
+                key={item.id}
+                className={`transition-colors group cursor-pointer ${selectedRowIds.includes(item.id) ? (config.colorMode === 'Dark' ? 'bg-indigo-900/20' : 'bg-indigo-50/50') : ''} ${config.colorMode === 'Dark' ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'}`}
+                onClick={() => onOpenReceipt(item)}
+              >
+                <td className="px-6 py-5" onClick={(event) => onToggleSelectRow(item.id, event)}>
+                  <input
+                    type="checkbox"
+                    checked={selectedRowIds.includes(item.id)}
+                    disabled={!isSelectableForBulk(item)}
+                    onChange={() => {}}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </td>
+                <td className="px-6 py-5">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">
+                      {item.status === 'Failed' ? (
+                        <AlertCircle className="w-5 h-5 text-rose-500" />
+                      ) : item.status === 'Processing' ? (
+                        <Loader2 className={`w-5 h-5 animate-spin ${config.colorMode === 'Dark' ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                      ) : item.status === 'Uploaded' ? (
+                        <Clock className={`w-5 h-5 ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`} />
+                      ) : (
+                        <CheckCircle className={`w-5 h-5 ${config.colorMode === 'Dark' ? 'text-amber-600' : 'text-amber-500'}`} />
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`text-[9px] font-bold uppercase ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>
-                        {item.status === 'Uploaded' ? 'Ready for crop and smart parse' : item.status === 'Processing' ? 'Smart parsing in background' : `INV: ${item.invoice_no || 'N/A'}`}
-                      </span>
-                      {item.invoice_no && (
-                        <button type="button" onClick={(event) => onCopyText(item.invoice_no, 'Invoice No', event)} className="rounded-md p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="复制 Invoice No.">
-                          <Copy className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="mt-2 flex max-w-xl flex-col gap-1.5">
-                      <ProcessingPanel stage={item.processing_stage} status={item.status} compact />
-                      <WarningPanel warnings={item.warnings} compact />
+                    <div>
+                      <div className="mb-1 flex items-center gap-2">
+                        <p className={`text-sm font-black leading-tight ${item.status === 'Failed' ? 'text-rose-600' : config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-800'}`}>
+                          {item.merchant_name || item.filename || 'Processing receipt'}
+                        </p>
+                        {item.merchant_name && (
+                          <button type="button" onClick={(event) => onCopyText(item.merchant_name, 'Merchant', event)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="复制商户名">
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`text-[9px] font-bold uppercase ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>
+                          {item.status === 'Uploaded' ? 'Ready for crop and smart parse' : item.status === 'Processing' ? 'Smart parsing in background' : `INV: ${item.invoice_no || 'N/A'}`}
+                        </span>
+                        {item.invoice_no && (
+                          <button type="button" onClick={(event) => onCopyText(item.invoice_no, 'Invoice No', event)} className="rounded-md p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="复制 Invoice No.">
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="mt-2 flex max-w-xl flex-col gap-1.5">
+                        <ProcessingPanel stage={item.processing_stage} status={item.status} compact />
+                        <WarningPanel warnings={item.warnings} compact />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </td>
-              <td className="px-6 py-5">
-                <p className={`text-sm font-black leading-none mb-1 ${config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-900'}`}>{config.currency} {parseFloat(item.grand_total as any).toFixed(2)}</p>
-                <p className={`text-[10px] font-bold ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>{item.date} - {item.items?.length || 0} SKUs</p>
-              </td>
+                </td>
+                <td className="px-4 py-5">
+                  {thumbnailUrl ? (
+                    <button
+                      type="button"
+                      aria-label="放大发票图片"
+                      title="放大发票图片"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onOpenThumbnail(thumbnailUrl)
+                      }}
+                      className={`group/thumb h-20 w-14 overflow-hidden rounded-lg border transition-all ${config.colorMode === 'Dark' ? 'border-slate-700 bg-slate-800 hover:border-indigo-400' : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:shadow-md'}`}
+                    >
+                      <img
+                        src={thumbnailUrl}
+                        alt="Receipt thumbnail"
+                        className="h-full w-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </button>
+                  ) : (
+                    <div className={`flex h-20 w-14 items-center justify-center rounded-lg border border-dashed ${config.colorMode === 'Dark' ? 'border-slate-700 bg-slate-800 text-slate-600' : 'border-slate-200 bg-slate-50 text-slate-300'}`}>
+                      <ImageIcon className="h-5 w-5" />
+                    </div>
+                  )}
+                </td>
+                <td className="px-6 py-5">
+                  <p className={`text-sm font-black leading-none mb-1 ${config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-900'}`}>{config.currency} {parseFloat(item.grand_total as any).toFixed(2)}</p>
+                  <p className={`text-[10px] font-bold ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>{item.date} - {item.items?.length || 0} SKUs</p>
+                </td>
               <td className="px-6 py-5">
                 <div className="flex flex-col gap-1.5 items-start">
                   <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${item.status === 'Failed' ? 'bg-rose-50 text-rose-600' : item.status === 'Processing' ? 'bg-indigo-50 text-indigo-600' : config.colorMode === 'Dark' ? 'bg-indigo-950 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
@@ -175,10 +208,11 @@ export function ReceiptTable({
                   </button>
                 </div>
               </td>
-            </tr>
-          ))}
+              </tr>
+            )
+          })}
           {visibleItems.length === 0 && (
-            <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-xs font-bold">{labels.noRecords}</td></tr>
+            <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs font-bold">{labels.noRecords}</td></tr>
           )}
         </tbody>
       </table>

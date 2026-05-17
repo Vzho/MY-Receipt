@@ -25,7 +25,7 @@ export function UploadDropzone({ disabled = false, onFilesAccepted, onError }: U
     <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white px-6 py-8 text-center transition hover:border-indigo-300 hover:bg-indigo-50/40">
       <Upload className="mb-3 h-8 w-8 text-indigo-600" />
       <span className="text-sm font-black text-slate-900">上传收据文件</span>
-      <span className="mt-1 text-xs font-bold text-slate-500">JPEG, PNG / 最大 {MAX_RECEIPT_FILE_SIZE_BYTES / 1024 / 1024}MB</span>
+      <span className="mt-1 text-xs font-bold text-slate-500">JPEG, PNG, PDF / 最大 {MAX_RECEIPT_FILE_SIZE_BYTES / 1024 / 1024}MB</span>
       <input
         type="file"
         className="hidden"

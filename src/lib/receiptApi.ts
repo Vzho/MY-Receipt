@@ -10,7 +10,8 @@ import type { ImageProcessingMetadata } from './imagePreprocess'
 
 export const RECEIPT_BUCKET = 'receipts'
 export const MAX_RECEIPT_FILE_SIZE_BYTES = 20 * 1024 * 1024
-export const ACCEPTED_RECEIPT_MIME_TYPES = ['image/jpeg', 'image/png']
+export const ACCEPTED_RECEIPT_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png']
+export const ACCEPTED_RECEIPT_MIME_TYPES = [...ACCEPTED_RECEIPT_IMAGE_MIME_TYPES, 'application/pdf']
 
 export interface UploadedReceiptResult {
   receipt: Receipt
@@ -20,6 +21,7 @@ export interface UploadedReceiptResult {
 export interface CreateReceiptFromFileOptions {
   processedFile?: File | null
   imageProcessing?: (Partial<ImageProcessingMetadata> & Record<string, unknown>) | null
+  fileHash?: string | null
   autoParse?: boolean
   awaitParse?: boolean
   parseMode?: ParseMode
@@ -56,7 +58,7 @@ export interface FindDuplicateCandidateOptions {
 
 export function validateReceiptFile(file: File): string | null {
   if (!ACCEPTED_RECEIPT_MIME_TYPES.includes(file.type)) {
-    return 'Only JPEG and PNG receipts are supported.'
+    return 'Only JPEG, PNG, and PDF receipts are supported.'
   }
 
   if (file.size > MAX_RECEIPT_FILE_SIZE_BYTES) {
@@ -72,9 +74,14 @@ export async function createReceiptFromFile(file: File, options: CreateReceiptFr
     throw new Error(validationError)
   }
 
+  const shouldAutoParse = options.autoParse !== false
+  if (file.type === 'application/pdf' && shouldAutoParse && !options.processedFile) {
+    throw new Error('PDF receipts must be converted to an OCR image before parsing.')
+  }
+
   const client = requireSupabase()
   const user = await getCurrentUser()
-  const fileHash = await computeFileSha256(file)
+  const fileHash = options.fileHash ?? await computeFileSha256(file)
   const initialDocType = options.docType === 'E-invoice' ? 'E-invoice' : 'Receipt'
   const initialExtraFields = options.qrPayload ? { qr_payload: options.qrPayload } : null
 
@@ -126,6 +133,10 @@ export async function createReceiptFromFile(file: File, options: CreateReceiptFr
       await markReceiptFailed(receipt.id, processedValidationError)
       throw new Error(processedValidationError)
     }
+    if (!ACCEPTED_RECEIPT_IMAGE_MIME_TYPES.includes(processedFile.type)) {
+      await markReceiptFailed(receipt.id, 'OCR input must be a JPEG or PNG image.')
+      throw new Error('OCR input must be a JPEG or PNG image.')
+    }
   }
 
   const uploads = [
@@ -149,7 +160,6 @@ export async function createReceiptFromFile(file: File, options: CreateReceiptFr
     throw uploadError
   }
 
-  const shouldAutoParse = options.autoParse !== false
   let { data: updated, error: updateError } = await client
     .from('receipts')
     .update({
@@ -540,7 +550,7 @@ export async function findDuplicateCandidates(options: FindDuplicateCandidateOpt
   const client = requireSupabase()
   const query = client
     .from('receipts')
-    .select('*, receipt_items(*)')
+    .select('id,user_id,filename,mime_type,file_path,file_hash,status,merchant_name,company_reg_no,address,phone,invoice_no,date,time,category,doc_type,subtotal,discount,tax,service_charge,rounding,grand_total,payment_method,change,subsidy_details,tags,confidence_score,error_message,processed_at,image_processing,raw_ocr,created_at,updated_at,deleted_at')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
@@ -711,6 +721,7 @@ function getFileExtension(file: File): string {
 function mimeToExtension(mimeType: string): string {
   if (mimeType === 'image/jpeg') return 'jpg'
   if (mimeType === 'image/png') return 'png'
+  if (mimeType === 'application/pdf') return 'pdf'
   return 'bin'
 }
 

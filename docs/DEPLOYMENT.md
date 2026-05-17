@@ -203,7 +203,7 @@ supabase functions deploy parse-receipt
 - `receipts` Storage bucket 为 private。
 - Storage object path 使用 `{user_id}/{receipt_id}/original.ext`，裁剪图使用 `{user_id}/{receipt_id}/processed-{timestamp}.ext`。
 - `parse-receipt` 已部署，并能通过当前用户 JWT 校验 receipt 所有权。
-- 上传一张清晰 JPG/PNG 收据后，先进入列表并显示 `uploaded`；打开单据点击“智能解析”后出现裁剪弹窗，应用裁剪后状态能进入 `processing`，最后到 `pending_review`，并写入 `raw_ocr` / `raw_ai`。
+- 上传一张清晰 JPG/PNG/PDF 收据后，先进入列表并显示 `uploaded`；PDF 上传时前端会将第一页渲染为 JPEG 识别图并保留 PDF 原件。打开单据点击“智能解析”后出现裁剪弹窗，应用裁剪后状态能进入 `processing`，最后到 `pending_review`，并写入 `raw_ocr` / `raw_ai`。
 - 审核保存能写回 `receipts` 与 `receipt_items`。
 - Excel 导出能下载 `.xlsx`。
 

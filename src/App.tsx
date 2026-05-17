@@ -7,6 +7,7 @@ import {
   createReceiptFileSignedUrl,
   createReceiptFromFile,
   findDuplicateCandidates,
+  getReceipt,
   listCustomDocumentTypes,
   listDeletedReceipts,
   listFieldPreferences,
@@ -28,6 +29,7 @@ import { defaultFieldPreferences, isFieldEnabled, mergeFieldPreferences } from '
 import { decodeQrPayloadFromImageFile, looksLikeEInvoiceQrPayload } from './lib/qrPayload';
 import { downloadReceiptsXlsx } from './lib/exportExcel';
 import { formatSubsidyHeadline } from './lib/subsidyDetails';
+import { isPdfReceiptFile, renderPdfFirstPageToReceiptImage } from './lib/pdfPreprocess';
 import { DeletedReceiptList } from './components/DeletedReceiptList';
 import { DuplicateDialog } from './components/DuplicateDialog';
 import { ReceiptCropModal } from './components/ReceiptCropModal';
@@ -198,6 +200,7 @@ type DuplicatePromptState = {
   file: File;
   previewUrl: string;
   fileHash: string;
+  perceptualHash: string | null;
   candidates: DuplicateCandidate[];
 };
 
@@ -251,7 +254,7 @@ const I18N: any = {
     dbTitle: 'Supabase 云端数据库',
     connected: 'Supabase 已连接',
     dragDrop: '拖拽上传 / 点击选择',
-    supportText: '支持 PNG, JPG。上传前可先裁剪票据区域。',
+    supportText: '支持 PNG、JPG、PDF。PDF 会自动取第一页用于识别。',
     processing: '云端处理引擎运行中',
     searchUpload: '搜索商户名或发票号...',
     searchDb: '在 Supabase 数据库中搜索...',
@@ -284,6 +287,7 @@ const I18N: any = {
     hold: '保持挂起',
     syncToCloud: '同步至云端',
     merchantLabel: '商户名称 (Merchant)',
+    thumbnailLabel: '发票缩略图',
     dateLabel: '日期 (Date)',
     invoiceLabel: '发票号 (Invoice No)',
     regNoLabel: '注册号 (Reg No)',
@@ -319,7 +323,7 @@ const I18N: any = {
     archiveLib: '存档库',
     exportExcel: '导出 Excel',
     uploadHint: '拖拽上传新的单据',
-    uploadLimit: 'JPEG/PNG 可多选；先快速上传，进入单据后再裁剪并智能解析',
+    uploadLimit: 'JPEG/PNG/PDF 可多选；PDF 先渲染第一页用于 OCR',
     searchPlaceholder: '搜索商户、发票号...',
     financialsLabel: '财务详情',
     tagsLabel: '分类标签',
@@ -354,7 +358,7 @@ const I18N: any = {
     dbTitle: 'Supabase Cloud Database',
     connected: 'Supabase Connected',
     dragDrop: 'Drag & Drop / Click to Upload',
-    supportText: 'Supports PNG and JPG. Crop the receipt area before parsing.',
+    supportText: 'Supports PNG, JPG, and PDF. PDFs use the first page for OCR.',
     processing: 'Cloud Engine Running...',
     searchUpload: 'Search merchant or invoice no...',
     searchDb: 'Search in Supabase database...',
@@ -387,6 +391,7 @@ const I18N: any = {
     hold: 'Keep Pending',
     syncToCloud: 'Sync to Cloud',
     merchantLabel: 'Merchant Name',
+    thumbnailLabel: 'Receipt Image',
     dateLabel: 'Date',
     invoiceLabel: 'Invoice No',
     regNoLabel: 'Registration No',
@@ -422,7 +427,7 @@ const I18N: any = {
     archiveLib: 'Archive Lib',
     exportExcel: 'Export Excel',
     uploadHint: 'Click or Drag to upload receipts',
-    uploadLimit: 'JPEG/PNG multi-upload; crop and smart parse from the receipt editor',
+    uploadLimit: 'JPEG/PNG/PDF multi-upload; PDFs use the first page for OCR',
     searchPlaceholder: 'Search merchant, invoice...',
     financialsLabel: 'Financials',
     tagsLabel: 'Tags',
@@ -457,7 +462,7 @@ const I18N: any = {
     dbTitle: 'Pangkalan Data Awan Supabase',
     connected: 'Supabase Disambung',
     dragDrop: 'Tarik & Lepas / Klik untuk Muat Naik',
-    supportText: 'Sokong PNG dan JPG. Potong kawasan resit sebelum pengesanan.',
+    supportText: 'Sokong PNG, JPG, dan PDF. PDF menggunakan halaman pertama untuk OCR.',
     processing: 'Enjin Awan Sedang Berjalan...',
     searchUpload: 'Cari saudagar atau no invois...',
     searchDb: 'Cari dalam pangkalan data...',
@@ -491,6 +496,7 @@ const I18N: any = {
     hold: 'Kekal Menunggu',
     syncToCloud: 'Segerak ke Awan',
     merchantLabel: 'Nama Saudagar',
+    thumbnailLabel: 'Imej Resit',
     dateLabel: 'Tarikh',
     invoiceLabel: 'No Invois',
     regNoLabel: 'No Pendaftaran',
@@ -526,7 +532,7 @@ const I18N: any = {
     archiveLib: 'Arkib',
     exportExcel: 'Eksport Excel',
     uploadHint: 'Klik atau Tarik untuk muat naik resit',
-    uploadLimit: 'JPEG/PNG berbilang fail; potong dan huraikan pintar dari editor',
+    uploadLimit: 'JPEG/PNG/PDF berbilang fail; PDF menggunakan halaman pertama untuk OCR',
     searchPlaceholder: 'Cari saudagar, invois...',
     financialsLabel: 'Kewangan',
     tagsLabel: 'Tag',
@@ -593,6 +599,9 @@ export default function App() {
   const repairProgressTimerRef = useRef<number | null>(null);
   const pollingReceiptIdsRef = useRef<Set<string>>(new Set());
   const pendingUploadHashesRef = useRef<Set<string>>(new Set());
+  const pendingRealtimeReceiptIdsRef = useRef<Set<string>>(new Set());
+  const pendingRealtimeDeletedIdsRef = useRef<Set<string>>(new Set());
+  const pendingRealtimeFullRefreshRef = useRef(false);
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [toast, setToast] = useState<{message: string, type: 'info' | 'success' | 'error'} | null>(null);
   const [filters, setFilters] = useState({ search: '', status: 'All', docType: 'All', tag: 'All' });
@@ -661,8 +670,10 @@ export default function App() {
   };
 
   const buildDisplayReceipt = async (receipt: any, fallbackImageUrl?: string | null) => {
-    const originalSignedUrl = await createReceiptFileSignedUrl(receipt.file_path);
-    const processedSignedUrl = await createReceiptFileSignedUrl(receipt.processed_file_path || null);
+    const [originalSignedUrl, processedSignedUrl] = await Promise.all([
+      createReceiptFileSignedUrl(receipt.file_path),
+      createReceiptFileSignedUrl(receipt.processed_file_path || null),
+    ]);
     return toDisplayReceipt({
       ...receipt,
       image_url: processedSignedUrl || originalSignedUrl || fallbackImageUrl || null,
@@ -674,6 +685,34 @@ export default function App() {
   const upsertHistoryReceipt = (displayReceipt: any) => {
     setHistory((current) => [displayReceipt, ...current.filter((receipt) => receipt.id !== displayReceipt.id)]);
     setSelectedReceipt((current: any) => current?.id === displayReceipt.id ? displayReceipt : current);
+  };
+
+  const removeReceiptSnapshot = (receiptId: string) => {
+    setHistory((current) => current.filter((receipt) => receipt.id !== receiptId));
+    setDeletedReceipts((current) => current.filter((receipt) => receipt.id !== receiptId));
+    setSelectedReceipt((current: any) => current?.id === receiptId ? null : current);
+  };
+
+  const refreshReceiptSnapshot = async (receiptId: string) => {
+    const receipt = await getReceipt(receiptId);
+    if (!receipt) {
+      removeReceiptSnapshot(receiptId);
+      return;
+    }
+
+    const displayReceipt = await buildDisplayReceipt(receipt);
+    if (receipt.deleted_at) {
+      setHistory((current) => current.filter((item) => item.id !== receiptId));
+      setDeletedReceipts((current) => [displayReceipt, ...current.filter((item) => item.id !== receiptId)]);
+      setSelectedReceipt((current: any) => current?.id === receiptId ? displayReceipt : current);
+      return;
+    }
+
+    setDeletedReceipts((current) => current.filter((item) => item.id !== receiptId));
+    upsertHistoryReceipt(displayReceipt);
+    if (receipt.status === 'processing') {
+      startReceiptResultPolling(receipt.id);
+    }
   };
 
   const startReceiptResultPolling = (receiptId: string, fallbackImageUrl?: string | null, uploadId?: string) => {
@@ -753,10 +792,39 @@ export default function App() {
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'receipts', filter: `user_id=eq.${data.user.id}` },
-            () => {
+            (payload) => {
+              const receiptId = String((payload.new as any)?.id || (payload.old as any)?.id || '');
+              if (!receiptId) {
+                pendingRealtimeFullRefreshRef.current = true;
+              } else if (payload.eventType === 'DELETE') {
+                pendingRealtimeDeletedIdsRef.current.add(receiptId);
+                pendingRealtimeReceiptIdsRef.current.delete(receiptId);
+              } else {
+                pendingRealtimeReceiptIdsRef.current.add(receiptId);
+              }
+
               if (refreshTimer) window.clearTimeout(refreshTimer);
               refreshTimer = window.setTimeout(() => {
-                void loadData();
+                const deletedIds = Array.from(pendingRealtimeDeletedIdsRef.current) as string[];
+                const receiptIds = (Array.from(pendingRealtimeReceiptIdsRef.current) as string[])
+                  .filter((id) => !pendingRealtimeDeletedIdsRef.current.has(id));
+                const needsFullRefresh = pendingRealtimeFullRefreshRef.current;
+                pendingRealtimeDeletedIdsRef.current.clear();
+                pendingRealtimeReceiptIdsRef.current.clear();
+                pendingRealtimeFullRefreshRef.current = false;
+
+                deletedIds.forEach(removeReceiptSnapshot);
+                if (needsFullRefresh) {
+                  void loadData();
+                  return;
+                }
+                if (receiptIds.length === 0) {
+                  return;
+                }
+                void Promise.all(receiptIds.map((id) => refreshReceiptSnapshot(id))).catch((error) => {
+                  console.error('Realtime receipt refresh failed:', error);
+                  void loadData();
+                });
               }, 600);
             },
           )
@@ -906,14 +974,13 @@ export default function App() {
       });
       if (candidates.length > 0) {
         setUploadList((old: any[]) => old.filter((item) => item.id !== uploadId));
-        setDuplicatePrompt({ file, previewUrl, fileHash, candidates });
+        setDuplicatePrompt({ file, previewUrl, fileHash, perceptualHash, candidates });
         return;
       }
       setUploadList((old: any[]) => old.map((item) => item.id === uploadId
-        ? { ...item, progress: 18, status: 'Reading QR and metadata' }
+        ? { ...item, progress: 18, status: isPdfReceiptFile(file) ? 'Rendering PDF for OCR' : 'Reading QR and metadata' }
         : item));
-      const qrPayload = await decodeQrPayloadFromImageFile(file);
-      await uploadOriginalReceipt(file, previewUrl, qrPayload, fileHash, uploadId);
+      await uploadOriginalReceipt(file, previewUrl, undefined, fileHash, perceptualHash, uploadId);
     } catch (error) {
       if (reservedHash) pendingUploadHashesRef.current.delete(reservedHash);
       URL.revokeObjectURL(previewUrl);
@@ -928,8 +995,7 @@ export default function App() {
     if (!prompt) return;
     setDuplicatePrompt(null);
     try {
-      const qrPayload = await decodeQrPayloadFromImageFile(prompt.file);
-      void uploadOriginalReceipt(prompt.file, prompt.previewUrl, qrPayload, prompt.fileHash);
+      void uploadOriginalReceipt(prompt.file, prompt.previewUrl, undefined, prompt.fileHash, prompt.perceptualHash);
     } catch (error) {
       pendingUploadHashesRef.current.delete(prompt.fileHash);
       URL.revokeObjectURL(prompt.previewUrl);
@@ -952,9 +1018,13 @@ export default function App() {
     if (existing) setSelectedReceipt(existing);
   };
 
-  const uploadOriginalReceipt = async (file: File, existingPreviewUrl?: string, qrPayload?: string | null, fileHash?: string | null, existingUploadId?: string) => {
+  const uploadOriginalReceipt = async (file: File, existingPreviewUrl?: string, qrPayload?: string | null, fileHash?: string | null, perceptualHash?: string | null, existingUploadId?: string) => {
     const uploadId = existingUploadId || Math.random().toString(36).slice(2, 11);
     const previewUrl = existingPreviewUrl || URL.createObjectURL(file);
+    let displayPreviewUrl = previewUrl;
+    let processedFile: File | null = null;
+    let imageProcessing: (Partial<ImageProcessingMetadata> & Record<string, unknown>) | null = null;
+    let originalPreviewUrlToRevoke: string | null = null;
     if (existingUploadId) {
       setUploadList((old: any[]) => old.map((item) => item.id === uploadId
         ? { ...item, status: 'Uploading original receipt', progress: 20 }
@@ -971,29 +1041,56 @@ export default function App() {
     }
 
     try {
-      const perceptualHash = await computeImageAverageHash(file).catch(() => null);
+      let ocrSourceFile = file;
+      let effectivePerceptualHash = perceptualHash;
+      if (isPdfReceiptFile(file)) {
+        setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, progress: 28, status: 'Rendering PDF first page' } : u));
+        const rendered = await renderPdfFirstPageToReceiptImage(file);
+        processedFile = rendered.file;
+        ocrSourceFile = rendered.file;
+        effectivePerceptualHash = await computeImageAverageHash(rendered.file).catch(() => null);
+        imageProcessing = {
+          ...rendered.metadata,
+          ...(effectivePerceptualHash ? { perceptual_hash: effectivePerceptualHash } : {}),
+        };
+        displayPreviewUrl = URL.createObjectURL(rendered.file);
+        if (previewUrl.startsWith('blob:')) originalPreviewUrlToRevoke = previewUrl;
+        setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, progress: 36, status: 'PDF rendered for OCR' } : u));
+      } else {
+        imageProcessing = effectivePerceptualHash ? { perceptual_hash: effectivePerceptualHash } : null;
+      }
+
+      const effectiveQrPayload = qrPayload === undefined
+        ? await decodeQrPayloadFromImageFile(ocrSourceFile)
+        : qrPayload;
       const result = await createReceiptFromFile(file, {
-        imageProcessing: perceptualHash ? { perceptual_hash: perceptualHash } : null,
+        processedFile,
+        imageProcessing,
+        fileHash,
         autoParse: true,
         awaitParse: false,
         parseMode: 'ocr',
         enabledFieldKeys,
-        docType: looksLikeEInvoiceQrPayload(qrPayload) ? 'E-invoice' : null,
-        qrPayload,
+        docType: looksLikeEInvoiceQrPayload(effectiveQrPayload) ? 'E-invoice' : null,
+        qrPayload: effectiveQrPayload,
       });
       setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, progress: 62, status: 'OCR parsing in background' } : u));
-      const displayReceipt = await buildDisplayReceipt(result.receipt, previewUrl);
+      const displayReceipt = await buildDisplayReceipt(result.receipt, displayPreviewUrl);
 
       upsertHistoryReceipt(displayReceipt);
       showToast(`${file.name} uploaded. OCR started.`, 'success');
-      startReceiptResultPolling(result.receipt.id, previewUrl, uploadId);
+      startReceiptResultPolling(result.receipt.id, displayPreviewUrl, uploadId);
     } catch (error) {
       console.error('Receipt upload failed:', error);
       setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, status: 'Failed', progress: 100 } : u));
       showToast(error instanceof Error ? error.message : 'Upload failed.', 'error');
       URL.revokeObjectURL(previewUrl);
+      if (displayPreviewUrl !== previewUrl && displayPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(displayPreviewUrl);
+      }
     } finally {
       if (fileHash) pendingUploadHashesRef.current.delete(fileHash);
+      if (originalPreviewUrlToRevoke) URL.revokeObjectURL(originalPreviewUrlToRevoke);
     }
   };
 
@@ -1065,7 +1162,9 @@ export default function App() {
   const handleSmartParse = async () => {
     if (!selectedReceipt?.id || smartParsingReceiptId) return;
 
-    const imageUrl = selectedReceipt.original_image_url || selectedReceipt.image_url;
+    const imageUrl = selectedReceipt.mime_type === 'application/pdf'
+      ? selectedReceipt.processed_image_url || selectedReceipt.image_url
+      : selectedReceipt.original_image_url || selectedReceipt.image_url;
     if (!imageUrl) {
       showToast('This receipt has no image to parse.', 'error');
       return;
@@ -1462,7 +1561,7 @@ export default function App() {
                   </div>
                   <h3 className={`text-lg font-black ${config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-800'}`}>{t.uploadHint}</h3>
                   <p className={`text-xs mt-2 font-medium ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{t.uploadLimit}</p>
-                  <input type="file" className="hidden" multiple onChange={handleUpload} accept="image/png,image/jpeg" />
+                  <input type="file" className="hidden" multiple onChange={handleUpload} accept="image/png,image/jpeg,application/pdf" />
                 </label>
 
                 <UploadQueue items={uploadList} processingLabel={t.processing} config={config} />
@@ -1517,6 +1616,7 @@ export default function App() {
                     selectedRowIds={selectedRowIds}
                     labels={{
                       merchantLabel: t.merchantLabel,
+                      thumbnailLabel: t.thumbnailLabel,
                       financialsLabel: t.financialsLabel,
                       tagsLabel: t.tagsLabel,
                       auditLabel: t.auditLabel,
@@ -1529,6 +1629,7 @@ export default function App() {
                     onToggleSelectAll={handleToggleSelectAll}
                     onToggleSelectRow={handleToggleSelectRow}
                     onOpenReceipt={setSelectedReceipt}
+                    onOpenThumbnail={setZoomImage}
                     onCopyText={handleCopyText}
                     onRetry={handleRetry}
                     onDelete={handleDelete}

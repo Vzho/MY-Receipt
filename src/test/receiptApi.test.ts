@@ -22,6 +22,13 @@ const uploadedReceipt = createReceipt({
 })
 
 describe('createReceiptFromFile', () => {
+  it('accepts PDF receipts so they can be rasterized for OCR', () => {
+    const file = new File(['%PDF-1.7'], 'receipt.pdf', { type: 'application/pdf' })
+
+    expect(ACCEPTED_RECEIPT_MIME_TYPES).toContain('application/pdf')
+    expect(validateReceiptFile(file)).toBeNull()
+  })
+
   it('can return after upload without waiting for OCR parsing to finish', async () => {
     mocks.invoke.mockReturnValue(new Promise(() => undefined))
 
@@ -119,4 +126,4 @@ function createReceipt(overrides: Partial<Receipt>): Receipt {
   }
 }
 
-const { createReceiptFromFile } = await import('../lib/receiptApi')
+const { ACCEPTED_RECEIPT_MIME_TYPES, createReceiptFromFile, validateReceiptFile } = await import('../lib/receiptApi')

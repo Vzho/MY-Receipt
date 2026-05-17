@@ -83,8 +83,6 @@ serve(async (req) => {
       schemaProfile: requestedDocType === 'E-invoice' || receipt.doc_type === 'E-invoice' || looksLikeEInvoiceQrPayload(effectiveQrPayload) ? 'einvoice' : 'standard',
     }
 
-    await updateReceipt(serviceClient, receiptId, { processing_stage: 'ai_extracting' })
-
     const { aiJson, rawOcr } = parseMode === 'smart'
       ? await parseWithVisionModel(serviceClient, receipt, { forceDeepSeek: true, ...parseOptions })
       : parseMode === 'vision'
@@ -201,6 +199,7 @@ async function parseWithTencentOCR(client: any, receipt: any, options: ReceiptPr
 
   const ocrResult = await runTencentOCR(base64File)
   const rawOcr = ocrResult.text
+  await updateReceipt(client, receipt.id, { processing_stage: 'ai_extracting' })
   const aiJson = inferReceiptFromOcrText(rawOcr, receipt.filename, {
     provider: 'tencent',
     quota_units_used: quota,
@@ -232,6 +231,7 @@ async function parseWithDeepSeekRepairMode(client: any, receipt: any, options: R
       provider: 'existing_raw_ocr',
       average_confidence: 0.5,
     })
+  await updateReceipt(client, receipt.id, { processing_stage: 'ai_extracting' })
   const repaired = await runDeepSeekRepairWithQuota(client, receipt, receipt.raw_ocr, initialJson, options)
   return { aiJson: repaired, rawOcr: receipt.raw_ocr }
 }
@@ -330,6 +330,7 @@ async function parseWithVisionModel(
 
   const { fileBlob, mimeType, sourcePath } = await downloadReceiptImage(client, receipt)
   const base64File = await blobToBase64(fileBlob)
+  await updateReceipt(client, receipt.id, { processing_stage: 'ai_extracting' })
   let aiJson = await runQwenVision(base64File, mimeType, options)
   aiJson.parser_meta = {
     ...(aiJson.parser_meta ?? {}),
@@ -411,6 +412,7 @@ async function parseWithOpenAIVision(client: any, receipt: any, options: Receipt
   const { fileBlob, mimeType, sourcePath } = await downloadReceiptImage(client, receipt)
 
   const base64File = await blobToBase64(fileBlob)
+  await updateReceipt(client, receipt.id, { processing_stage: 'ai_extracting' })
   const aiJson = await runOpenAIVision(base64File, mimeType, options)
   aiJson.parser_meta = {
     ...(aiJson.parser_meta ?? {}),
