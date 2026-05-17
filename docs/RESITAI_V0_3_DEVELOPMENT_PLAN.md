@@ -19,6 +19,7 @@
 | BRAND-01 品牌统一 | 已实现 | 页面、Auth、README、导出文件名已使用 `ResitAI`。 |
 | UX-01/UX-02 列表快速复制 | 已实现 | 列表商户名和 Invoice No. 已接入 clipboard 与 toast。 |
 | STATE-01 Processing panel | 已实现 | `processing_stage`、`ProcessingPanel`、上传/OCR/AI/完成/失败阶段已接入；Excel 导出时显示 `Generating Excel...`。 |
+| STATE-02 应用内消息中心 | 已实现 | Header 消息中心、最近 100 条本地持久化、未读标记、点击打开关联 receipt 已接入；toast 继续保留即时反馈。 |
 | WARN-01 Warning panel | 已实现 | `warningRules.ts`、`WarningPanel`、warning badge、Edge Function warnings 与单元测试已接入。 |
 | DEL-01/DEL-02 删除库 | 已实现 | soft delete、Rejected tab、恢复、永久删除、删除原因、已删除记录详情页已接入。 |
 | DUP-01 基础去重 | 已实现 | 上传前 SHA-256 文件 hash 检测、`DuplicateDialog`、业务字段重复评分、`duplicate_of`/`duplicate_score` 与 warning 已接入。 |

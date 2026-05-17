@@ -31,8 +31,17 @@ import { downloadReceiptsXlsx } from './lib/exportExcel';
 import { formatSubsidyHeadline } from './lib/subsidyDetails';
 import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages } from './lib/pdfPreprocess';
 import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/receiptDisplay';
+import {
+  createAppNotification,
+  loadAppNotifications,
+  markAppNotificationsRead,
+  prependAppNotification,
+  saveAppNotifications,
+  type AppNotificationInput,
+} from './lib/appNotifications';
 import { DeletedReceiptList } from './components/DeletedReceiptList';
 import { DuplicateDialog } from './components/DuplicateDialog';
+import { NotificationCenter } from './components/NotificationCenter';
 import { ReceiptCropModal } from './components/ReceiptCropModal';
 import { ReceiptTable } from './components/ReceiptTable';
 import { UploadQueue } from './components/UploadQueue';
@@ -489,6 +498,8 @@ export default function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [uploadList, setUploadList] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState(() => loadAppNotifications());
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [smartCropTarget, setSmartCropTarget] = useState<SmartCropTarget | null>(null);
   const [isCropModalBusy, setIsCropModalBusy] = useState(false);
   const [smartParsingReceiptId, setSmartParsingReceiptId] = useState<string | null>(null);
@@ -519,6 +530,10 @@ export default function App() {
   }, [config]);
 
   useEffect(() => {
+    saveAppNotifications(notifications);
+  }, [notifications]);
+
+  useEffect(() => {
     return () => {
       if (repairProgressTimerRef.current) {
         window.clearInterval(repairProgressTimerRef.current);
@@ -526,10 +541,26 @@ export default function App() {
     };
   }, []);
 
+  const addNotification = (input: AppNotificationInput) => {
+    setNotifications((current) => prependAppNotification(current, createAppNotification(input)));
+  };
+
   // Toast Function
-  const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
+  const showToast = (
+    message: string,
+    type: 'info' | 'success' | 'error' = 'info',
+    notification?: { persist?: boolean; title?: string; receiptId?: string },
+  ) => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+    if (notification?.persist) {
+      addNotification({
+        type,
+        title: notification.title || message,
+        message,
+        receipt_id: notification.receiptId,
+      });
+    }
   };
 
   const t = useMemo(() => {
@@ -559,10 +590,18 @@ export default function App() {
       });
       setHistory((current) => current.map((item) => item.id === displayReceipt.id ? displayReceipt : item));
       setSelectedReceipt((current: any) => current?.id === displayReceipt.id ? displayReceipt : current);
-      showToast("Synced to Supabase Successfully!", "success");
+      showToast("Synced to Supabase Successfully!", "success", {
+        persist: true,
+        title: 'Receipt synced',
+        receiptId: displayReceipt.id,
+      });
     } catch (err) {
       console.error("Supabase sync error:", err);
-      showToast("Supabase sync failed.", "error");
+      showToast("Supabase sync failed.", "error", {
+        persist: true,
+        title: 'Receipt sync failed',
+        receiptId: data.id,
+      });
     }
   };
 
@@ -634,13 +673,25 @@ export default function App() {
         const displayReceipt = await buildDisplayReceipt(finalReceipt, fallbackImageUrl);
         upsertHistoryReceipt(displayReceipt);
         if (finalReceipt.status === 'failed') {
-          showToast(finalReceipt.error_message || 'OCR parsing failed.', 'error');
+          showToast(finalReceipt.error_message || 'OCR parsing failed.', 'error', {
+            persist: true,
+            title: 'OCR failed',
+            receiptId: finalReceipt.id,
+          });
         } else {
-          showToast(`${finalReceipt.filename || 'Receipt'} OCR finished.`, 'success');
+          showToast(`${displayReceipt.display_filename || finalReceipt.filename || 'Receipt'} OCR finished.`, 'success', {
+            persist: true,
+            title: 'OCR finished',
+            receiptId: finalReceipt.id,
+          });
         }
       } catch (error) {
         console.error('Receipt polling failed:', error);
-        showToast(error instanceof Error ? error.message : 'OCR parsing is still running.', 'info');
+        showToast(error instanceof Error ? error.message : 'OCR parsing is still running.', 'info', {
+          persist: true,
+          title: 'OCR still running',
+          receiptId,
+        });
       } finally {
         pollingReceiptIdsRef.current.delete(receiptId);
         if (uploadId) {
@@ -676,7 +727,7 @@ export default function App() {
           .forEach((receipt) => startReceiptResultPolling(receipt.id));
       } catch (error) {
         console.error('Error loading receipts:', error);
-        showToast('Failed to load Supabase receipts.', 'error');
+        showToast('Failed to load Supabase receipts.', 'error', { persist: true, title: 'Receipt list failed to load' });
       } finally {
         setIsReceiptsLoading(false);
       }
@@ -790,11 +841,14 @@ export default function App() {
     setIsExporting(true);
     try {
       await downloadReceiptsXlsx(dataToExport.map(toApiReceipt), undefined, { fieldPreferences });
-      showToast(`Successfully Exported ${dataToExport.length} Records!`, 'success');
+      showToast(`Successfully Exported ${dataToExport.length} Records!`, 'success', {
+        persist: true,
+        title: 'Excel export finished',
+      });
       setSelectedRowIds([]);
     } catch (error) {
       console.error('Export failed:', error);
-      showToast('Export failed.', 'error');
+      showToast('Export failed.', 'error', { persist: true, title: 'Excel export failed' });
     } finally {
       setIsExporting(false);
     }
@@ -890,6 +944,12 @@ export default function App() {
       if (candidates.length > 0) {
         setUploadList((old: any[]) => old.filter((item) => item.id !== uploadId));
         setDuplicatePrompt({ file, previewUrl, fileHash, perceptualHash, candidates, renderedPdfPages });
+        addNotification({
+          type: 'warning',
+          title: 'Possible duplicate detected',
+          message: `${file.name} looks similar to an existing receipt.`,
+          receipt_id: candidates[0]?.receipt.id,
+        });
         return;
       }
       setUploadList((old: any[]) => old.map((item) => item.id === uploadId
@@ -901,7 +961,10 @@ export default function App() {
       URL.revokeObjectURL(previewUrl);
       setUploadList((old: any[]) => old.map((item) => item.id === uploadId ? { ...item, status: 'Failed', progress: 100 } : item));
       console.error('Duplicate precheck failed:', error);
-      showToast(error instanceof Error ? error.message : 'Duplicate precheck failed.', 'error');
+      showToast(error instanceof Error ? error.message : 'Duplicate precheck failed.', 'error', {
+        persist: true,
+        title: 'Duplicate precheck failed',
+      });
     }
   };
 
@@ -931,6 +994,49 @@ export default function App() {
     setDuplicatePrompt(null);
     const existing = history.find((item) => item.id === id) || deletedReceipts.find((item) => item.id === id);
     if (existing) setSelectedReceipt(existing);
+  };
+
+  const handleOpenNotificationReceipt = async (receiptId: string) => {
+    setNotifications((current) => current.map((notification) => (
+      notification.receipt_id === receiptId && !notification.read_at
+        ? { ...notification, read_at: new Date().toISOString() }
+        : notification
+    )));
+    setIsNotificationCenterOpen(false);
+
+    const existing = history.find((item) => item.id === receiptId);
+    if (existing) {
+      setActiveTab('upload');
+      setSelectedReceipt(existing);
+      return;
+    }
+
+    const deleted = deletedReceipts.find((item) => item.id === receiptId);
+    if (deleted) {
+      setActiveTab('rejected');
+      setSelectedReceipt(deleted);
+      return;
+    }
+
+    try {
+      const receipt = await getReceipt(receiptId);
+      if (!receipt) {
+        showToast('Receipt no longer exists.', 'info');
+        return;
+      }
+      const displayReceipt = await buildDisplayReceipt(receipt);
+      if (receipt.deleted_at) {
+        setActiveTab('rejected');
+        setDeletedReceipts((current) => [displayReceipt, ...current.filter((item) => item.id !== receiptId)]);
+      } else {
+        setActiveTab('upload');
+        upsertHistoryReceipt(displayReceipt);
+      }
+      setSelectedReceipt(displayReceipt);
+    } catch (error) {
+      console.error('Failed to open notification receipt:', error);
+      showToast('Failed to open receipt from message.', 'error');
+    }
   };
 
   const uploadPdfReceiptPages = async (
@@ -984,11 +1090,20 @@ export default function App() {
       const pagePreviewUrl = URL.createObjectURL(rendered.file);
       const displayReceipt = await buildDisplayReceipt(result.receipt, pagePreviewUrl);
       upsertHistoryReceipt(displayReceipt);
+      addNotification({
+        type: 'info',
+        title: 'PDF page queued',
+        message: `${file.name} page ${pageNumber} of ${totalPages} is queued for OCR.`,
+        receipt_id: result.receipt.id,
+      });
       startReceiptResultPolling(result.receipt.id, pagePreviewUrl);
     }
 
     setUploadList((old: any[]) => old.filter((item) => item.id !== uploadId));
-    showToast(`${file.name}: ${createdReceipts.length} PDF page${createdReceipts.length > 1 ? 's' : ''} uploaded. OCR started.`, 'success');
+    showToast(`${file.name}: ${createdReceipts.length} PDF page${createdReceipts.length > 1 ? 's' : ''} uploaded. OCR started.`, 'success', {
+      persist: true,
+      title: 'PDF upload queued',
+    });
   };
 
   const uploadOriginalReceipt = async (
@@ -1050,12 +1165,19 @@ export default function App() {
       const displayReceipt = await buildDisplayReceipt(result.receipt, displayPreviewUrl);
 
       upsertHistoryReceipt(displayReceipt);
-      showToast(`${file.name} uploaded. OCR started.`, 'success');
+      showToast(`${file.name} uploaded. OCR started.`, 'success', {
+        persist: true,
+        title: 'Receipt upload queued',
+        receiptId: result.receipt.id,
+      });
       startReceiptResultPolling(result.receipt.id, displayPreviewUrl, uploadId);
     } catch (error) {
       console.error('Receipt upload failed:', error);
       setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, status: 'Failed', progress: 100 } : u));
-      showToast(error instanceof Error ? error.message : 'Upload failed.', 'error');
+      showToast(error instanceof Error ? error.message : 'Upload failed.', 'error', {
+        persist: true,
+        title: 'Receipt upload failed',
+      });
       URL.revokeObjectURL(previewUrl);
       if (displayPreviewUrl !== previewUrl && displayPreviewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(displayPreviewUrl);
@@ -1179,7 +1301,11 @@ export default function App() {
     startRepairProgress(receiptId, 'smart');
     setSelectedReceipt(null);
     setHistory((current) => current.map((item) => item.id === receiptId ? { ...item, status: 'Processing', processing_stage: 'ai_extracting' } : item));
-    showToast('智能解析已在后台开始，完成后会提示。', 'info');
+    showToast('智能解析已在后台开始，完成后会提示。', 'info', {
+      persist: true,
+      title: 'Smart parse started',
+      receiptId,
+    });
 
     try {
       if (processedFile && imageProcessing) {
@@ -1212,13 +1338,21 @@ export default function App() {
 
       setHistory((current) => current.map((item) => item.id === displayReceipt.id ? displayReceipt : item));
       setRepairProgress({ receiptId, mode: 'smart', percent: 100, label: result.parseError ? '智能解析返回错误' : '智能解析完成' });
-      showToast(result.parseError || `${displayReceipt.merchant_name || displayReceipt.filename || 'Receipt'} 智能解析完成。`, result.parseError ? 'error' : 'success');
+      showToast(result.parseError || `${displayReceipt.merchant_name || displayReceipt.filename || 'Receipt'} 智能解析完成。`, result.parseError ? 'error' : 'success', {
+        persist: true,
+        title: result.parseError ? 'Smart parse failed' : 'Smart parse finished',
+        receiptId,
+      });
     } catch (error) {
       console.error('Smart parse failed:', error);
       clearRepairProgressTimer();
       setRepairProgress({ receiptId, mode: 'smart', percent: 100, label: '智能解析失败' });
       setHistory((current) => current.map((item) => item.id === receiptId ? { ...item, status: receipt.status || 'Uploaded' } : item));
-      showToast(error instanceof Error ? error.message : 'Smart parse failed.', 'error');
+      showToast(error instanceof Error ? error.message : 'Smart parse failed.', 'error', {
+        persist: true,
+        title: 'Smart parse failed',
+        receiptId,
+      });
     } finally {
       setSmartParsingReceiptId(null);
       window.setTimeout(() => {
@@ -1236,7 +1370,7 @@ export default function App() {
       await softDeleteReceipt(id, { reason });
     } catch (err) {
       console.error('Failed to delete from Supabase:', err);
-      showToast('Delete failed.', 'error');
+      showToast('Delete failed.', 'error', { persist: true, title: 'Delete failed', receiptId: id });
       return;
     }
 
@@ -1246,6 +1380,11 @@ export default function App() {
       setDeletedReceipts((current) => [{ ...deleted, deleted_reason: reason, deleted_at: new Date().toISOString() }, ...current]);
     }
     if (selectedReceipt?.id === id) setSelectedReceipt(null);
+    showToast('Receipt moved to Rejected.', 'success', {
+      persist: true,
+      title: 'Receipt deleted',
+      receiptId: id,
+    });
   };
 
   const handleBatchDelete = async () => {
@@ -1267,10 +1406,13 @@ export default function App() {
       ]);
       if (selectedReceipt && selectedRowIds.includes(selectedReceipt.id)) setSelectedReceipt(null);
       setSelectedRowIds([]);
-      showToast(`${targets.length} receipts moved to Rejected.`, 'success');
+      showToast(`${targets.length} receipts moved to Rejected.`, 'success', {
+        persist: true,
+        title: 'Batch delete finished',
+      });
     } catch (error) {
       console.error('Batch delete failed:', error);
-      showToast('Batch delete failed.', 'error');
+      showToast('Batch delete failed.', 'error', { persist: true, title: 'Batch delete failed' });
     }
   };
 
@@ -1289,10 +1431,13 @@ export default function App() {
       setHistory((current) => current.map((item) => displayReceipts.find((updated) => updated.id === item.id) || item));
       setSelectedReceipt((current: any) => displayReceipts.find((updated) => updated.id === current?.id) || current);
       setSelectedRowIds([]);
-      showToast(`${targets.length} receipts marked as synced.`, 'success');
+      showToast(`${targets.length} receipts marked as synced.`, 'success', {
+        persist: true,
+        title: 'Batch sync finished',
+      });
     } catch (error) {
       console.error('Batch mark synced failed:', error);
-      showToast('Batch mark synced failed.', 'error');
+      showToast('Batch mark synced failed.', 'error', { persist: true, title: 'Batch sync failed' });
     }
   };
 
@@ -1304,10 +1449,10 @@ export default function App() {
       upsertHistoryReceipt(displayReceipt);
       setSelectedDeletedIds((current) => current.filter((itemId) => itemId !== id));
       if (selectedReceipt?.id === id) setSelectedReceipt(displayReceipt);
-      showToast('Receipt restored.', 'success');
+      showToast('Receipt restored.', 'success', { persist: true, title: 'Receipt restored', receiptId: id });
     } catch (error) {
       console.error('Restore failed:', error);
-      showToast('Restore failed.', 'error');
+      showToast('Restore failed.', 'error', { persist: true, title: 'Restore failed', receiptId: id });
     }
   };
 
@@ -1318,10 +1463,10 @@ export default function App() {
       setDeletedReceipts((current) => current.filter((item) => item.id !== id));
       setSelectedDeletedIds((current) => current.filter((itemId) => itemId !== id));
       if (selectedReceipt?.id === id) setSelectedReceipt(null);
-      showToast('Receipt permanently deleted.', 'success');
+      showToast('Receipt permanently deleted.', 'success', { persist: true, title: 'Receipt permanently deleted' });
     } catch (error) {
       console.error('Permanent delete failed:', error);
-      showToast('Permanent delete failed.', 'error');
+      showToast('Permanent delete failed.', 'error', { persist: true, title: 'Permanent delete failed', receiptId: id });
     }
   };
 
@@ -1341,10 +1486,13 @@ export default function App() {
         ...current.filter((item) => !displayReceipts.some((restored) => restored.id === item.id)),
       ]);
       setSelectedDeletedIds([]);
-      showToast(`${targets.length} receipts restored.`, 'success');
+      showToast(`${targets.length} receipts restored.`, 'success', {
+        persist: true,
+        title: 'Batch restore finished',
+      });
     } catch (error) {
       console.error('Batch restore failed:', error);
-      showToast('Batch restore failed.', 'error');
+      showToast('Batch restore failed.', 'error', { persist: true, title: 'Batch restore failed' });
     }
   };
 
@@ -1361,10 +1509,13 @@ export default function App() {
       setDeletedReceipts((current) => current.filter((item) => !selectedDeletedIds.includes(item.id)));
       if (selectedReceipt && selectedDeletedIds.includes(selectedReceipt.id)) setSelectedReceipt(null);
       setSelectedDeletedIds([]);
-      showToast(`${targets.length} receipts permanently deleted.`, 'success');
+      showToast(`${targets.length} receipts permanently deleted.`, 'success', {
+        persist: true,
+        title: 'Batch permanent delete finished',
+      });
     } catch (error) {
       console.error('Batch permanent delete failed:', error);
-      showToast('Batch permanent delete failed.', 'error');
+      showToast('Batch permanent delete failed.', 'error', { persist: true, title: 'Batch permanent delete failed' });
     }
   };
 
@@ -1420,6 +1571,10 @@ export default function App() {
           setIsSettingsOpen(false);
           return;
         }
+        if (isNotificationCenterOpen) {
+          setIsNotificationCenterOpen(false);
+          return;
+        }
         if (selectedReceipt) {
           setSelectedReceipt(null);
         }
@@ -1445,7 +1600,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [duplicatePrompt, handleExport, handleSyncSelectedReceipt, isSettingsOpen, selectedReceipt, zoomImage]);
+  }, [duplicatePrompt, handleExport, handleSyncSelectedReceipt, isNotificationCenterOpen, isSettingsOpen, selectedReceipt, zoomImage]);
 
   const activeRepairProgress = selectedReceipt && repairProgress?.receiptId === selectedReceipt.id ? repairProgress : null;
 
@@ -1515,6 +1670,15 @@ export default function App() {
                 </h2>
              </div>
              <div className="flex items-center gap-4">
+                <NotificationCenter
+                  notifications={notifications}
+                  isOpen={isNotificationCenterOpen}
+                  colorMode={config.colorMode}
+                  onToggle={() => setIsNotificationCenterOpen((current) => !current)}
+                  onMarkAllRead={() => setNotifications((current) => markAppNotificationsRead(current))}
+                  onClear={() => setNotifications([])}
+                  onOpenReceipt={handleOpenNotificationReceipt}
+                />
                 <button onClick={handleSignOut} className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-[10px] font-black uppercase transition-all shadow-sm ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                    <LogOut className="w-4 h-4" /> 退出登录
                 </button>
