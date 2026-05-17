@@ -16,6 +16,7 @@ export interface ImageProcessingMetadata {
   perceptual_hash?: string
   source_mime_type?: string
   source_page?: number
+  source_page_count?: number
 }
 
 export interface ProcessedReceiptImage {

@@ -29,7 +29,7 @@ import { defaultFieldPreferences, isFieldEnabled, mergeFieldPreferences } from '
 import { decodeQrPayloadFromImageFile, looksLikeEInvoiceQrPayload } from './lib/qrPayload';
 import { downloadReceiptsXlsx } from './lib/exportExcel';
 import { formatSubsidyHeadline } from './lib/subsidyDetails';
-import { isPdfReceiptFile, renderPdfFirstPageToReceiptImage } from './lib/pdfPreprocess';
+import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages } from './lib/pdfPreprocess';
 import { DeletedReceiptList } from './components/DeletedReceiptList';
 import { DuplicateDialog } from './components/DuplicateDialog';
 import { ReceiptCropModal } from './components/ReceiptCropModal';
@@ -39,7 +39,7 @@ import { Sidebar } from './components/Sidebar';
 import { AppShell } from './components/AppShell';
 import { SettingsModal } from './components/SettingsModal';
 import { ReceiptReviewDrawer } from './components/ReceiptReviewDrawer';
-import type { ImageProcessingMetadata } from './lib/imagePreprocess';
+import type { ImageProcessingMetadata, ProcessedReceiptImage } from './lib/imagePreprocess';
 import type { DuplicateCandidate } from './types/duplicate';
 import type { FieldKey, FieldPreference } from './types/fieldConfig';
 import { supabase } from './lib/supabaseClient';
@@ -90,6 +90,7 @@ type DuplicatePromptState = {
   fileHash: string;
   perceptualHash: string | null;
   candidates: DuplicateCandidate[];
+  renderedPdfPages?: ProcessedReceiptImage[];
 };
 
 function toDisplayReceipt(receipt: any) {
@@ -862,19 +863,35 @@ export default function App() {
       pendingUploadHashesRef.current.add(fileHash);
       reservedHash = fileHash;
 
-      const candidates = await findDuplicateCandidates({
-        fileHash,
+      let renderedPdfPages: ProcessedReceiptImage[] | undefined;
+      const duplicateFileHashes = [fileHash];
+      if (isPdfReceiptFile(file)) {
+        setUploadList((old: any[]) => old.map((item) => item.id === uploadId
+          ? { ...item, progress: 18, status: 'Rendering PDF pages' }
+          : item));
+        renderedPdfPages = await renderPdfPagesToReceiptImages(file);
+        if (renderedPdfPages.length === 0) {
+          throw new Error('PDF receipt has no pages.')
+        }
+        duplicateFileHashes.push(buildPdfPageFileHash(fileHash, renderedPdfPages[0].metadata.source_page || 1));
+      }
+
+      const candidateGroups = await Promise.all(duplicateFileHashes.map((duplicateFileHash) => findDuplicateCandidates({
+        fileHash: duplicateFileHash,
         receipt: perceptualHash ? { image_processing: { perceptual_hash: perceptualHash } } : null,
-      });
+      })));
+      const candidates = Array.from(
+        new Map(candidateGroups.flat().map((candidate) => [candidate.receipt.id, candidate])).values(),
+      ).sort((left, right) => right.score - left.score);
       if (candidates.length > 0) {
         setUploadList((old: any[]) => old.filter((item) => item.id !== uploadId));
-        setDuplicatePrompt({ file, previewUrl, fileHash, perceptualHash, candidates });
+        setDuplicatePrompt({ file, previewUrl, fileHash, perceptualHash, candidates, renderedPdfPages });
         return;
       }
       setUploadList((old: any[]) => old.map((item) => item.id === uploadId
-        ? { ...item, progress: 18, status: isPdfReceiptFile(file) ? 'Rendering PDF for OCR' : 'Reading QR and metadata' }
+        ? { ...item, progress: 18, status: isPdfReceiptFile(file) ? 'Preparing PDF pages for OCR' : 'Reading QR and metadata' }
         : item));
-      await uploadOriginalReceipt(file, previewUrl, undefined, fileHash, perceptualHash, uploadId);
+      await uploadOriginalReceipt(file, previewUrl, undefined, fileHash, perceptualHash, uploadId, renderedPdfPages);
     } catch (error) {
       if (reservedHash) pendingUploadHashesRef.current.delete(reservedHash);
       URL.revokeObjectURL(previewUrl);
@@ -889,7 +906,7 @@ export default function App() {
     if (!prompt) return;
     setDuplicatePrompt(null);
     try {
-      void uploadOriginalReceipt(prompt.file, prompt.previewUrl, undefined, prompt.fileHash, prompt.perceptualHash);
+      void uploadOriginalReceipt(prompt.file, prompt.previewUrl, undefined, prompt.fileHash, prompt.perceptualHash, undefined, prompt.renderedPdfPages);
     } catch (error) {
       pendingUploadHashesRef.current.delete(prompt.fileHash);
       URL.revokeObjectURL(prompt.previewUrl);
@@ -912,7 +929,76 @@ export default function App() {
     if (existing) setSelectedReceipt(existing);
   };
 
-  const uploadOriginalReceipt = async (file: File, existingPreviewUrl?: string, qrPayload?: string | null, fileHash?: string | null, perceptualHash?: string | null, existingUploadId?: string) => {
+  const uploadPdfReceiptPages = async (
+    file: File,
+    uploadId: string,
+    baseFileHash: string | null | undefined,
+    renderedPdfPages?: ProcessedReceiptImage[],
+  ) => {
+    let renderedPages = renderedPdfPages;
+    if (!renderedPages) {
+      setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, progress: 28, status: 'Rendering PDF pages' } : u));
+      renderedPages = await renderPdfPagesToReceiptImages(file);
+    }
+    if (renderedPages.length === 0) {
+      throw new Error('PDF receipt has no pages.');
+    }
+
+    const totalPages = renderedPages.length;
+    const createdReceipts: string[] = [];
+    setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, progress: 32, status: `PDF rendered: ${totalPages} page${totalPages > 1 ? 's' : ''}` } : u));
+
+    for (let index = 0; index < totalPages; index += 1) {
+      const rendered = renderedPages[index];
+      const pageNumber = rendered.metadata.source_page || index + 1;
+      const progress = Math.min(86, 36 + Math.round(((index + 1) / totalPages) * 40));
+      setUploadList((old: any[]) => old.map(u => u.id === uploadId
+        ? { ...u, progress, status: `Uploading PDF page ${pageNumber} of ${totalPages}` }
+        : u));
+
+      const pagePerceptualHash = await computeImageAverageHash(rendered.file).catch(() => null);
+      const effectiveQrPayload = await decodeQrPayloadFromImageFile(rendered.file);
+      const imageProcessing = {
+        ...rendered.metadata,
+        ...(baseFileHash ? { source_file_hash: baseFileHash } : {}),
+        ...(pagePerceptualHash ? { perceptual_hash: pagePerceptualHash } : {}),
+      };
+      const pageHash = baseFileHash ? buildPdfPageFileHash(baseFileHash, pageNumber) : null;
+      const result = await createReceiptFromFile(file, {
+        processedFile: rendered.file,
+        imageProcessing,
+        fileHash: pageHash,
+        autoParse: true,
+        awaitParse: false,
+        parseMode: 'ocr',
+        enabledFieldKeys,
+        docType: looksLikeEInvoiceQrPayload(effectiveQrPayload) ? 'E-invoice' : null,
+        qrPayload: effectiveQrPayload,
+      });
+
+      createdReceipts.push(result.receipt.id);
+      const pagePreviewUrl = URL.createObjectURL(rendered.file);
+      const displayReceipt = await buildDisplayReceipt(result.receipt, pagePreviewUrl);
+      upsertHistoryReceipt({
+        ...displayReceipt,
+        filename: `${file.name} · Page ${pageNumber}`,
+      });
+      startReceiptResultPolling(result.receipt.id, pagePreviewUrl);
+    }
+
+    setUploadList((old: any[]) => old.filter((item) => item.id !== uploadId));
+    showToast(`${file.name}: ${createdReceipts.length} PDF page${createdReceipts.length > 1 ? 's' : ''} uploaded. OCR started.`, 'success');
+  };
+
+  const uploadOriginalReceipt = async (
+    file: File,
+    existingPreviewUrl?: string,
+    qrPayload?: string | null,
+    fileHash?: string | null,
+    perceptualHash?: string | null,
+    existingUploadId?: string,
+    renderedPdfPages?: ProcessedReceiptImage[],
+  ) => {
     const uploadId = existingUploadId || Math.random().toString(36).slice(2, 11);
     const previewUrl = existingPreviewUrl || URL.createObjectURL(file);
     let displayPreviewUrl = previewUrl;
@@ -938,18 +1024,9 @@ export default function App() {
       let ocrSourceFile = file;
       let effectivePerceptualHash = perceptualHash;
       if (isPdfReceiptFile(file)) {
-        setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, progress: 28, status: 'Rendering PDF first page' } : u));
-        const rendered = await renderPdfFirstPageToReceiptImage(file);
-        processedFile = rendered.file;
-        ocrSourceFile = rendered.file;
-        effectivePerceptualHash = await computeImageAverageHash(rendered.file).catch(() => null);
-        imageProcessing = {
-          ...rendered.metadata,
-          ...(effectivePerceptualHash ? { perceptual_hash: effectivePerceptualHash } : {}),
-        };
-        displayPreviewUrl = URL.createObjectURL(rendered.file);
         if (previewUrl.startsWith('blob:')) originalPreviewUrlToRevoke = previewUrl;
-        setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, progress: 36, status: 'PDF rendered for OCR' } : u));
+        await uploadPdfReceiptPages(file, uploadId, fileHash, renderedPdfPages);
+        return;
       } else {
         imageProcessing = effectivePerceptualHash ? { perceptual_hash: effectivePerceptualHash } : null;
       }
