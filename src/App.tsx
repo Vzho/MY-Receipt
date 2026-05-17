@@ -525,6 +525,7 @@ export default function App() {
       currency: 'RM',
       colorMode: 'Light',
       notificationSound: false,
+      uploadQueueLimit: 10,
     };
   });
 
@@ -713,6 +714,7 @@ export default function App() {
   useEffect(() => {
     let refreshTimer: number | null = null;
     let realtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
+    let isRealtimeEffectActive = true;
 
     const loadData = async () => {
       try {
@@ -742,8 +744,8 @@ export default function App() {
 
     if (supabase) {
       void supabase.auth.getUser().then(({ data }) => {
-        if (!data.user || !supabase) return;
-        realtimeChannel = supabase
+        if (!isRealtimeEffectActive || !data.user || !supabase) return;
+        const channel = supabase
           .channel(`receipts-${data.user.id}`)
           .on(
             'postgres_changes',
@@ -783,12 +785,14 @@ export default function App() {
                 });
               }, 600);
             },
-          )
-          .subscribe();
+          );
+        realtimeChannel = channel;
+        void channel.subscribe();
       });
     }
 
     return () => {
+      isRealtimeEffectActive = false;
       if (refreshTimer) window.clearTimeout(refreshTimer);
       if (supabase && realtimeChannel) {
         void supabase.removeChannel(realtimeChannel);
@@ -1705,7 +1709,7 @@ export default function App() {
                   <input type="file" className="hidden" multiple onChange={handleUpload} accept="image/png,image/jpeg,application/pdf" />
                 </label>
 
-                <UploadQueue items={uploadList} processingLabel={t.processing} config={config} />
+                <UploadQueue items={uploadList} visibleLimit={config.uploadQueueLimit || 10} processingLabel={t.processing} config={config} />
 
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-3 items-center p-2">

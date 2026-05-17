@@ -12,6 +12,7 @@ describe('SettingsModal', () => {
           language: 'zh',
           currency: 'RM',
           notificationSound: false,
+          uploadQueueLimit: 10,
           theme: { name: 'Indigo', color: 'bg-indigo-600' },
         }}
         labels={{
@@ -33,6 +34,9 @@ describe('SettingsModal', () => {
     )
 
     expect(html).toContain('消息音效')
+    expect(html).toContain('上传队列显示数量')
+    expect(html).toContain('>10</button>')
     expect(html).toContain('aria-pressed="false"')
+    expect(html).toContain('aria-pressed="true"')
   })
 })

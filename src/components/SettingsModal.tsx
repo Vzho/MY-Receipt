@@ -1,4 +1,4 @@
-import { Banknote, BellRing, CheckCircle, Languages, Moon, Settings, Sun, X } from 'lucide-react'
+import { Banknote, BellRing, CheckCircle, Languages, ListOrdered, Moon, Settings, Sun, X } from 'lucide-react'
 import { FieldConfigPanel } from './FieldConfigPanel'
 import type { FieldPreference } from '../types/fieldConfig'
 
@@ -21,6 +21,9 @@ export function SettingsModal({
   onFieldPreferencesChange,
   onClose,
 }: SettingsModalProps) {
+  const uploadQueueLimit = Math.max(1, Math.round(Number(config.uploadQueueLimit) || 10))
+  const queueLimitOptions = [5, 10, 20]
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
       <div className={`w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[32px] shadow-2xl p-8 space-y-6 transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 text-white border border-slate-800' : 'bg-white text-slate-900'}`}>
@@ -130,6 +133,34 @@ export function SettingsModal({
             >
               <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${config.notificationSound ? 'left-6' : 'left-1'}`} />
             </button>
+          </div>
+
+          <div className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
+            <div>
+              <label className={`text-[10px] font-black uppercase tracking-[2px] flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                <ListOrdered className="w-3.5 h-3.5" /> 上传队列显示数量
+              </label>
+              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>批量上传时首页默认展示的处理任务数量。</p>
+            </div>
+            <div className={`grid grid-cols-3 gap-1 rounded-2xl p-1 ${config.colorMode === 'Dark' ? 'bg-slate-800' : 'bg-slate-100'}`}>
+              {queueLimitOptions.map((limit) => (
+                <button
+                  key={limit}
+                  type="button"
+                  onClick={() => onConfigChange({ ...config, uploadQueueLimit: limit })}
+                  aria-pressed={uploadQueueLimit === limit}
+                  className={`min-w-12 rounded-xl px-4 py-2 text-xs font-black transition-all ${
+                    uploadQueueLimit === limit
+                      ? `${config.theme.color} text-white shadow-sm`
+                      : config.colorMode === 'Dark'
+                        ? 'text-slate-400 hover:bg-slate-700'
+                        : 'text-slate-500 hover:bg-white'
+                  }`}
+                >
+                  {limit}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-3">
