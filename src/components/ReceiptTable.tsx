@@ -14,6 +14,28 @@ import {
 import { ProcessingPanel } from './ProcessingPanel'
 import { WarningPanel } from './WarningPanel'
 
+const TAG_DISPLAY_ORDER = ['Business', 'Personal', 'Tax Deductible', 'Pending']
+
+function getTagsForDisplay(tags: unknown) {
+  if (!Array.isArray(tags)) return []
+
+  const uniqueTags = tags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
+    .filter((tag, index, list) => list.indexOf(tag) === index)
+  const originalIndexByTag = new Map(uniqueTags.map((tag, index) => [tag, index]))
+
+  return uniqueTags.sort((a, b) => {
+    const aIndex = TAG_DISPLAY_ORDER.indexOf(a)
+    const bIndex = TAG_DISPLAY_ORDER.indexOf(b)
+    const aKnown = aIndex !== -1
+    const bKnown = bIndex !== -1
+
+    if (aKnown && bKnown) return aIndex - bIndex
+    if (aKnown) return -1
+    if (bKnown) return 1
+    return (originalIndexByTag.get(a) ?? 0) - (originalIndexByTag.get(b) ?? 0)
+  })
+}
+
 interface ReceiptTableLabels {
   merchantLabel: string
   thumbnailLabel: string
@@ -203,8 +225,8 @@ export function ReceiptTable({
                   <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${item.status === 'Failed' ? 'bg-rose-50 text-rose-600' : item.status === 'Processing' ? 'bg-indigo-50 text-indigo-600' : config.colorMode === 'Dark' ? 'bg-indigo-950 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
                     {item.status === 'Uploaded' ? 'Uploaded' : item.status === 'Processing' ? 'Processing' : item.doc_type}
                   </span>
-                  <div className="flex flex-wrap gap-1">
-                    {(item.tags || []).slice(0, 2).map((tag: string) => <span key={tag} className={`text-[8px] font-black uppercase px-1 rounded ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-500'}`}>{tag}</span>)}
+                  <div className="flex max-w-40 flex-wrap gap-1">
+                    {getTagsForDisplay(item.tags).map((tag) => <span key={tag} className={`text-[8px] font-black uppercase px-1 rounded ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-500'}`}>{tag}</span>)}
                   </div>
                 </div>
               </td>

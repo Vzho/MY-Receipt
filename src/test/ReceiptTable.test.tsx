@@ -91,4 +91,32 @@ describe('ReceiptTable', () => {
     expect(html).not.toContain('Merchant 10')
     expect(html).toContain('Page 1 of 2')
   })
+
+  it('renders every selected classification tag without truncating to two', () => {
+    const html = renderToStaticMarkup(
+      <ReceiptTable
+        items={[{
+          id: 'receipt-1',
+          status: 'Pending',
+          merchant_name: 'Merchant',
+          invoice_no: 'INV-1',
+          grand_total: 10,
+          date: '2026-04-19',
+          doc_type: 'Invoice',
+          tags: ['Pending', 'Personal', 'Business'],
+          items: [],
+        }]}
+        selectedRowIds={[]}
+        labels={baseLabels}
+        config={baseConfig}
+        {...baseHandlers}
+      />,
+    )
+
+    expect(html).toContain('Business')
+    expect(html).toContain('Personal')
+    expect(html).toContain('Pending')
+    expect(html.indexOf('Business')).toBeLessThan(html.indexOf('Personal'))
+    expect(html.indexOf('Personal')).toBeLessThan(html.indexOf('Pending'))
+  })
 })
