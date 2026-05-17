@@ -31,6 +31,7 @@ import { downloadReceiptsXlsx } from './lib/exportExcel';
 import { formatSubsidyHeadline } from './lib/subsidyDetails';
 import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages } from './lib/pdfPreprocess';
 import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/receiptDisplay';
+import { keepSyncedReceiptSelected } from './lib/syncSelection';
 import {
   createAppNotification,
   loadAppNotifications,
@@ -587,9 +588,11 @@ export default function App() {
       const displayReceipt = toDisplayReceipt({
         ...saved,
         image_url: data.image_url,
+        original_image_url: data.original_image_url,
+        processed_image_url: data.processed_image_url,
       });
       setHistory((current) => current.map((item) => item.id === displayReceipt.id ? displayReceipt : item));
-      setSelectedReceipt((current: any) => current?.id === displayReceipt.id ? displayReceipt : current);
+      setSelectedReceipt((current: any) => keepSyncedReceiptSelected(current, displayReceipt));
       showToast("Synced to Supabase Successfully!", "success", {
         persist: true,
         title: 'Receipt synced',
@@ -1550,7 +1553,6 @@ export default function App() {
     const updated = { ...selectedReceipt, status: 'Synced' };
     setHistory(history.map(h => h.id === selectedReceipt.id ? updated : h));
     await syncToDatabase(updated);
-    setSelectedReceipt(null);
   };
 
   useEffect(() => {
