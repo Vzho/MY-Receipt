@@ -32,6 +32,7 @@ import { formatSubsidyHeadline } from './lib/subsidyDetails';
 import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages } from './lib/pdfPreprocess';
 import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/receiptDisplay';
 import { keepSyncedReceiptSelected } from './lib/syncSelection';
+import { playNotificationSound } from './lib/notificationSound';
 import {
   createAppNotification,
   loadAppNotifications,
@@ -522,7 +523,8 @@ export default function App() {
       theme: THEMES[0],
       language: 'zh',
       currency: 'RM',
-      colorMode: 'Light'
+      colorMode: 'Light',
+      notificationSound: false,
     };
   });
 
@@ -544,6 +546,7 @@ export default function App() {
 
   const addNotification = (input: AppNotificationInput) => {
     setNotifications((current) => prependAppNotification(current, createAppNotification(input)));
+    playNotificationSound(Boolean(config.notificationSound), input);
   };
 
   // Toast Function

@@ -1,4 +1,4 @@
-import { Banknote, CheckCircle, Languages, Moon, Settings, Sun, X } from 'lucide-react'
+import { Banknote, BellRing, CheckCircle, Languages, Moon, Settings, Sun, X } from 'lucide-react'
 import { FieldConfigPanel } from './FieldConfigPanel'
 import type { FieldPreference } from '../types/fieldConfig'
 
@@ -113,6 +113,23 @@ export function SettingsModal({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className={`flex items-center justify-between gap-4 rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
+            <div>
+              <label className={`text-[10px] font-black uppercase tracking-[2px] flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                <BellRing className="w-3.5 h-3.5" /> 消息音效
+              </label>
+              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>仅在失败、重复检测和批量完成等关键消息时播放。</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onConfigChange({ ...config, notificationSound: !config.notificationSound })}
+              className={`relative h-7 w-12 rounded-full transition ${config.notificationSound ? config.theme.color : config.colorMode === 'Dark' ? 'bg-slate-700' : 'bg-slate-300'}`}
+              aria-pressed={Boolean(config.notificationSound)}
+            >
+              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${config.notificationSound ? 'left-6' : 'left-1'}`} />
+            </button>
           </div>
 
           <div className="space-y-3">
