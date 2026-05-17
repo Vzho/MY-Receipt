@@ -10,3 +10,32 @@
 body {
   @apply bg-slate-50 text-slate-900 antialiased font-sans;
 }
+
+.themed-scrollbar {
+  scrollbar-color: rgb(148 163 184 / 0.65) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.themed-scrollbar::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+  margin: 18px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(148 163 184 / 0.55);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 9999px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(100 116 139 / 0.72);
+  background-clip: content-box;
+}

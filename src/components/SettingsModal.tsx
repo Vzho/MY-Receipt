@@ -26,7 +26,7 @@ export function SettingsModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className={`w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[32px] shadow-2xl p-8 space-y-6 transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 text-white border border-slate-800' : 'bg-white text-slate-900'}`}>
+      <div className={`themed-scrollbar w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[32px] shadow-2xl p-8 space-y-6 transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 text-white border border-slate-800' : 'bg-white text-slate-900'}`}>
         <div className={`flex justify-between items-center border-b pb-4 ${config.colorMode === 'Dark' ? 'border-slate-800' : 'border-slate-50'}`}>
           <h3 className="text-xl font-black flex items-center gap-2">
             <Settings className="w-5 h-5" /> {labels.systemPref}

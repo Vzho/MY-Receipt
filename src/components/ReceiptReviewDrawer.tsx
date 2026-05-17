@@ -4,7 +4,6 @@ import {
   Building2,
   Calculator,
   CheckCircle,
-  ChevronDown,
   Cpu,
   Eye,
   FileOutput,
@@ -21,6 +20,7 @@ import type { FieldKey } from '../types/fieldConfig'
 import { CustomDocTypeInput } from './CustomDocTypeInput'
 import { ProcessingPanel } from './ProcessingPanel'
 import { ReceiptDetailPanel } from './ReceiptDetailPanel'
+import { SoftSelect } from './SoftSelect'
 import { WarningPanel } from './WarningPanel'
 
 interface RepairProgressState {
@@ -345,7 +345,7 @@ export function ReceiptReviewDrawer({
           )}
         </div>
 
-        <div className={`w-[75%] flex flex-col overflow-y-auto ${config.colorMode === 'Dark' ? 'bg-slate-900/50' : 'bg-slate-50/30'}`}>
+        <div className={`themed-scrollbar w-[75%] flex flex-col overflow-y-auto ${config.colorMode === 'Dark' ? 'bg-slate-900/50' : 'bg-slate-50/30'}`}>
           <div className={`p-8 border-b space-y-6 transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
             <section className="space-y-4">
               <h4 className={`text-[11px] font-black ${config.theme.text} uppercase tracking-[2px] flex items-center gap-2`}>
@@ -392,18 +392,20 @@ export function ReceiptReviewDrawer({
                   <div className="space-y-1.5">
                     <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>单据类型 & 行业</label>
                     <div className="flex gap-2">
-                      <div className="relative min-w-32 flex-1">
-                        <select value={receipt.doc_type || 'Receipt'} onChange={(event) => updateReceipt({ doc_type: event.target.value })} className={`w-full appearance-none border rounded-xl pl-3 pr-8 py-2.5 text-xs font-black outline-none focus:ring-2 transition-all cursor-pointer ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20 focus:bg-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10 focus:bg-white'}`}>
-                          {documentTypeOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
-                      </div>
-                      <div className="relative min-w-28 flex-1">
-                        <select value={receipt.industry || 'Other'} onChange={(event) => updateReceipt({ industry: event.target.value })} className={`w-full appearance-none border rounded-xl pl-3 pr-8 py-2.5 text-xs font-black outline-none focus:ring-2 transition-all cursor-pointer ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20 focus:bg-slate-700' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10 focus:bg-white'}`}>
-                          {industries.map((item) => <option key={item} value={item}>{item}</option>)}
-                        </select>
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
-                      </div>
+                      <SoftSelect
+                        value={receipt.doc_type || 'Receipt'}
+                        options={documentTypeOptions}
+                        colorMode={config.colorMode}
+                        onChange={(value) => updateReceipt({ doc_type: value })}
+                        className="min-w-32 flex-1"
+                      />
+                      <SoftSelect
+                        value={receipt.industry || 'Other'}
+                        options={industries}
+                        colorMode={config.colorMode}
+                        onChange={(value) => updateReceipt({ industry: value })}
+                        className="min-w-28 flex-1"
+                      />
                     </div>
                   </div>
                   {(receipt.doc_type === 'Custom (自定义)' || receipt.custom_doc_type) && (
