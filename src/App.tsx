@@ -191,6 +191,7 @@ const I18N: any = {
     addSku: '添加 SKU 行',
     hold: '保持挂起',
     syncToCloud: '同步至云端',
+    sequenceLabel: '序号',
     merchantLabel: '商户名称 (Merchant)',
     thumbnailLabel: '发票缩略图',
     dateLabel: '日期 (Date)',
@@ -335,6 +336,7 @@ const I18N: any = {
     uploadHint: 'Click or Drag to upload receipts',
     uploadLimit: 'JPEG/PNG/PDF multi-upload; PDFs are split page by page for OCR',
     searchPlaceholder: 'Search merchant, invoice...',
+    sequenceLabel: 'No.',
     financialsLabel: 'Financials',
     tagsLabel: 'Tags',
     auditLabel: 'Action',
@@ -441,6 +443,7 @@ const I18N: any = {
     uploadHint: 'Klik atau Tarik untuk muat naik resit',
     uploadLimit: 'JPEG/PNG/PDF berbilang fail; PDF dipisahkan mengikut halaman untuk OCR',
     searchPlaceholder: 'Cari saudagar, invois...',
+    sequenceLabel: 'No.',
     financialsLabel: 'Kewangan',
     tagsLabel: 'Tag',
     auditLabel: 'Tindakan',
@@ -1768,6 +1771,7 @@ export default function App() {
                     items={filteredHistory}
                     selectedRowIds={selectedRowIds}
                     labels={{
+                      sequenceLabel: t.sequenceLabel,
                       merchantLabel: t.merchantLabel,
                       thumbnailLabel: t.thumbnailLabel,
                       financialsLabel: t.financialsLabel,

@@ -37,6 +37,7 @@ function getTagsForDisplay(tags: unknown) {
 }
 
 interface ReceiptTableLabels {
+  sequenceLabel?: string
   merchantLabel: string
   thumbnailLabel: string
   financialsLabel: string
@@ -113,6 +114,7 @@ export function ReceiptTable({
                 className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
             </th>
+            <th className="px-3 py-4 w-14 text-center">{labels.sequenceLabel || 'No.'}</th>
             <th className="px-6 py-4">{labels.merchantLabel}</th>
             <th className="px-4 py-4 w-[120px]">{labels.thumbnailLabel}</th>
             <th className="px-6 py-4">{labels.financialsLabel}</th>
@@ -123,12 +125,13 @@ export function ReceiptTable({
         <tbody className={`divide-y ${config.colorMode === 'Dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>
           {isLoading && visibleItems.length === 0 ? (
             <tr>
-              <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs font-bold">
+              <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-xs font-bold">
                 {labels.loadingRecords || 'Loading receipts...'}
               </td>
             </tr>
-          ) : pageItems.map((item) => {
+          ) : pageItems.map((item, pageIndex) => {
             const thumbnailUrl = item.processed_image_url || item.image_url || item.original_image_url
+            const rowNumber = (currentPage - 1) * normalizedPageSize + pageIndex + 1
             return (
               <tr
                 key={item.id}
@@ -143,6 +146,9 @@ export function ReceiptTable({
                     onChange={() => {}}
                     className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
+                </td>
+                <td className={`px-3 py-5 text-center text-xs font-black tabular-nums ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`} aria-label={`Receipt row number ${rowNumber}`}>
+                  {rowNumber}
                 </td>
                 <td className="px-6 py-5">
                   <div className="flex items-start gap-3">
@@ -250,7 +256,7 @@ export function ReceiptTable({
             )
           })}
           {!isLoading && visibleItems.length === 0 && (
-            <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs font-bold">{labels.noRecords}</td></tr>
+            <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-xs font-bold">{labels.noRecords}</td></tr>
           )}
         </tbody>
       </table>

@@ -5,6 +5,7 @@ import { ReceiptTable } from '../components/ReceiptTable'
 
 describe('ReceiptTable', () => {
   const baseLabels = {
+    sequenceLabel: '序号',
     merchantLabel: '商户名称 (Merchant)',
     thumbnailLabel: '发票缩略图',
     financialsLabel: '财务详情',
@@ -62,6 +63,42 @@ describe('ReceiptTable', () => {
     expect(html).toContain('alt="Receipt thumbnail"')
     expect(html).toContain('aria-label="放大发票图片"')
     expect(html).toContain('PDF Page 2 of 3')
+  })
+
+  it('renders a sequence column between checkbox and merchant', () => {
+    const html = renderToStaticMarkup(
+      <ReceiptTable
+        items={[{
+          id: 'receipt-1',
+          status: 'Pending',
+          merchant_name: 'Merchant 1',
+          invoice_no: 'INV-1',
+          grand_total: 10,
+          date: '2026-04-19',
+          doc_type: 'Receipt',
+          tags: [],
+          items: [],
+        }, {
+          id: 'receipt-2',
+          status: 'Pending',
+          merchant_name: 'Merchant 2',
+          invoice_no: 'INV-2',
+          grand_total: 12,
+          date: '2026-04-20',
+          doc_type: 'Receipt',
+          tags: [],
+          items: [],
+        }]}
+        selectedRowIds={[]}
+        labels={baseLabels}
+        config={baseConfig}
+        {...baseHandlers}
+      />,
+    )
+
+    expect(html.indexOf('序号')).toBeLessThan(html.indexOf('商户名称 (Merchant)'))
+    expect(html).toContain('aria-label="Receipt row number 1"')
+    expect(html).toContain('aria-label="Receipt row number 2"')
   })
 
   it('limits visible receipts by the configured page size', () => {
