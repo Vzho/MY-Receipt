@@ -416,7 +416,7 @@ export function ReceiptReviewDrawer({
                     />
                   )}
                   <div className="space-y-1.5">
-                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>快捷标签</label>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.tagsLabel || labels.quickTagsLabel || '分类标签'}</label>
                     <div className="flex flex-wrap gap-1.5">
                       {Array.from(new Set([...tagOptions, ...(receipt.tags || [])])).map((tag) => (
                         <button key={tag} type="button" onClick={() => toggleTag(tag)} className={`px-2.5 py-1 rounded-lg text-[9px] font-black transition-all ${receipt.tags?.includes(tag) ? config.theme.color + ' text-white shadow-sm' : config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500 hover:bg-slate-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>

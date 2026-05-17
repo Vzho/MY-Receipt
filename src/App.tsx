@@ -33,6 +33,7 @@ import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages }
 import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/receiptDisplay';
 import { keepSyncedReceiptSelected } from './lib/syncSelection';
 import { playNotificationSound } from './lib/notificationSound';
+import { applyReceiptDraftToCollection } from './lib/receiptState';
 import {
   createAppNotification,
   loadAppNotifications,
@@ -586,6 +587,12 @@ export default function App() {
     () => fieldPreferences.filter((preference) => preference.enabled).map((preference) => preference.field_key),
     [fieldPreferences],
   );
+
+  const handleSelectedReceiptChange = (nextReceipt: any) => {
+    setSelectedReceipt(nextReceipt);
+    setHistory((current) => applyReceiptDraftToCollection(nextReceipt, current));
+    setDeletedReceipts((current) => applyReceiptDraftToCollection(nextReceipt, current));
+  };
 
   const syncToDatabase = async (data: any) => {
     try {
@@ -1875,7 +1882,7 @@ export default function App() {
           isExporting={isExporting}
           isSmartParsing={smartParsingReceiptId === selectedReceipt.id}
           isFieldVisible={isAuditFieldVisible}
-          onReceiptChange={setSelectedReceipt}
+          onReceiptChange={handleSelectedReceiptChange}
           onClose={() => setSelectedReceipt(null)}
           onSmartParse={handleSmartParse}
           onExport={() => handleExport(selectedReceipt)}
