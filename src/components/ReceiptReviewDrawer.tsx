@@ -197,11 +197,16 @@ export function ReceiptReviewDrawer({
           </div>
           <div>
             <h2 className={`text-lg font-black tracking-tight flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-white' : 'text-slate-900'}`}>
-              {receipt.merchant_name || receipt.filename || 'Processing receipt'}
+              {receipt.merchant_name || receipt.display_filename || receipt.filename || 'Processing receipt'}
               <span className={`px-2 py-0.5 rounded text-[9px] uppercase ${receipt.status === 'Failed' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
                 {labels.confidence}: {((Number(receipt.confidence_score) || 0) * 100).toFixed(0)}%
               </span>
             </h2>
+            {receipt.source_page_label && (
+              <p className={`text-[10px] font-black uppercase mt-0.5 ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                {receipt.display_filename || receipt.source_page_label}
+              </p>
+            )}
             <p className={`text-[10px] font-bold uppercase mt-0.5 ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>Processing Time: {receipt.time || '10:20'}</p>
           </div>
         </div>

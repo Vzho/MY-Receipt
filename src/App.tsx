@@ -30,6 +30,7 @@ import { decodeQrPayloadFromImageFile, looksLikeEInvoiceQrPayload } from './lib/
 import { downloadReceiptsXlsx } from './lib/exportExcel';
 import { formatSubsidyHeadline } from './lib/subsidyDetails';
 import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages } from './lib/pdfPreprocess';
+import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/receiptDisplay';
 import { DeletedReceiptList } from './components/DeletedReceiptList';
 import { DuplicateDialog } from './components/DuplicateDialog';
 import { ReceiptCropModal } from './components/ReceiptCropModal';
@@ -104,6 +105,8 @@ function toDisplayReceipt(receipt: any) {
     status: DISPLAY_STATUS_BY_DB_STATUS[receipt.status] || receipt.status || 'Pending',
     category,
     industry: category,
+    display_filename: formatReceiptDisplayFilename(receipt),
+    source_page_label: getReceiptSourcePageLabel(receipt),
     tax,
     tax_sst: tax,
     subsidy_info: subsidyInfo,
@@ -119,6 +122,7 @@ function toDisplayReceipt(receipt: any) {
 function toApiReceipt(receipt: any) {
   return {
     ...receipt,
+    filename: receipt.display_filename || receipt.filename,
     status: DB_STATUS_BY_DISPLAY_STATUS[receipt.status] || receipt.status || 'pending_review',
     category: receipt.category || receipt.industry || 'Other',
     tax: receipt.tax ?? receipt.tax_sst ?? 0,
@@ -143,7 +147,7 @@ const I18N: any = {
     dbTitle: 'Supabase 云端数据库',
     connected: 'Supabase 已连接',
     dragDrop: '拖拽上传 / 点击选择',
-    supportText: '支持 PNG、JPG、PDF。PDF 会自动取第一页用于识别。',
+    supportText: '支持 PNG、JPG、PDF。PDF 会按页拆分识别。',
     processing: '云端处理引擎运行中',
     searchUpload: '搜索商户名或发票号...',
     searchDb: '在 Supabase 数据库中搜索...',
@@ -212,7 +216,7 @@ const I18N: any = {
     archiveLib: '存档库',
     exportExcel: '导出 Excel',
     uploadHint: '拖拽上传新的单据',
-    uploadLimit: 'JPEG/PNG/PDF 可多选；PDF 先渲染第一页用于 OCR',
+    uploadLimit: 'JPEG/PNG/PDF 可多选；PDF 会按页拆分用于 OCR',
     searchPlaceholder: '搜索商户、发票号...',
     financialsLabel: '财务详情',
     tagsLabel: '分类标签',
@@ -248,7 +252,7 @@ const I18N: any = {
     dbTitle: 'Supabase Cloud Database',
     connected: 'Supabase Connected',
     dragDrop: 'Drag & Drop / Click to Upload',
-    supportText: 'Supports PNG, JPG, and PDF. PDFs use the first page for OCR.',
+    supportText: 'Supports PNG, JPG, and PDF. PDFs are split page by page for OCR.',
     processing: 'Cloud Engine Running...',
     searchUpload: 'Search merchant or invoice no...',
     searchDb: 'Search in Supabase database...',
@@ -317,7 +321,7 @@ const I18N: any = {
     archiveLib: 'Archive Lib',
     exportExcel: 'Export Excel',
     uploadHint: 'Click or Drag to upload receipts',
-    uploadLimit: 'JPEG/PNG/PDF multi-upload; PDFs use the first page for OCR',
+    uploadLimit: 'JPEG/PNG/PDF multi-upload; PDFs are split page by page for OCR',
     searchPlaceholder: 'Search merchant, invoice...',
     financialsLabel: 'Financials',
     tagsLabel: 'Tags',
@@ -353,7 +357,7 @@ const I18N: any = {
     dbTitle: 'Pangkalan Data Awan Supabase',
     connected: 'Supabase Disambung',
     dragDrop: 'Tarik & Lepas / Klik untuk Muat Naik',
-    supportText: 'Sokong PNG, JPG, dan PDF. PDF menggunakan halaman pertama untuk OCR.',
+    supportText: 'Sokong PNG, JPG, dan PDF. PDF dipisahkan mengikut halaman untuk OCR.',
     processing: 'Enjin Awan Sedang Berjalan...',
     searchUpload: 'Cari saudagar atau no invois...',
     searchDb: 'Cari dalam pangkalan data...',
@@ -423,7 +427,7 @@ const I18N: any = {
     archiveLib: 'Arkib',
     exportExcel: 'Eksport Excel',
     uploadHint: 'Klik atau Tarik untuk muat naik resit',
-    uploadLimit: 'JPEG/PNG/PDF berbilang fail; PDF menggunakan halaman pertama untuk OCR',
+    uploadLimit: 'JPEG/PNG/PDF berbilang fail; PDF dipisahkan mengikut halaman untuk OCR',
     searchPlaceholder: 'Cari saudagar, invois...',
     financialsLabel: 'Kewangan',
     tagsLabel: 'Tag',
@@ -979,10 +983,7 @@ export default function App() {
       createdReceipts.push(result.receipt.id);
       const pagePreviewUrl = URL.createObjectURL(rendered.file);
       const displayReceipt = await buildDisplayReceipt(result.receipt, pagePreviewUrl);
-      upsertHistoryReceipt({
-        ...displayReceipt,
-        filename: `${file.name} · Page ${pageNumber}`,
-      });
+      upsertHistoryReceipt(displayReceipt);
       startReceiptResultPolling(result.receipt.id, pagePreviewUrl);
     }
 

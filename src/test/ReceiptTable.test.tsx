@@ -12,6 +12,7 @@ describe('ReceiptTable', () => {
           status: 'Pending',
           merchant_name: 'CRUMBS BAKERY DESSERT SDN. BHD.',
           invoice_no: 'NTCS01-1071769',
+          source_page_label: 'PDF Page 2 of 3',
           image_url: 'https://example.test/receipt.jpg',
           original_image_url: 'https://example.test/original.jpg',
           grand_total: 56.7,
@@ -52,5 +53,6 @@ describe('ReceiptTable', () => {
     expect(html).toContain('src="https://example.test/receipt.jpg"')
     expect(html).toContain('alt="Receipt thumbnail"')
     expect(html).toContain('aria-label="放大发票图片"')
+    expect(html).toContain('PDF Page 2 of 3')
   })
 })

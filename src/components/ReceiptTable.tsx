@@ -136,7 +136,7 @@ export function ReceiptTable({
                     <div>
                       <div className="mb-1 flex items-center gap-2">
                         <p className={`text-sm font-black leading-tight ${item.status === 'Failed' ? 'text-rose-600' : config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-800'}`}>
-                          {item.merchant_name || item.filename || 'Processing receipt'}
+                          {item.merchant_name || item.display_filename || item.filename || 'Processing receipt'}
                         </p>
                         {item.merchant_name && (
                           <button type="button" onClick={(event) => onCopyText(item.merchant_name, 'Merchant', event)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="复制商户名">
@@ -148,6 +148,11 @@ export function ReceiptTable({
                         <span className={`text-[9px] font-bold uppercase ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>
                           {item.status === 'Uploaded' ? 'Ready for crop and smart parse' : item.status === 'Processing' ? 'Smart parsing in background' : `INV: ${item.invoice_no || 'N/A'}`}
                         </span>
+                        {item.source_page_label && (
+                          <span className={`text-[9px] font-bold uppercase ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>
+                            {item.source_page_label}
+                          </span>
+                        )}
                         {item.invoice_no && (
                           <button type="button" onClick={(event) => onCopyText(item.invoice_no, 'Invoice No', event)} className="rounded-md p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="复制 Invoice No.">
                             <Copy className="h-3 w-3" />

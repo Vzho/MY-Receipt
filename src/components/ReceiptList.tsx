@@ -34,7 +34,7 @@ export function ReceiptList({ receipts, selectedIds = [], onToggleSelect, onOpen
           ) : null}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate text-sm font-black text-slate-900">{receipt.merchant_name || receipt.filename}</p>
+              <p className="truncate text-sm font-black text-slate-900">{receipt.merchant_name || receipt.display_filename || receipt.filename}</p>
               <StatusBadge status={receipt.status} />
             </div>
             <p className="mt-1 text-xs font-bold text-slate-400">

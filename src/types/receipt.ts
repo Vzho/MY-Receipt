@@ -54,6 +54,8 @@ export interface Receipt {
   id: string
   user_id: string
   filename: string
+  display_filename?: string
+  source_page_label?: string | null
   mime_type: string | null
   file_path: string | null
   processed_file_path?: string | null

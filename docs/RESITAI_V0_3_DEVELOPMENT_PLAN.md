@@ -27,6 +27,7 @@
 | CFG-02 导出字段跟随配置 | 已实现 | Excel summary sheet 按 `fieldPreferences` 生成列；软删除记录默认不导出。 |
 | EI-01 E-invoice | 已实现 | `E-invoice` 标准类型、`extra_fields`、UI 专属块、导出列、E-invoice schema profile、prompt 分支和图片内 QR payload 本地解码已接入。 |
 | Excel 格式 | 已实现 | `Receipts` 一张发票一行，`Items` 一条明细一行。 |
+| PDF 多页上传 | 已实现 | PDF 会按页渲染为 JPEG OCR 输入，每页创建独立 receipt，并通过 `image_processing.source_page` / `source_page_count` 保留页码来源。 |
 | 数据库文档 | 已实现 | `docs/SUPABASE_SCHEMA.sql` 和 `docs/ADD_RESITAI_V0_3_FIELDS.sql` 已包含 v0.3 字段、表、索引和 RLS。 |
 | 线上 Supabase 迁移 / Edge Function 部署 | 已实现 | 已对项目 `ashivkbfutnodyglaqgj` 应用 v0.3 migration，并部署新版 `parse-receipt` Edge Function。 |
 | P1 批量操作增强 | 已实现 | 批量选择、批量导出、批量删除、批量恢复、批量永久删除、批量标记 synced 已接入。 |

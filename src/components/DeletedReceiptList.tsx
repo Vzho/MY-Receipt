@@ -30,7 +30,7 @@ export function DeletedReceiptList({ receipts, selectedIds = [], onToggleSelect,
             />
           </div>
           <button type="button" onClick={() => onOpen?.(receipt.id)} className="min-w-0 text-left">
-            <p className="truncate text-sm font-black text-slate-900">{receipt.merchant_name || receipt.filename}</p>
+            <p className="truncate text-sm font-black text-slate-900">{receipt.merchant_name || receipt.display_filename || receipt.filename}</p>
             <p className="mt-1 text-[10px] font-bold uppercase text-slate-400">
               {receipt.deleted_reason || 'other'} / {receipt.deleted_at?.slice(0, 10) || '-'} / {receipt.deleted_note || 'No note'}
             </p>
