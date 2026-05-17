@@ -1,4 +1,5 @@
 import type { Receipt, ReceiptItem, ReceiptWarning } from '../types/receipt'
+import { calculateReceiptMath, differs, roundMoney } from './receiptMath'
 
 export function evaluateReceiptWarnings(receipt: Receipt, items: ReceiptItem[] = receipt.receipt_items ?? []): ReceiptWarning[] {
   const warnings: ReceiptWarning[] = []
@@ -57,13 +58,16 @@ function addConfidenceWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
 function addAmountWarnings(warnings: ReceiptWarning[], receipt: Receipt, items: ReceiptItem[]) {
   const itemTotal = roundMoney(items.reduce((sum, item) => sum + Number(item.line_total || 0), 0))
   const subtotal = roundMoney(Number(receipt.subtotal || 0))
-  const formulaTotal = roundMoney(
-    Number(receipt.subtotal || 0)
-    - Number(receipt.discount || 0)
-    + Number(receipt.tax || 0)
-    + Number(receipt.service_charge || 0)
-    + Number(receipt.rounding || 0),
-  )
+  const receiptMath = calculateReceiptMath({
+    itemTotal,
+    subtotal,
+    discount: receipt.discount,
+    tax: receipt.tax,
+    serviceCharge: receipt.service_charge,
+    rounding: receipt.rounding,
+    grandTotal: receipt.grand_total,
+  })
+  const formulaTotal = receiptMath.calculatedTotal
   const grandTotal = roundMoney(Number(receipt.grand_total || 0))
 
   if (items.length > 0 && subtotal > 0 && differs(itemTotal, subtotal)) {
@@ -80,7 +84,12 @@ function addAmountWarnings(warnings: ReceiptWarning[], receipt: Receipt, items: 
       code: 'amount_mismatch',
       severity: 'warning',
       message: 'Calculated total does not match grand total',
-      details: { calculated_total: formulaTotal, grand_total: grandTotal },
+      details: {
+        calculated_total: formulaTotal,
+        grand_total: grandTotal,
+        effective_discount: receiptMath.effectiveDiscount,
+        discount_already_included: receiptMath.discountAlreadyIncluded,
+      },
     })
   }
 }
@@ -108,12 +117,4 @@ function dedupeWarnings(warnings: ReceiptWarning[]) {
     seen.add(key)
     return true
   })
-}
-
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100
-}
-
-function differs(left: number, right: number) {
-  return Math.abs(left - right) > 0.05
 }

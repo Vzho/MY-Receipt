@@ -15,6 +15,7 @@ import {
   X,
   ZoomIn,
 } from 'lucide-react'
+import { calculateReceiptMath } from '../lib/receiptMath'
 import { buildSubsidyRows, formatSubsidyHeadline, getSubsidyPayable, hasSubsidyDetails } from '../lib/subsidyDetails'
 import type { FieldKey } from '../types/fieldConfig'
 import { CustomDocTypeInput } from './CustomDocTypeInput'
@@ -106,13 +107,16 @@ export function ReceiptReviewDrawer({
   }, [receipt])
 
   const grandTotal = Number(receipt.grand_total) || 0
-  const manualTotal = useMemo(() => {
-    return itemsTotal
-      - (parseFloat(receipt.discount) || 0)
-      + (parseFloat(receipt.tax_sst) || 0)
-      + (parseFloat(receipt.service_charge) || 0)
-      + (parseFloat(receipt.rounding) || 0)
-  }, [itemsTotal, receipt.discount, receipt.rounding, receipt.service_charge, receipt.tax_sst])
+  const receiptMath = useMemo(() => calculateReceiptMath({
+    itemTotal: itemsTotal,
+    subtotal: receipt.subtotal,
+    discount: receipt.discount,
+    tax: receipt.tax_sst,
+    serviceCharge: receipt.service_charge,
+    rounding: receipt.rounding,
+    grandTotal,
+  }), [grandTotal, itemsTotal, receipt.discount, receipt.rounding, receipt.service_charge, receipt.subtotal, receipt.tax_sst])
+  const manualTotal = receiptMath.calculatedTotal
 
   const subsidyRows = useMemo(() => buildSubsidyRows(receipt.subsidy_details, config.currency), [config.currency, receipt.subsidy_details])
   const subsidyPayable = useMemo(() => getSubsidyPayable(receipt.subsidy_details), [receipt.subsidy_details])

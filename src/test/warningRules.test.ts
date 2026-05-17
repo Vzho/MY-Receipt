@@ -31,6 +31,26 @@ describe('evaluateReceiptWarnings', () => {
     expect(warnings.map((warning) => warning.code)).toEqual(expect.arrayContaining(['total_mismatch', 'amount_mismatch']))
   })
 
+  it('does not subtract discount again when line totals are already discounted', () => {
+    const warnings = evaluateReceiptWarnings(
+      createReceipt({
+        subtotal: 53.47,
+        discount: 2.83,
+        tax: 3.21,
+        rounding: 0.02,
+        grand_total: 56.7,
+        receipt_items: [
+          { name: 'CHICKEN FLOSSY BUN', qty: 1, unit: null, unit_price: 3.5, line_total: 3.32 },
+          { name: 'BUN', qty: 1, unit: null, unit_price: 3.9, line_total: 3.7 },
+          { name: 'BUN', qty: 1, unit: null, unit_price: 3.9, line_total: 3.7 },
+          { name: '4.5 INCH PANDAN LONGAN CAKE', qty: 1, unit: null, unit_price: 45, line_total: 42.75 },
+        ],
+      }),
+    )
+
+    expect(warnings.map((warning) => warning.code)).not.toContain('amount_mismatch')
+  })
+
   it('adds duplicate warnings when duplicate_of is present', () => {
     const warnings = evaluateReceiptWarnings(createReceipt({ duplicate_of: 'existing-receipt', duplicate_score: 0.8 }))
 

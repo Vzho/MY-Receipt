@@ -999,13 +999,15 @@ function shouldRepairStructuredReceipt(input: Record<string, any>): boolean {
   const items = Array.isArray(input.items) ? input.items : []
   const itemsTotal = sumItems(items)
   const printedTotal = normalizeMoney(input.grand_total)
-  const calculatedTotal = normalizeMoney(
-    itemsTotal
-      - normalizeMoney(input.discount)
-      + normalizeMoney(input.tax)
-      + normalizeMoney(input.service_charge)
-      + normalizeMoney(input.rounding),
-  )
+  const calculatedTotal = calculateReceiptMath({
+    itemTotal: itemsTotal,
+    subtotal: input.subtotal,
+    discount: input.discount,
+    tax: input.tax,
+    serviceCharge: input.service_charge,
+    rounding: input.rounding,
+    grandTotal: input.grand_total,
+  }).calculatedTotal
   const confidence = Number(input.confidence_score) || 0
 
   if (items.length === 0) return true
@@ -1281,13 +1283,16 @@ function buildWarnings(
 
   const itemTotal = roundMoney(items.reduce((sum, item) => sum + Number(item.line_total || 0), 0))
   const subtotal = roundMoney(Number(receipt.subtotal || 0))
-  const formulaTotal = roundMoney(
-    Number(receipt.subtotal || 0)
-    - Number(receipt.discount || 0)
-    + Number(receipt.tax || 0)
-    + Number(receipt.service_charge || 0)
-    + Number(receipt.rounding || 0),
-  )
+  const receiptMath = calculateReceiptMath({
+    itemTotal,
+    subtotal,
+    discount: receipt.discount,
+    tax: receipt.tax,
+    serviceCharge: receipt.service_charge,
+    rounding: receipt.rounding,
+    grandTotal: receipt.grand_total,
+  })
+  const formulaTotal = receiptMath.calculatedTotal
   const grandTotal = roundMoney(Number(receipt.grand_total || 0))
 
   if (items.length > 0 && subtotal > 0 && Math.abs(itemTotal - subtotal) > 0.05) {
@@ -1295,7 +1300,17 @@ function buildWarnings(
   }
 
   if (grandTotal > 0 && formulaTotal > 0 && Math.abs(formulaTotal - grandTotal) > 0.05) {
-    warnings.push({ code: 'amount_mismatch', severity: 'warning', message: 'Calculated total does not match grand total', details: { calculated_total: formulaTotal, grand_total: grandTotal } })
+    warnings.push({
+      code: 'amount_mismatch',
+      severity: 'warning',
+      message: 'Calculated total does not match grand total',
+      details: {
+        calculated_total: formulaTotal,
+        grand_total: grandTotal,
+        effective_discount: receiptMath.effectiveDiscount,
+        discount_already_included: receiptMath.discountAlreadyIncluded,
+      },
+    })
   }
 
   const imageQuality = String(context.imageProcessing?.quality ?? context.rawAi?.parser_meta?.image_quality ?? '').toLowerCase()
@@ -1418,6 +1433,40 @@ function levenshteinDistance(left: string, right: string): number {
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100
+}
+
+function calculateReceiptMath(input: {
+  itemTotal?: unknown
+  subtotal?: unknown
+  discount?: unknown
+  tax?: unknown
+  serviceCharge?: unknown
+  rounding?: unknown
+  grandTotal?: unknown
+}) {
+  const itemTotal = normalizeMoney(input.itemTotal)
+  const subtotal = normalizeMoney(input.subtotal)
+  const discount = Math.abs(normalizeMoney(input.discount))
+  const tax = normalizeMoney(input.tax)
+  const serviceCharge = normalizeMoney(input.serviceCharge)
+  const rounding = normalizeMoney(input.rounding)
+  const grandTotal = normalizeMoney(input.grandTotal)
+  const baseTotal = itemTotal > 0 ? itemTotal : subtotal
+  const withoutDiscount = roundMoney(baseTotal + tax + serviceCharge + rounding)
+  const withDiscount = roundMoney(baseTotal - discount + tax + serviceCharge + rounding)
+  const discountAlreadyIncluded = discount > 0 && (
+    grandTotal > 0
+      ? Math.abs(withoutDiscount - grandTotal) <= Math.abs(withDiscount - grandTotal)
+      : itemTotal > 0 && subtotal > 0 && Math.abs(itemTotal - subtotal) <= 0.05
+  )
+  const effectiveDiscount = discountAlreadyIncluded ? 0 : discount
+
+  return {
+    baseTotal,
+    effectiveDiscount,
+    discountAlreadyIncluded,
+    calculatedTotal: roundMoney(baseTotal - effectiveDiscount + tax + serviceCharge + rounding),
+  }
 }
 
 async function blobToBase64(blob: Blob): Promise<string> {
