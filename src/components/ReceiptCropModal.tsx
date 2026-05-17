@@ -23,12 +23,24 @@ interface ReceiptCropModalProps {
 }
 
 type DragMode = 'move' | 'nw' | 'ne' | 'sw' | 'se'
+type ReceiptRotation = 0 | 90 | 180 | 270
+type RotationDirection = 'left' | 'right'
 
 interface DragState {
   mode: DragMode
   startX: number
   startY: number
   startCrop: CropPercent
+}
+
+export function nextReceiptRotation(current: ReceiptRotation, direction: RotationDirection): ReceiptRotation {
+  return ((current + (direction === 'left' ? 270 : 90)) % 360) as ReceiptRotation
+}
+
+export function getReceiptRotationStyle(rotation: ReceiptRotation) {
+  return {
+    transform: `rotate(${rotation}deg)`,
+  }
 }
 
 export function ReceiptCropModal({
@@ -45,7 +57,7 @@ export function ReceiptCropModal({
 }: ReceiptCropModalProps) {
   const [imageUrl, setImageUrl] = useState('')
   const [crop, setCrop] = useState<CropPercent>(() => defaultReceiptCrop())
-  const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0)
+  const [rotation, setRotation] = useState<ReceiptRotation>(0)
   const [isRendering, setIsRendering] = useState(false)
   const previewRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef<DragState | null>(null)
@@ -64,6 +76,7 @@ export function ReceiptCropModal({
     width: `${crop.width}%`,
     height: `${crop.height}%`,
   }), [crop])
+  const previewRotationStyle = useMemo(() => getReceiptRotationStyle(rotation), [rotation])
 
   const handlePointerDown = (event: PointerEvent, mode: DragMode) => {
     if (disabled || isRendering) return
@@ -161,7 +174,12 @@ export function ReceiptCropModal({
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 lg:grid-cols-[1fr_280px]">
           <div className="min-h-0 overflow-auto bg-slate-100 p-4 lg:p-6">
             <div className="flex min-h-[56vh] items-center justify-center">
-              <div ref={previewRef} className="relative inline-block max-h-[66vh] max-w-full select-none touch-none shadow-xl">
+              <div
+                ref={previewRef}
+                className="relative inline-block max-h-[66vh] max-w-full select-none touch-none shadow-xl transition-transform duration-200"
+                style={previewRotationStyle}
+                data-rotation={rotation}
+              >
                 {imageUrl && (
                   <img
                     src={imageUrl}
@@ -209,27 +227,27 @@ export function ReceiptCropModal({
               <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
                 {description}
               </p>
-              <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-indigo-600">输出旋转：{rotation}°</p>
+              <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-indigo-600">照片与输出旋转：{rotation}°</p>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setRotation((current) => ((current + 270) % 360) as 0 | 90 | 180 | 270)}
+                onClick={() => setRotation((current) => nextReceiptRotation(current, 'left'))}
                 disabled={disabled || isRendering}
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
               >
                 <RotateCcw className="h-4 w-4" />
-                左转
+                左转照片
               </button>
               <button
                 type="button"
-                onClick={() => setRotation((current) => ((current + 90) % 360) as 0 | 90 | 180 | 270)}
+                onClick={() => setRotation((current) => nextReceiptRotation(current, 'right'))}
                 disabled={disabled || isRendering}
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
               >
                 <RotateCw className="h-4 w-4" />
-                右转
+                右转照片
               </button>
             </div>
 

@@ -12,26 +12,26 @@ body {
 }
 
 .themed-scrollbar {
-  scrollbar-color: rgb(148 163 184 / 0.65) transparent;
+  scrollbar-color: rgb(148 163 184 / 0.42) transparent;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
 
 .themed-scrollbar::-webkit-scrollbar {
-  height: 10px;
-  width: 10px;
+  height: 8px;
+  width: 8px;
 }
 
 .themed-scrollbar::-webkit-scrollbar-track {
   background: transparent;
   border-radius: 9999px;
-  margin: 18px;
+  margin: 24px;
 }
 
 .themed-scrollbar::-webkit-scrollbar-thumb {
-  background: rgb(148 163 184 / 0.55);
+  background: rgb(148 163 184 / 0.38);
   background-clip: content-box;
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   border-radius: 9999px;
 }
 

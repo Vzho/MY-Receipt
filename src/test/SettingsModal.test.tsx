@@ -37,6 +37,8 @@ describe('SettingsModal', () => {
     expect(html).toContain('消息音效')
     expect(html).toContain('上传队列显示数量')
     expect(html).toContain('发票列表每页数量')
+    expect(html).toContain('settings-modal-frame')
+    expect(html).toContain('settings-modal-scroll')
     expect(html).toContain('>10</button>')
     expect(html).toContain('aria-pressed="false"')
     expect(html).toContain('aria-pressed="true"')
