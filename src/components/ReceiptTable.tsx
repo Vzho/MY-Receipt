@@ -21,6 +21,7 @@ interface ReceiptTableLabels {
   tagsLabel: string
   auditLabel: string
   retry: string
+  loadingRecords?: string
   noRecords: string
   totalItems: string
 }
@@ -44,6 +45,7 @@ interface ReceiptTableProps {
   onCopyText: (value: string | null | undefined, label: string, event?: React.MouseEvent) => void
   onRetry: (id: string) => void
   onDelete: (id: string, event?: React.MouseEvent) => void
+  isLoading?: boolean
 }
 
 export function ReceiptTable({
@@ -59,6 +61,7 @@ export function ReceiptTable({
   onCopyText,
   onRetry,
   onDelete,
+  isLoading = false,
 }: ReceiptTableProps) {
   const pageSize = 25
   const [page, setPage] = useState(1)
@@ -94,7 +97,13 @@ export function ReceiptTable({
           </tr>
         </thead>
         <tbody className={`divide-y ${config.colorMode === 'Dark' ? 'divide-slate-800' : 'divide-slate-100'}`}>
-          {pageItems.map((item) => {
+          {isLoading && visibleItems.length === 0 ? (
+            <tr>
+              <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs font-bold">
+                {labels.loadingRecords || 'Loading receipts...'}
+              </td>
+            </tr>
+          ) : pageItems.map((item) => {
             const thumbnailUrl = item.processed_image_url || item.image_url || item.original_image_url
             return (
               <tr
@@ -211,7 +220,7 @@ export function ReceiptTable({
               </tr>
             )
           })}
-          {visibleItems.length === 0 && (
+          {!isLoading && visibleItems.length === 0 && (
             <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-xs font-bold">{labels.noRecords}</td></tr>
           )}
         </tbody>

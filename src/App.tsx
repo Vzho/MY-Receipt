@@ -44,118 +44,6 @@ import type { DuplicateCandidate } from './types/duplicate';
 import type { FieldKey, FieldPreference } from './types/fieldConfig';
 import { supabase } from './lib/supabaseClient';
 
-// 初始模拟数据：完全覆盖 PRD V1.1 的所有字段与要求状态
-const INITIAL_HISTORY = [
-  {
-    id: 'hdl-001',
-    status: 'Pending', 
-    merchant_name: 'Hai Di Lao Malaysia Sdn. Bhd.',
-    company_reg_no: '1280055-D',
-    sst_no: 'B16-1903-32100036',
-    tin_no: 'C258100200', 
-    phone: '03-33221100', 
-    date: '2026-03-30',
-    time: '18:34',
-    subtotal: 118.70,
-    discount: 0.00, 
-    service_charge: 11.87, 
-    tax_sst: 7.12, 
-    rounding: 0.09,
-    grand_total: 137.60,
-    change: 0.00, 
-    payment_method: 'Touch-go',
-    doc_type: 'Receipt',
-    industry: 'F&B',
-    tags: ['Business', 'Tax Deductible'], 
-    invoice_no: '2026033000074',
-    confidence_score: 0.99,
-    image_url: '/input_file_2.png', 
-    items: [
-      { id: 'i1', name: "清水火锅 (Soup Base)", qty: 1, unit_price: 48.00, line_total: 48.00 },
-      { id: 'i2', name: "芝士鱼豆腐 (Cheese Fish Tofu)", qty: 1, unit_price: 14.00, line_total: 14.00 },
-      { id: 'i3', name: "猪梅花肉 (Pork Collar)", qty: 2, unit_price: 19.80, line_total: 39.60 }
-    ]
-  },
-  {
-    id: 'shell-002',
-    status: 'Synced', 
-    merchant_name: 'APPLE LEAF ENTERPRISE (SHELL)',
-    company_reg_no: 'PG0187462-K',
-    date: '2026-04-14',
-    time: '15:27',
-    subtotal: 138.01,
-    discount: 0,
-    service_charge: 0,
-    tax_sst: 0,
-    rounding: 0,
-    grand_total: 138.01,
-    subsidy_info: 'Targeted Subsidy Applied (Budi Madani)',
-    subsidy_details: {
-      program: 'BUDI MADANI RON95',
-      pump_price: 4.27,
-      subsidy_price: 1.99,
-      subsidised_litre: 32.320,
-      government_subsidy: 73.69,
-      previous_balance_litre: 119.163,
-      remaining_balance_litre: 86.843,
-      gross_total: 138.01,
-      payable_total: 64.32
-    },
-    doc_type: 'Receipt',
-    industry: 'Fuel',
-    tags: ['Business'],
-    invoice_no: 'IRFI5ONDW',
-    confidence_score: 0.97,
-    image_url: '/input_file_0.png', 
-    items: [
-      { id: 'i4', name: "FuelSave 95", qty: 32.32, unit_price: 4.27, line_total: 138.01 }
-    ]
-  },
-  {
-    id: '99-003',
-    status: 'Pending', 
-    merchant_name: '99 SPEED MART SDN. BHD.',
-    company_reg_no: '519537-X',
-    sst_no: '',
-    tin_no: '', 
-    phone: '', 
-    date: '2024-05-09',
-    time: '21:25',
-    subtotal: 19.89,
-    discount: 0.00, 
-    service_charge: 0.00, 
-    tax_sst: 0.00, 
-    rounding: 0.01,
-    grand_total: 19.90,
-    change: 0.00, 
-    payment_method: 'MyKasih',
-    doc_type: 'Receipt',
-    industry: 'Grocery',
-    tags: ['Personal'], 
-    invoice_no: '288321314/102/T0314',
-    confidence_score: 0.95,
-    image_url: '/input_file_1.png', 
-    items: [
-      { id: 'i5', name: "8503 GARDENIA TOASTEM COKLA", qty: 1, unit_price: 5.30, line_total: 5.30 },
-      { id: 'i6', name: "3717 CHIPSMORE MINI COKLAT", qty: 1, unit_price: 5.69, line_total: 5.69 },
-      { id: 'i7', name: "2476 FITE ANTIBAC DETERGENT", qty: 1, unit_price: 8.90, line_total: 8.90 }
-    ]
-  },
-  {
-    id: 'fail-004',
-    status: 'Failed', 
-    merchant_name: 'Unknown Merchant',
-    date: '-',
-    grand_total: 0,
-    doc_type: 'Receipt',
-    industry: 'Other',
-    tags: ['Pending'],
-    confidence_score: 0.32,
-    image_url: '/input_file_2.png', 
-    items: []
-  }
-];
-
 const INDUSTRIES = ['Grocery', 'Fuel', 'F&B', 'Retail', 'Service', 'Other', 'Custom (自定义)'];
 const DOC_TYPES = ['Receipt', 'Invoice', 'Credit Note', 'Expense', 'E-invoice', 'Custom (自定义)'];
 const TAGS_OPTIONS = ['Business', 'Personal', 'Tax Deductible', 'Pending']; 
@@ -329,6 +217,7 @@ const I18N: any = {
     tagsLabel: '分类标签',
     auditLabel: '操作',
     retry: '重试',
+    loadingRecords: '正在加载云端记录...',
     noRecords: '没有记录',
     totalItems: '条记录',
     noArchive: '存档库为空',
@@ -433,6 +322,7 @@ const I18N: any = {
     tagsLabel: 'Tags',
     auditLabel: 'Action',
     retry: 'Retry',
+    loadingRecords: 'Loading cloud receipts...',
     noRecords: 'No records found',
     totalItems: 'Items',
     noArchive: 'Archive is empty',
@@ -538,6 +428,7 @@ const I18N: any = {
     tagsLabel: 'Tag',
     auditLabel: 'Tindakan',
     retry: 'Cuba Lagi',
+    loadingRecords: 'Memuatkan rekod awan...',
     noRecords: 'Tiada rekod dijumpai',
     totalItems: 'Item',
     noArchive: 'Arkib kosong',
@@ -580,7 +471,8 @@ async function copyTextToClipboard(value: string) {
 }
 
 export default function App() {
-  const [history, setHistory] = useState<any[]>(INITIAL_HISTORY);
+  const [history, setHistory] = useState<any[]>([]);
+  const [isReceiptsLoading, setIsReceiptsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'upload' | 'history' | 'rejected'>('upload');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
@@ -780,6 +672,8 @@ export default function App() {
       } catch (error) {
         console.error('Error loading receipts:', error);
         showToast('Failed to load Supabase receipts.', 'error');
+      } finally {
+        setIsReceiptsLoading(false);
       }
     };
     loadData();
@@ -1621,9 +1515,11 @@ export default function App() {
                       tagsLabel: t.tagsLabel,
                       auditLabel: t.auditLabel,
                       retry: t.retry,
+                      loadingRecords: t.loadingRecords,
                       noRecords: t.noRecords,
                       totalItems: t.totalItems,
                     }}
+                    isLoading={isReceiptsLoading}
                     config={config}
                     isSelectableForBulk={isSelectableForBulk}
                     onToggleSelectAll={handleToggleSelectAll}
