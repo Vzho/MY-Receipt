@@ -4,6 +4,34 @@ import { describe, expect, it, vi } from 'vitest'
 import { ReceiptTable } from '../components/ReceiptTable'
 
 describe('ReceiptTable', () => {
+  const baseLabels = {
+    merchantLabel: '商户名称 (Merchant)',
+    thumbnailLabel: '发票缩略图',
+    financialsLabel: '财务详情',
+    tagsLabel: '分类标签',
+    auditLabel: '操作',
+    retry: '重试',
+    noRecords: '没有记录',
+    totalItems: '条记录',
+  }
+
+  const baseConfig = {
+    colorMode: 'Light',
+    currency: 'RM',
+    theme: { color: 'bg-indigo-600' },
+  }
+
+  const baseHandlers = {
+    isSelectableForBulk: () => true,
+    onToggleSelectAll: vi.fn(),
+    onToggleSelectRow: vi.fn(),
+    onOpenReceipt: vi.fn(),
+    onOpenThumbnail: vi.fn(),
+    onCopyText: vi.fn(),
+    onRetry: vi.fn(),
+    onDelete: vi.fn(),
+  }
+
   it('renders a receipt thumbnail column between merchant and financials', () => {
     const html = renderToStaticMarkup(
       <ReceiptTable
@@ -22,29 +50,9 @@ describe('ReceiptTable', () => {
           items: [],
         }]}
         selectedRowIds={[]}
-        labels={{
-          merchantLabel: '商户名称 (Merchant)',
-          thumbnailLabel: '发票缩略图',
-          financialsLabel: '财务详情',
-          tagsLabel: '分类标签',
-          auditLabel: '操作',
-          retry: '重试',
-          noRecords: '没有记录',
-          totalItems: '条记录',
-        }}
-        config={{
-          colorMode: 'Light',
-          currency: 'RM',
-          theme: { color: 'bg-indigo-600' },
-        }}
-        isSelectableForBulk={() => true}
-        onToggleSelectAll={vi.fn()}
-        onToggleSelectRow={vi.fn()}
-        onOpenReceipt={vi.fn()}
-        onOpenThumbnail={vi.fn()}
-        onCopyText={vi.fn()}
-        onRetry={vi.fn()}
-        onDelete={vi.fn()}
+        labels={baseLabels}
+        config={baseConfig}
+        {...baseHandlers}
       />,
     )
 
@@ -54,5 +62,33 @@ describe('ReceiptTable', () => {
     expect(html).toContain('alt="Receipt thumbnail"')
     expect(html).toContain('aria-label="放大发票图片"')
     expect(html).toContain('PDF Page 2 of 3')
+  })
+
+  it('limits visible receipts by the configured page size', () => {
+    const html = renderToStaticMarkup(
+      <ReceiptTable
+        items={Array.from({ length: 12 }, (_, index) => ({
+          id: `receipt-${index}`,
+          status: 'Pending',
+          merchant_name: `Merchant ${index}`,
+          invoice_no: `INV-${index}`,
+          grand_total: 10 + index,
+          date: '2026-04-19',
+          doc_type: 'Receipt',
+          tags: [],
+          items: [],
+        }))}
+        pageSize={10}
+        selectedRowIds={[]}
+        labels={baseLabels}
+        config={baseConfig}
+        {...baseHandlers}
+      />,
+    )
+
+    expect(html).toContain('Merchant 0')
+    expect(html).toContain('Merchant 9')
+    expect(html).not.toContain('Merchant 10')
+    expect(html).toContain('Page 1 of 2')
   })
 })

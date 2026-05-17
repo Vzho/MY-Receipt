@@ -526,6 +526,7 @@ export default function App() {
       colorMode: 'Light',
       notificationSound: false,
       uploadQueueLimit: 10,
+      receiptListPageSize: 10,
     };
   });
 
@@ -1771,6 +1772,7 @@ export default function App() {
                       totalItems: t.totalItems,
                     }}
                     isLoading={isReceiptsLoading}
+                    pageSize={config.receiptListPageSize || 10}
                     config={config}
                     isSelectableForBulk={isSelectableForBulk}
                     onToggleSelectAll={handleToggleSelectAll}

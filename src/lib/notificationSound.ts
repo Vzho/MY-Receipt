@@ -18,6 +18,14 @@ export function playNotificationSound(enabled: boolean, notification: AppNotific
   playShortBeep(notification.type === 'error' ? 220 : notification.type === 'warning' ? 330 : 520)
 }
 
+export function shouldPreviewNotificationSoundOnToggle(wasEnabled: boolean, nextEnabled: boolean): boolean {
+  return !wasEnabled && nextEnabled
+}
+
+export function playNotificationSoundPreview() {
+  playShortBeep(520)
+}
+
 function playShortBeep(frequency: number) {
   try {
     const AudioCtor = globalThis.AudioContext || (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext

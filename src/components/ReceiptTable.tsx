@@ -45,6 +45,7 @@ interface ReceiptTableProps {
   onCopyText: (value: string | null | undefined, label: string, event?: React.MouseEvent) => void
   onRetry: (id: string) => void
   onDelete: (id: string, event?: React.MouseEvent) => void
+  pageSize?: number
   isLoading?: boolean
 }
 
@@ -61,20 +62,21 @@ export function ReceiptTable({
   onCopyText,
   onRetry,
   onDelete,
+  pageSize = 10,
   isLoading = false,
 }: ReceiptTableProps) {
-  const pageSize = 25
+  const normalizedPageSize = Math.max(1, Math.round(Number(pageSize) || 10))
   const [page, setPage] = useState(1)
   const visibleItems = useMemo(() => items.filter((item) => item.status !== 'Synced'), [items])
   const selectableItems = visibleItems.filter(isSelectableForBulk)
   const allSelectableChecked = selectedRowIds.length === selectableItems.length && selectableItems.length > 0
-  const pageCount = Math.max(1, Math.ceil(visibleItems.length / pageSize))
+  const pageCount = Math.max(1, Math.ceil(visibleItems.length / normalizedPageSize))
   const currentPage = Math.min(page, pageCount)
-  const pageItems = visibleItems.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const pageItems = visibleItems.slice((currentPage - 1) * normalizedPageSize, currentPage * normalizedPageSize)
 
   useEffect(() => {
     setPage(1)
-  }, [items])
+  }, [items, normalizedPageSize])
 
   return (
     <div className={`rounded-[24px] border shadow-sm overflow-hidden transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>

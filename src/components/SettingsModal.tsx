@@ -1,4 +1,5 @@
 import { Banknote, BellRing, CheckCircle, Languages, ListOrdered, Moon, Settings, Sun, X } from 'lucide-react'
+import { playNotificationSoundPreview, shouldPreviewNotificationSoundOnToggle } from '../lib/notificationSound'
 import { FieldConfigPanel } from './FieldConfigPanel'
 import type { FieldPreference } from '../types/fieldConfig'
 
@@ -22,7 +23,9 @@ export function SettingsModal({
   onClose,
 }: SettingsModalProps) {
   const uploadQueueLimit = Math.max(1, Math.round(Number(config.uploadQueueLimit) || 10))
+  const receiptListPageSize = Math.max(1, Math.round(Number(config.receiptListPageSize) || 10))
   const queueLimitOptions = [5, 10, 20]
+  const receiptPageSizeOptions = [10, 20, 50]
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
@@ -127,7 +130,13 @@ export function SettingsModal({
             </div>
             <button
               type="button"
-              onClick={() => onConfigChange({ ...config, notificationSound: !config.notificationSound })}
+              onClick={() => {
+                const nextNotificationSound = !config.notificationSound
+                if (shouldPreviewNotificationSoundOnToggle(Boolean(config.notificationSound), nextNotificationSound)) {
+                  playNotificationSoundPreview()
+                }
+                onConfigChange({ ...config, notificationSound: nextNotificationSound })
+              }}
               className={`relative h-7 w-12 rounded-full transition ${config.notificationSound ? config.theme.color : config.colorMode === 'Dark' ? 'bg-slate-700' : 'bg-slate-300'}`}
               aria-pressed={Boolean(config.notificationSound)}
             >
@@ -151,6 +160,34 @@ export function SettingsModal({
                   aria-pressed={uploadQueueLimit === limit}
                   className={`min-w-12 rounded-xl px-4 py-2 text-xs font-black transition-all ${
                     uploadQueueLimit === limit
+                      ? `${config.theme.color} text-white shadow-sm`
+                      : config.colorMode === 'Dark'
+                        ? 'text-slate-400 hover:bg-slate-700'
+                        : 'text-slate-500 hover:bg-white'
+                  }`}
+                >
+                  {limit}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
+            <div>
+              <label className={`text-[10px] font-black uppercase tracking-[2px] flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                <ListOrdered className="w-3.5 h-3.5" /> 发票列表每页数量
+              </label>
+              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>首页发票列表每页默认展示的记录数量。</p>
+            </div>
+            <div className={`grid grid-cols-3 gap-1 rounded-2xl p-1 ${config.colorMode === 'Dark' ? 'bg-slate-800' : 'bg-slate-100'}`}>
+              {receiptPageSizeOptions.map((limit) => (
+                <button
+                  key={limit}
+                  type="button"
+                  onClick={() => onConfigChange({ ...config, receiptListPageSize: limit })}
+                  aria-pressed={receiptListPageSize === limit}
+                  className={`min-w-12 rounded-xl px-4 py-2 text-xs font-black transition-all ${
+                    receiptListPageSize === limit
                       ? `${config.theme.color} text-white shadow-sm`
                       : config.colorMode === 'Dark'
                         ? 'text-slate-400 hover:bg-slate-700'
