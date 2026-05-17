@@ -12,6 +12,7 @@ interface UploadQueueProps {
   items: UploadQueueItem[]
   visibleLimit?: number
   processingLabel: string
+  labels?: any
   config: {
     colorMode: string
     theme: {
@@ -28,7 +29,7 @@ function normalizeProgress(value: number) {
   return Math.max(0, Math.min(100, Math.round(progress)))
 }
 
-export function UploadQueue({ items, visibleLimit = 10, processingLabel, config }: UploadQueueProps) {
+export function UploadQueue({ items, visibleLimit = 10, processingLabel, labels, config }: UploadQueueProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (items.length === 0) return null
@@ -55,7 +56,7 @@ export function UploadQueue({ items, visibleLimit = 10, processingLabel, config 
               </div>
               <div className="min-w-0">
                 <p className="truncate text-xs font-bold">{item.name}</p>
-                <p className="truncate text-[10px] font-black opacity-50 uppercase">{item.status}</p>
+                <p className="truncate text-[10px] font-black opacity-50 uppercase">{formatUploadStatus(item.status, labels)}</p>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-3">
@@ -73,9 +74,19 @@ export function UploadQueue({ items, visibleLimit = 10, processingLabel, config 
           onClick={() => setIsExpanded((current) => !current)}
           className={`w-full px-6 py-3 text-center text-[10px] font-black uppercase tracking-wider transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 text-slate-400 hover:bg-slate-800' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
         >
-          {isExpanded ? 'Show less' : `Show ${hiddenCount} more`}
+          {isExpanded ? (labels?.showLess || 'Show less') : formatShowMore(hiddenCount, labels)}
         </button>
       )}
     </div>
   )
+}
+
+function formatShowMore(count: number, labels?: any) {
+  if (typeof labels?.showMore === 'function') return labels.showMore(count)
+  return `Show ${count} more`
+}
+
+function formatUploadStatus(status: string, labels?: any) {
+  if (typeof labels?.formatUploadStatus === 'function') return labels.formatUploadStatus(status)
+  return labels?.statusLabels?.[status] || status
 }

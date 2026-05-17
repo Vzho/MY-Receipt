@@ -43,7 +43,7 @@ interface ReviewConfig {
 interface ReceiptReviewDrawerProps {
   receipt: any
   config: ReviewConfig
-  labels: Record<string, string>
+  labels: Record<string, any>
   documentTypeOptions: string[]
   industries: string[]
   tagOptions: string[]
@@ -180,10 +180,10 @@ export function ReceiptReviewDrawer({
   }
 
   const smartParseLabel = activeRepairProgress?.mode === 'smart'
-    ? `智能解析 ${activeRepairProgress.percent}%`
+    ? `${labels.smartParseLabel || 'Smart parse'} ${activeRepairProgress.percent}%`
     : receipt.status === 'Processing'
-      ? '智能解析中'
-      : '智能解析'
+      ? labels.smartParsingLabel || 'Smart parsing'
+      : labels.smartParseLabel || 'Smart parse'
 
   const mathDelta = manualTotal - grandTotal
   const mathPassed = Math.abs(mathDelta) < 0.05
@@ -207,14 +207,14 @@ export function ReceiptReviewDrawer({
                 {receipt.display_filename || receipt.source_page_label}
               </p>
             )}
-            <p className={`text-[10px] font-bold uppercase mt-0.5 ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>Processing Time: {receipt.time || '10:20'}</p>
+            <p className={`text-[10px] font-bold uppercase mt-0.5 ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.processingTimeLabel || 'Processing time'}: {receipt.time || '10:20'}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {receipt.deleted_at ? (
             <>
-              <button onClick={onRestore} className="px-4 py-2 rounded-xl bg-emerald-50 text-[10px] font-black uppercase text-emerald-700 hover:bg-emerald-100">Restore</button>
-              <button onClick={onPermanentDelete} className="px-4 py-2 rounded-xl bg-rose-50 text-[10px] font-black uppercase text-rose-700 hover:bg-rose-100">Delete permanently</button>
+              <button onClick={onRestore} className="px-4 py-2 rounded-xl bg-emerald-50 text-[10px] font-black uppercase text-emerald-700 hover:bg-emerald-100">{labels.restoreLabel || 'Restore'}</button>
+              <button onClick={onPermanentDelete} className="px-4 py-2 rounded-xl bg-rose-50 text-[10px] font-black uppercase text-rose-700 hover:bg-rose-100">{labels.deletePermanentlyLabel || 'Delete permanently'}</button>
             </>
           ) : (
             <>
@@ -227,11 +227,11 @@ export function ReceiptReviewDrawer({
                 {smartParseLabel}
               </button>
               <button disabled={isExporting} onClick={onExport} className={`px-4 py-2 border rounded-xl text-[10px] font-black flex items-center gap-2 transition-all shadow-sm disabled:cursor-wait disabled:opacity-60 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                <FileOutput className="w-3.5 h-3.5" /> {isExporting ? 'Generating Excel...' : 'Export (XLSX)'}
+                <FileOutput className="w-3.5 h-3.5" /> {isExporting ? labels.generatingExcelLabel || 'Generating Excel...' : labels.exportSingle}
               </button>
             </>
           )}
-          <button onClick={onClose} className={`p-2 border rounded-xl transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-100'}`} title="关闭编辑页">
+          <button onClick={onClose} className={`p-2 border rounded-xl transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-100'}`} title={labels.closeDrawerLabel || 'Close'}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -258,11 +258,11 @@ export function ReceiptReviewDrawer({
       )}
 
       <div className={`grid grid-cols-1 gap-3 border-b px-8 py-4 lg:grid-cols-2 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
-        <ProcessingPanel stage={receipt.processing_stage} status={receipt.status} />
-        <WarningPanel warnings={receipt.warnings} />
+        <ProcessingPanel stage={receipt.processing_stage} status={receipt.status} labels={labels} />
+        <WarningPanel warnings={receipt.warnings} labels={labels} />
         {receipt.deleted_at && (
           <div className={`rounded-2xl border px-4 py-3 text-xs font-bold ${config.colorMode === 'Dark' ? 'border-rose-900/60 bg-rose-950/20 text-rose-200' : 'border-rose-100 bg-rose-50 text-rose-700'}`}>
-            Rejected reason: {receipt.deleted_reason || 'other'}{receipt.deleted_note ? ` / ${receipt.deleted_note}` : ''} / {receipt.deleted_at.slice(0, 10)}
+            {labels.rejectedReasonLabel || 'Rejected reason'}: {receipt.deleted_reason || 'other'}{receipt.deleted_note ? ` / ${receipt.deleted_note}` : ''} / {receipt.deleted_at.slice(0, 10)}
           </div>
         )}
       </div>
@@ -270,7 +270,7 @@ export function ReceiptReviewDrawer({
       <div className="flex-1 flex overflow-hidden">
         <div className={`w-[25%] p-6 flex flex-col border-r relative transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-100/80 border-slate-200'}`}>
           <h4 className={`text-[11px] font-black uppercase tracking-[2px] flex items-center gap-2 mb-4 ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-500'}`}>
-            <Eye className="w-4 h-4" /> {imagePreviewMode === 'processed' ? '识别图' : labels.originalImg}
+            <Eye className="w-4 h-4" /> {imagePreviewMode === 'processed' ? labels.processedImgLabel || 'Processed image' : labels.originalImg}
           </h4>
           {receipt.processed_image_url && receipt.original_image_url && (
             <div className={`mb-4 grid grid-cols-2 gap-1 rounded-xl p-1 text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'bg-slate-900' : 'bg-white'}`}>
@@ -279,14 +279,14 @@ export function ReceiptReviewDrawer({
                 onClick={() => setImagePreviewMode('processed')}
                 className={`rounded-lg px-3 py-2 transition ${imagePreviewMode === 'processed' ? `${config.theme.color} text-white` : 'text-slate-500 hover:bg-slate-50'}`}
               >
-                识别图
+                {labels.processedImgLabel || 'Processed image'}
               </button>
               <button
                 type="button"
                 onClick={() => setImagePreviewMode('original')}
                 className={`rounded-lg px-3 py-2 transition ${imagePreviewMode === 'original' ? `${config.theme.color} text-white` : 'text-slate-500 hover:bg-slate-50'}`}
               >
-                原图
+                {labels.originalImg}
               </button>
             </div>
           )}
@@ -296,7 +296,7 @@ export function ReceiptReviewDrawer({
                 <img
                   src={selectedReceiptImageUrl}
                   onError={(event: any) => { event.target.onerror = null; event.target.src = '/input_file_2.png' }}
-                  alt="Original Receipt"
+                  alt={imagePreviewMode === 'processed' ? labels.processedImgLabel || 'Processed image' : labels.originalImg}
                   className="w-full h-full object-contain cursor-zoom-in"
                   onClick={() => onZoomImage(selectedReceiptImageUrl)}
                   referrerPolicy="no-referrer"
@@ -312,13 +312,13 @@ export function ReceiptReviewDrawer({
             ) : (
               <div className="text-slate-400 text-[10px] font-bold flex flex-col items-center gap-2">
                 <Eye className="w-6 h-6 opacity-20" />
-                暂无原图记录
+                {labels.noImgLabel}
               </div>
             )}
           </div>
           {(receipt.subsidy_info || hasSubsidyDetails(receipt.subsidy_details)) && (
             <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-              <p className={`text-[9px] font-black uppercase mb-1 ${config.colorMode === 'Dark' ? 'text-amber-500' : 'text-amber-700'}`}>政府补贴 / 援助金</p>
+              <p className={`text-[9px] font-black uppercase mb-1 ${config.colorMode === 'Dark' ? 'text-amber-500' : 'text-amber-700'}`}>{labels.subsidyInfo}</p>
               <p className={`text-xs font-black leading-tight ${config.colorMode === 'Dark' ? 'text-amber-200' : 'text-amber-900'}`}>{receipt.subsidy_info || formatSubsidyHeadline(receipt.subsidy_details, config.currency)}</p>
               {subsidyRows.length > 0 && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
@@ -334,7 +334,7 @@ export function ReceiptReviewDrawer({
           )}
           {(receipt.raw_ocr || receipt.raw_ai?.parser_note) && (
             <details className={`mt-4 rounded-xl border p-4 text-xs ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900 text-slate-400' : 'border-slate-200 bg-white text-slate-500'}`}>
-              <summary className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-slate-500">OCR 原文 / 解析说明</summary>
+              <summary className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-slate-500">{labels.ocrRawSummaryLabel || 'OCR text / parser notes'}</summary>
               {receipt.raw_ai?.parser_note && (
                 <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-[10px] font-bold leading-5 text-amber-700">{receipt.raw_ai.parser_note}</p>
               )}
@@ -354,19 +354,19 @@ export function ReceiptReviewDrawer({
               <div className="grid grid-cols-4 gap-6">
                 <div className="col-span-4 lg:col-span-3 grid grid-cols-6 gap-4">
                   <div className={`${isFieldVisible('merchant_name') ? '' : 'hidden'} col-span-6 xl:col-span-4 space-y-1.5`}>
-                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>商户名称 (Merchant)</label>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.merchantLabel}</label>
                     <input type="text" value={receipt.merchant_name || ''} onChange={(event) => updateReceipt({ merchant_name: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('date') ? '' : 'hidden'} col-span-6 sm:col-span-2 xl:col-span-2 space-y-1.5`}>
-                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>日期 (Date)</label>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.dateLabel}</label>
                     <input type="text" value={receipt.date || ''} onChange={(event) => updateReceipt({ date: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('invoice_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
-                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>发票号 (Invoice No)</label>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.invoiceLabel}</label>
                     <input type="text" value={receipt.invoice_no || ''} onChange={(event) => updateReceipt({ invoice_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('company_reg_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
-                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>注册号 (Reg No)</label>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.regNoLabel}</label>
                     <input type="text" value={receipt.company_reg_no || ''} onChange={(event) => updateReceipt({ company_reg_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('tin_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
@@ -378,11 +378,11 @@ export function ReceiptReviewDrawer({
                     <input type="text" value={receipt.sst_no || ''} onChange={(event) => updateReceipt({ sst_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className="col-span-6 xl:col-span-4 space-y-1.5">
-                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>电话 (Phone) & 支付 (Payment)</label>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.phonePaymentLabel}</label>
                     <div className="flex gap-2">
-                      <input type="text" value={receipt.phone || ''} placeholder="Phone" onChange={(event) => updateReceipt({ phone: event.target.value })} className={`${isFieldVisible('payment_method') ? 'w-1/2' : 'w-full'} border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
+                      <input type="text" value={receipt.phone || ''} placeholder={labels.phonePlaceholder || 'Phone'} onChange={(event) => updateReceipt({ phone: event.target.value })} className={`${isFieldVisible('payment_method') ? 'w-1/2' : 'w-full'} border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                       {isFieldVisible('payment_method') && (
-                        <input type="text" value={receipt.payment_method || ''} placeholder="Payment" onChange={(event) => updateReceipt({ payment_method: event.target.value })} className={`w-1/2 border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
+                        <input type="text" value={receipt.payment_method || ''} placeholder={labels.paymentPlaceholder || 'Payment'} onChange={(event) => updateReceipt({ payment_method: event.target.value })} className={`w-1/2 border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                       )}
                     </div>
                   </div>
@@ -390,12 +390,13 @@ export function ReceiptReviewDrawer({
 
                 <div className={`col-span-4 lg:col-span-1 flex flex-col gap-4 border-t lg:border-t-0 lg:border-l pt-4 lg:pt-0 lg:pl-6 ${config.colorMode === 'Dark' ? 'border-slate-800' : 'border-slate-100'}`}>
                   <div className="space-y-1.5">
-                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>单据类型 & 行业</label>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.docTypeIndLabel}</label>
                     <div className="flex gap-2">
                       <SoftSelect
                         value={receipt.doc_type || 'Receipt'}
                         options={documentTypeOptions}
                         colorMode={config.colorMode}
+                        optionLabels={labels.optionLabels}
                         onChange={(value) => updateReceipt({ doc_type: value })}
                         className="min-w-32 flex-1"
                       />
@@ -403,6 +404,7 @@ export function ReceiptReviewDrawer({
                         value={receipt.industry || 'Other'}
                         options={industries}
                         colorMode={config.colorMode}
+                        optionLabels={labels.optionLabels}
                         onChange={(value) => updateReceipt({ industry: value })}
                         className="min-w-28 flex-1"
                       />
@@ -413,6 +415,8 @@ export function ReceiptReviewDrawer({
                       value={customDocTypeInput}
                       onChange={handleCustomDocTypeChange}
                       onSave={handleSaveCustomDocType}
+                      placeholder={labels.customDocTypePlaceholder}
+                      saveLabel={labels.saveLabel}
                     />
                   )}
                   <div className="space-y-1.5">
@@ -420,13 +424,13 @@ export function ReceiptReviewDrawer({
                     <div className="flex flex-wrap gap-1.5">
                       {Array.from(new Set([...tagOptions, ...(receipt.tags || [])])).map((tag) => (
                         <button key={tag} type="button" onClick={() => toggleTag(tag)} className={`px-2.5 py-1 rounded-lg text-[9px] font-black transition-all ${receipt.tags?.includes(tag) ? config.theme.color + ' text-white shadow-sm' : config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500 hover:bg-slate-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
-                          {tag}
+                          {labels.optionLabels?.[tag] || tag}
                         </button>
                       ))}
                     </div>
                     <div className="flex items-center gap-1 mt-1">
-                      <input type="text" value={newTagInput} onChange={(event) => setNewTagInput(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && handleAddCustomTag(event)} placeholder="+ 自定义标签" className={`flex-1 border rounded-lg px-2 py-1.5 text-[10px] font-black outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/50' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/20'}`} />
-                      <button type="button" onClick={() => handleAddCustomTag()} className={`px-2.5 py-1.5 ${config.theme.color} text-white rounded-lg text-[10px] font-black uppercase hover:brightness-110 transition-all`}>添加</button>
+                      <input type="text" value={newTagInput} onChange={(event) => setNewTagInput(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && handleAddCustomTag(event)} placeholder={labels.customTagPlaceholder} className={`flex-1 border rounded-lg px-2 py-1.5 text-[10px] font-black outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/50' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/20'}`} />
+                      <button type="button" onClick={() => handleAddCustomTag()} className={`px-2.5 py-1.5 ${config.theme.color} text-white rounded-lg text-[10px] font-black uppercase hover:brightness-110 transition-all`}>{labels.add}</button>
                     </div>
                   </div>
                 </div>
@@ -447,7 +451,7 @@ export function ReceiptReviewDrawer({
               <div className={`mb-4 rounded-xl border px-4 py-3 text-[10px] font-bold leading-5 ${config.colorMode === 'Dark' ? 'border-amber-800 bg-amber-950/30 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>DeepSeek 已完成文本修复，但商品明细名称质量偏低。当前 OCR 文本可能已经损坏，请对照左侧图片人工补全，或改用视觉模型重解析。</span>
+                  <span>{labels.itemQualityWarningLabel || 'Line item names look unreliable. Please compare with the receipt image and complete them manually, or retry smart parsing.'}</span>
                 </div>
               </div>
             )}
@@ -456,10 +460,10 @@ export function ReceiptReviewDrawer({
               <table className="w-full text-left text-sm">
                 <thead className={`text-[9px] font-black uppercase border-b ${config.colorMode === 'Dark' ? 'bg-slate-800/50 text-slate-600 border-slate-800' : 'bg-slate-50/80 text-slate-500 border-slate-100'}`}>
                   <tr>
-                    <th className="px-5 py-3">Item Description</th>
-                    <th className="px-3 py-3 w-20 text-center">Qty</th>
-                    <th className="px-3 py-3 w-28 text-right">Unit {config.currency}</th>
-                    <th className="px-5 py-3 w-28 text-right">Line {config.currency}</th>
+                    <th className="px-5 py-3">{labels.itemName}</th>
+                    <th className="px-3 py-3 w-20 text-center">{labels.qty}</th>
+                    <th className="px-3 py-3 w-28 text-right">{labels.unitLabel || 'Unit'} {config.currency}</th>
+                    <th className="px-5 py-3 w-28 text-right">{labels.lineLabel || 'Line'} {config.currency}</th>
                     <th className="px-3 py-3 w-10 text-center"></th>
                   </tr>
                 </thead>
@@ -467,7 +471,7 @@ export function ReceiptReviewDrawer({
                   {(receipt.items || []).map((item: any) => (
                     <tr key={item.id} className="group transition-colors">
                       <td className="px-5 py-2">
-                        <input type="text" value={item.name || ''} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder="名称" className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'}`} />
+                        <input type="text" value={item.name || ''} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder={labels.itemNamePlaceholder || labels.itemName} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'}`} />
                       </td>
                       <td className="px-3 py-2">
                         <input type="number" step="0.001" value={item.qty === 0 ? '' : item.qty} onChange={(event) => updateItem(item.id, 'qty', event.target.value)} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-center ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
@@ -477,12 +481,12 @@ export function ReceiptReviewDrawer({
                       </td>
                       <td className={`px-5 py-2 text-right text-xs font-black ${config.colorMode === 'Dark' ? 'text-white' : 'text-slate-900'}`}>{(Number(item.line_total) || 0).toFixed(2)}</td>
                       <td className="px-3 py-2 text-center">
-                        <button type="button" onClick={() => removeItem(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="删除"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button type="button" onClick={() => removeItem(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title={labels.deleteLabel || 'Delete'}><Trash2 className="w-3.5 h-3.5" /></button>
                       </td>
                     </tr>
                   ))}
                   {(!receipt.items || receipt.items.length === 0) && (
-                    <tr><td colSpan={5} className="px-5 py-8 text-center text-[10px] font-bold text-slate-400">暂无明细记录，请手动添加。</td></tr>
+                    <tr><td colSpan={5} className="px-5 py-8 text-center text-[10px] font-bold text-slate-400">{labels.noLineItemsLabel || 'No line items. Add one manually.'}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -496,27 +500,27 @@ export function ReceiptReviewDrawer({
 
             <div className={`grid grid-cols-6 gap-4 text-xs font-bold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-600'}`}>
               <div className={`${isFieldVisible('subtotal') ? '' : 'hidden'} space-y-1.5`}>
-                <span className="block text-[10px] text-slate-400 uppercase">Subtotal (Items)</span>
+                <span className="block text-[10px] text-slate-400 uppercase">{labels.subtotal}</span>
                 <div className={`w-full border border-transparent rounded-lg px-3 py-2.5 text-right font-black transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'}`}>{config.currency} {itemsTotal.toFixed(2)}</div>
               </div>
               <div className={`${isFieldVisible('discount') ? '' : 'hidden'} space-y-1.5`}>
-                <span className="block text-[10px] text-rose-500 uppercase">Discount (-)</span>
+                <span className="block text-[10px] text-rose-500 uppercase">{labels.discount}</span>
                 <input type="number" value={receipt.discount === 0 ? '' : receipt.discount} onChange={(event) => updateReceipt({ discount: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right text-rose-600 outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
               <div className={`${isFieldVisible('service_charge') ? '' : 'hidden'} space-y-1.5`}>
-                <span className="block text-[10px] text-slate-400 uppercase">Service Chg (+)</span>
+                <span className="block text-[10px] text-slate-400 uppercase">{labels.serviceCharge}</span>
                 <input type="number" value={receipt.service_charge === 0 ? '' : receipt.service_charge} onChange={(event) => updateReceipt({ service_charge: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
               <div className={`${isFieldVisible('tax') ? '' : 'hidden'} space-y-1.5`}>
-                <span className="block text-[10px] text-slate-400 uppercase">Tax/SST (+)</span>
+                <span className="block text-[10px] text-slate-400 uppercase">{labels.taxSst}</span>
                 <input type="number" value={receipt.tax_sst === 0 ? '' : receipt.tax_sst} onChange={(event) => updateReceipt({ tax_sst: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
               <div className={`${isFieldVisible('rounding') ? '' : 'hidden'} space-y-1.5`}>
-                <span className="block text-[10px] text-slate-400 uppercase">Rounding (+/-)</span>
+                <span className="block text-[10px] text-slate-400 uppercase">{labels.rounding}</span>
                 <input type="number" value={receipt.rounding === 0 ? '' : receipt.rounding} onChange={(event) => updateReceipt({ rounding: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
               <div className={`${isFieldVisible('change') ? '' : 'hidden'} space-y-1.5`}>
-                <span className="block text-[10px] text-slate-400 uppercase">Change (找零)</span>
+                <span className="block text-[10px] text-slate-400 uppercase">{labels.change}</span>
                 <input type="number" value={receipt.change === 0 ? '' : receipt.change} onChange={(event) => updateReceipt({ change: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
             </div>
@@ -525,14 +529,14 @@ export function ReceiptReviewDrawer({
               <div className={`rounded-2xl border p-5 ${config.colorMode === 'Dark' ? 'border-amber-900/50 bg-amber-950/20' : 'border-amber-100 bg-amber-50/60'}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className={`text-[10px] font-black uppercase tracking-[2px] ${config.colorMode === 'Dark' ? 'text-amber-400' : 'text-amber-700'}`}>燃油补贴 / Budi Madani</p>
+                    <p className={`text-[10px] font-black uppercase tracking-[2px] ${config.colorMode === 'Dark' ? 'text-amber-400' : 'text-amber-700'}`}>{labels.fuelSubsidyLabel || 'Fuel subsidy / Budi Madani'}</p>
                     <p className={`mt-1 text-xs font-bold ${config.colorMode === 'Dark' ? 'text-amber-100' : 'text-amber-900'}`}>
-                      票面总额保留在 Grand Total，客户实际支付金额单独展示，避免把政府补贴误当普通折扣。
+                      {labels.subsidyMathNoteLabel || 'Receipt grand total is preserved; customer payable is shown separately to avoid treating government subsidy as a normal discount.'}
                     </p>
                   </div>
                   {subsidyPayable !== null && (
                     <div className={`min-w-40 rounded-xl px-4 py-3 text-right ${config.colorMode === 'Dark' ? 'bg-slate-950/50' : 'bg-white'}`}>
-                      <p className="text-[9px] font-black uppercase text-slate-400">实际支付 / OPT</p>
+                      <p className="text-[9px] font-black uppercase text-slate-400">{labels.actualPayableLabel || 'Payable / OPT'}</p>
                       <p className={`text-2xl font-black ${config.colorMode === 'Dark' ? 'text-white' : 'text-slate-900'}`}>{config.currency} {subsidyPayable.toFixed(2)}</p>
                     </div>
                   )}
@@ -553,16 +557,16 @@ export function ReceiptReviewDrawer({
                 <p className={`text-[10px] font-black uppercase tracking-[2px] ${config.colorMode === 'Dark' ? 'text-indigo-300' : 'text-indigo-700'}`}>E-invoice</p>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
                   {[
-                    ['Supplier', receipt.extra_fields.supplier_name, 'supplier_name'],
-                    ['Buyer', receipt.extra_fields.buyer_name, 'buyer_name'],
-                    ['Supplier TIN', receipt.extra_fields.supplier_tin, 'supplier_tin'],
-                    ['Buyer TIN', receipt.extra_fields.buyer_tin, 'buyer_tin'],
-                    ['SST No', receipt.extra_fields.sst_no, 'sst_no'],
-                    ['UUID', receipt.extra_fields.invoice_uuid, 'invoice_uuid'],
-                    ['Validation', receipt.extra_fields.validation_link, 'validation_link'],
-                    ['QR Payload', receipt.extra_fields.qr_payload, 'qr_payload'],
-                    ['Invoice Type', receipt.extra_fields.invoice_type, 'invoice_type'],
-                    ['Tax Amount', receipt.extra_fields.tax_amount, 'tax_amount'],
+                    [labels.einvoiceSupplierLabel || 'Supplier', receipt.extra_fields.supplier_name, 'supplier_name'],
+                    [labels.einvoiceBuyerLabel || 'Buyer', receipt.extra_fields.buyer_name, 'buyer_name'],
+                    [labels.einvoiceSupplierTinLabel || 'Supplier TIN', receipt.extra_fields.supplier_tin, 'supplier_tin'],
+                    [labels.einvoiceBuyerTinLabel || 'Buyer TIN', receipt.extra_fields.buyer_tin, 'buyer_tin'],
+                    [labels.einvoiceSstNoLabel || 'SST No', receipt.extra_fields.sst_no, 'sst_no'],
+                    [labels.einvoiceUuidLabel || 'UUID', receipt.extra_fields.invoice_uuid, 'invoice_uuid'],
+                    [labels.einvoiceValidationLabel || 'Validation', receipt.extra_fields.validation_link, 'validation_link'],
+                    [labels.einvoiceQrPayloadLabel || 'QR Payload', receipt.extra_fields.qr_payload, 'qr_payload'],
+                    [labels.einvoiceTypeLabel || 'Invoice Type', receipt.extra_fields.invoice_type, 'invoice_type'],
+                    [labels.einvoiceTaxAmountLabel || 'Tax Amount', receipt.extra_fields.tax_amount, 'tax_amount'],
                   ].filter(([, value, key]) => isFieldVisible(key as FieldKey) && value !== null && value !== undefined && value !== '').map(([label, value]) => (
                     <div key={label as string} className={`rounded-xl px-3 py-2 ${config.colorMode === 'Dark' ? 'bg-slate-950/40' : 'bg-white/80'}`}>
                       <p className="text-[9px] font-black uppercase text-slate-400">{label}</p>

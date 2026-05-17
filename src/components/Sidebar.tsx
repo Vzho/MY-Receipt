@@ -1,8 +1,10 @@
 import { Database, Receipt, RefreshCw, Settings, Trash2 } from 'lucide-react'
 
 interface SidebarLabels {
+  workflowSection?: string
   workflow: string
   history: string
+  rejected?: string
   settings: string
 }
 
@@ -46,7 +48,7 @@ export function Sidebar({
         </div>
       </div>
       <nav className="p-4 space-y-1.5 flex-1">
-        <p className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>Workflow</p>
+        <p className={`px-4 py-3 text-[10px] font-black uppercase tracking-widest ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>{labels.workflowSection || 'Workflow'}</p>
         <button onClick={() => onTabChange('upload')} className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-sm font-bold transition-all ${activeTab === 'upload' ? `${config.theme.color} text-white shadow-md` : config.colorMode === 'Dark' ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>
           <div className="flex items-center gap-3"><RefreshCw className={`w-4 h-4 ${uploadCount > 0 ? 'animate-spin' : ''}`} /> {labels.workflow}</div>
           {uploadCount > 0 && <span className="bg-white/20 px-2 py-0.5 rounded-md text-[10px]">{uploadCount}</span>}
@@ -56,7 +58,7 @@ export function Sidebar({
           <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeTab === 'history' ? 'bg-white/20' : config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>{syncedCount}</span>
         </button>
         <button onClick={() => onTabChange('rejected')} className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-sm font-bold transition-all ${activeTab === 'rejected' ? `${config.theme.color} text-white shadow-md` : config.colorMode === 'Dark' ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}>
-          <div className="flex items-center gap-3"><Trash2 className="w-4 h-4" /> Rejected</div>
+          <div className="flex items-center gap-3"><Trash2 className="w-4 h-4" /> {labels.rejected || 'Rejected'}</div>
           <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeTab === 'rejected' ? 'bg-white/20' : config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>{deletedCount}</span>
         </button>
       </nav>

@@ -7,9 +7,10 @@ interface SoftSelectProps {
   colorMode: string
   onChange: (value: string) => void
   className?: string
+  optionLabels?: Record<string, string>
 }
 
-export function SoftSelect({ value, options, colorMode, onChange, className = '' }: SoftSelectProps) {
+export function SoftSelect({ value, options, colorMode, onChange, className = '', optionLabels = {} }: SoftSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const listboxId = useId()
@@ -45,7 +46,7 @@ export function SoftSelect({ value, options, colorMode, onChange, className = ''
             : 'border-slate-100 bg-slate-50 text-slate-800 shadow-sm hover:border-indigo-100 hover:bg-white focus:ring-4 focus:ring-indigo-500/10'
         }`}
       >
-        <span className="min-w-0 truncate">{selectedValue}</span>
+        <span className="min-w-0 truncate">{optionLabels[selectedValue] || selectedValue}</span>
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
@@ -80,7 +81,7 @@ export function SoftSelect({ value, options, colorMode, onChange, className = ''
                       : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                <span className="min-w-0 truncate">{option}</span>
+                <span className="min-w-0 truncate">{optionLabels[option] || option}</span>
                 {selected && <Check className="h-3.5 w-3.5 shrink-0" />}
               </button>
             )

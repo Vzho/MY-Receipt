@@ -5,6 +5,7 @@ interface NotificationCenterProps {
   notifications: AppNotification[]
   isOpen: boolean
   colorMode: string
+  labels?: any
   onToggle: () => void
   onMarkAllRead: () => void
   onClear: () => void
@@ -15,6 +16,7 @@ export function NotificationCenter({
   notifications,
   isOpen,
   colorMode,
+  labels,
   onToggle,
   onMarkAllRead,
   onClear,
@@ -28,8 +30,8 @@ export function NotificationCenter({
         type="button"
         onClick={onToggle}
         className={`relative flex h-10 w-10 items-center justify-center rounded-xl border text-slate-500 transition-all shadow-sm ${colorMode === 'Dark' ? 'border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-        aria-label="消息中心"
-        title="消息中心"
+        aria-label={labels?.notificationCenterLabel || '消息中心'}
+        title={labels?.notificationCenterLabel || '消息中心'}
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
@@ -43,14 +45,14 @@ export function NotificationCenter({
         <div className={`absolute right-0 top-12 z-[160] w-[380px] overflow-hidden rounded-2xl border shadow-2xl ${colorMode === 'Dark' ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
           <div className={`flex items-center justify-between border-b px-4 py-3 ${colorMode === 'Dark' ? 'border-slate-800' : 'border-slate-100'}`}>
             <div>
-              <p className="text-xs font-black uppercase tracking-widest">消息中心</p>
-              <p className={`mt-0.5 text-[10px] font-bold ${colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{notifications.length} 条记录</p>
+              <p className="text-xs font-black uppercase tracking-widest">{labels?.notificationCenterLabel || '消息中心'}</p>
+              <p className={`mt-0.5 text-[10px] font-bold ${colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{formatNotificationCount(notifications.length, labels)}</p>
             </div>
             <div className="flex items-center gap-1">
-              <button type="button" onClick={onMarkAllRead} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="全部标记已读">
+              <button type="button" onClick={onMarkAllRead} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title={labels?.markAllReadLabel || '全部标记已读'}>
                 <CheckCheck className="h-4 w-4" />
               </button>
-              <button type="button" onClick={onClear} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="清空消息">
+              <button type="button" onClick={onClear} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title={labels?.clearNotificationsLabel || '清空消息'}>
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -58,7 +60,7 @@ export function NotificationCenter({
 
           <div className="max-h-[440px] overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="px-5 py-10 text-center text-xs font-bold text-slate-400">暂无消息</div>
+              <div className="px-5 py-10 text-center text-xs font-bold text-slate-400">{labels?.noNotificationsLabel || '暂无消息'}</div>
             ) : notifications.map((notification) => (
               <button
                 key={notification.id}
@@ -85,6 +87,11 @@ export function NotificationCenter({
       )}
     </div>
   )
+}
+
+function formatNotificationCount(count: number, labels?: any) {
+  if (typeof labels?.notificationCountLabel === 'function') return labels.notificationCountLabel(count)
+  return `${count} 条记录`
 }
 
 function getNotificationTone(type: AppNotification['type']) {

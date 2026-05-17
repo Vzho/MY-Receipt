@@ -36,9 +36,25 @@ function getTagsForDisplay(tags: unknown) {
   })
 }
 
+function localizeOption(value: string, labels: ReceiptTableLabels) {
+  return labels.optionLabels?.[value] || value
+}
+
+function formatRowNumberLabel(rowNumber: number, labels: ReceiptTableLabels) {
+  return (labels.rowNumberLabel || 'Receipt row number {number}').replace('{number}', String(rowNumber))
+}
+
+function formatPageLabel(currentPage: number, pageCount: number, labels: ReceiptTableLabels) {
+  if (labels.pageLabel && labels.pageOfLabel && labels.pageSuffix) {
+    return `${labels.pageLabel} ${currentPage} ${labels.pageOfLabel} ${pageCount} ${labels.pageSuffix}`
+  }
+  return `Page ${currentPage} of ${pageCount}`
+}
+
 interface ReceiptTableLabels {
   sequenceLabel?: string
   merchantLabel: string
+  invoiceLabel?: string
   thumbnailLabel: string
   financialsLabel: string
   tagsLabel: string
@@ -47,6 +63,23 @@ interface ReceiptTableLabels {
   loadingRecords?: string
   noRecords: string
   totalItems: string
+  totalLabel?: string
+  prevLabel?: string
+  nextLabel?: string
+  pageLabel?: string
+  pageOfLabel?: string
+  pageSuffix?: string
+  skuLabel?: string
+  noInvoiceLabel?: string
+  openThumbnailLabel?: string
+  copyMerchantLabel?: string
+  copyInvoiceLabel?: string
+  readyForCropLabel?: string
+  smartParsingBackgroundLabel?: string
+  processingReceiptLabel?: string
+  deleteLabel?: string
+  rowNumberLabel?: string
+  optionLabels?: Record<string, string>
 }
 
 interface ReceiptTableProps {
@@ -147,7 +180,7 @@ export function ReceiptTable({
                     className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
                 </td>
-                <td className={`px-3 py-5 text-center text-xs font-black tabular-nums ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`} aria-label={`Receipt row number ${rowNumber}`}>
+                <td className={`px-3 py-5 text-center text-xs font-black tabular-nums ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`} aria-label={formatRowNumberLabel(rowNumber, labels)}>
                   {rowNumber}
                 </td>
                 <td className="px-6 py-5">
@@ -166,17 +199,17 @@ export function ReceiptTable({
                     <div>
                       <div className="mb-1 flex items-center gap-2">
                         <p className={`text-sm font-black leading-tight ${item.status === 'Failed' ? 'text-rose-600' : config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-800'}`}>
-                          {item.merchant_name || item.display_filename || item.filename || 'Processing receipt'}
+                          {item.merchant_name || item.display_filename || item.filename || labels.processingReceiptLabel || 'Processing receipt'}
                         </p>
                         {item.merchant_name && (
-                          <button type="button" onClick={(event) => onCopyText(item.merchant_name, 'Merchant', event)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="复制商户名">
+                          <button type="button" onClick={(event) => onCopyText(item.merchant_name, labels.merchantLabel, event)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title={labels.copyMerchantLabel || 'Copy merchant'}>
                             <Copy className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <span className={`text-[9px] font-bold uppercase ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>
-                          {item.status === 'Uploaded' ? 'Ready for crop and smart parse' : item.status === 'Processing' ? 'Smart parsing in background' : `INV: ${item.invoice_no || 'N/A'}`}
+                          {item.status === 'Uploaded' ? labels.readyForCropLabel || 'Ready for crop and smart parse' : item.status === 'Processing' ? labels.smartParsingBackgroundLabel || 'Smart parsing in background' : `INV: ${item.invoice_no || labels.noInvoiceLabel || 'N/A'}`}
                         </span>
                         {item.source_page_label && (
                           <span className={`text-[9px] font-bold uppercase ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>
@@ -184,14 +217,14 @@ export function ReceiptTable({
                           </span>
                         )}
                         {item.invoice_no && (
-                          <button type="button" onClick={(event) => onCopyText(item.invoice_no, 'Invoice No', event)} className="rounded-md p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="复制 Invoice No.">
+                          <button type="button" onClick={(event) => onCopyText(item.invoice_no, labels.invoiceLabel || 'Invoice No', event)} className="rounded-md p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title={labels.copyInvoiceLabel || 'Copy invoice no.'}>
                             <Copy className="h-3 w-3" />
                           </button>
                         )}
                       </div>
                       <div className="mt-2 flex max-w-xl flex-col gap-1.5">
-                        <ProcessingPanel stage={item.processing_stage} status={item.status} compact />
-                        <WarningPanel warnings={item.warnings} compact />
+                        <ProcessingPanel stage={item.processing_stage} status={item.status} compact labels={labels} />
+                        <WarningPanel warnings={item.warnings} compact labels={labels} />
                       </div>
                     </div>
                   </div>
@@ -200,8 +233,8 @@ export function ReceiptTable({
                   {thumbnailUrl ? (
                     <button
                       type="button"
-                      aria-label="放大发票图片"
-                      title="放大发票图片"
+                      aria-label={labels.openThumbnailLabel || labels.thumbnailLabel}
+                      title={labels.openThumbnailLabel || labels.thumbnailLabel}
                       onClick={(event) => {
                         event.stopPropagation()
                         onOpenThumbnail(thumbnailUrl)
@@ -210,7 +243,7 @@ export function ReceiptTable({
                     >
                       <img
                         src={thumbnailUrl}
-                        alt="Receipt thumbnail"
+                        alt={labels.thumbnailLabel}
                         className="h-full w-full object-cover transition-transform duration-200 group-hover/thumb:scale-105"
                         loading="lazy"
                         referrerPolicy="no-referrer"
@@ -224,15 +257,15 @@ export function ReceiptTable({
                 </td>
                 <td className="px-6 py-5">
                   <p className={`text-sm font-black leading-none mb-1 ${config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-900'}`}>{config.currency} {parseFloat(item.grand_total as any).toFixed(2)}</p>
-                  <p className={`text-[10px] font-bold ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>{item.date} - {item.items?.length || 0} SKUs</p>
+                  <p className={`text-[10px] font-bold ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`}>{item.date} - {item.items?.length || 0} {labels.skuLabel || 'SKUs'}</p>
                 </td>
               <td className="px-6 py-5">
                 <div className="flex flex-col gap-1.5 items-start">
                   <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${item.status === 'Failed' ? 'bg-rose-50 text-rose-600' : item.status === 'Processing' ? 'bg-indigo-50 text-indigo-600' : config.colorMode === 'Dark' ? 'bg-indigo-950 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
-                    {item.status === 'Uploaded' ? 'Uploaded' : item.status === 'Processing' ? 'Processing' : item.doc_type}
+                    {item.status === 'Uploaded' ? localizeOption('Uploaded', labels) : item.status === 'Processing' ? localizeOption('Processing', labels) : localizeOption(item.doc_type, labels)}
                   </span>
                   <div className="flex max-w-40 flex-wrap gap-1">
-                    {getTagsForDisplay(item.tags).map((tag) => <span key={tag} className={`text-[8px] font-black uppercase px-1 rounded ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-500'}`}>{tag}</span>)}
+                    {getTagsForDisplay(item.tags).map((tag) => <span key={tag} className={`text-[8px] font-black uppercase px-1 rounded ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-500'}`}>{localizeOption(tag, labels)}</span>)}
                   </div>
                 </div>
               </td>
@@ -247,7 +280,7 @@ export function ReceiptTable({
                       <ChevronRight className="w-5 h-5" />
                     </button>
                   )}
-                  <button onClick={(event) => onDelete(item.id, event)} className={`p-2 rounded-xl transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500 hover:bg-rose-600 hover:text-white' : 'bg-slate-100 text-slate-400 hover:bg-rose-600 hover:text-white'}`} title="删除">
+                  <button onClick={(event) => onDelete(item.id, event)} className={`p-2 rounded-xl transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-500 hover:bg-rose-600 hover:text-white' : 'bg-slate-100 text-slate-400 hover:bg-rose-600 hover:text-white'}`} title={labels.deleteLabel || 'Delete'}>
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -261,7 +294,7 @@ export function ReceiptTable({
         </tbody>
       </table>
       <div className={`px-6 py-3 border-t flex flex-wrap justify-between gap-3 items-center text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'bg-slate-800/30 border-slate-800 text-slate-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
-        <span>Total: {visibleItems.length} {labels.totalItems}</span>
+        <span>{labels.totalLabel || 'Total'}: {visibleItems.length} {labels.totalItems}</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -269,16 +302,16 @@ export function ReceiptTable({
             onClick={() => setPage((value) => Math.max(1, value - 1))}
             className="rounded-lg border border-slate-200 px-2 py-1 disabled:opacity-40"
           >
-            Prev
+            {labels.prevLabel || 'Prev'}
           </button>
-          <span>Page {currentPage} of {pageCount}</span>
+          <span>{formatPageLabel(currentPage, pageCount, labels)}</span>
           <button
             type="button"
             disabled={currentPage >= pageCount}
             onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
             className="rounded-lg border border-slate-200 px-2 py-1 disabled:opacity-40"
           >
-            Next
+            {labels.nextLabel || 'Next'}
           </button>
         </div>
       </div>

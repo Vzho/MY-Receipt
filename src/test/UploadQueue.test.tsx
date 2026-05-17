@@ -15,6 +15,13 @@ describe('UploadQueue', () => {
         }))}
         visibleLimit={10}
         processingLabel="Processing"
+        labels={{
+          showMore: (count: number) => `还有 ${count} 个`,
+          showLess: '收起',
+          statusLabels: {
+            'OCR parsing in background': '后台 OCR 解析中',
+          },
+        }}
         config={{
           colorMode: 'Light',
           theme: {
@@ -31,6 +38,36 @@ describe('UploadQueue', () => {
     expect(html).not.toContain('receipt-10.jpg')
     expect(html).toContain('10%')
     expect(html).toContain('19%')
-    expect(html).toContain('Show 2 more')
+    expect(html).toContain('后台 OCR 解析中')
+    expect(html).toContain('还有 2 个')
+    expect(html).not.toContain('Show 2 more')
+  })
+
+  it('formats dynamic upload statuses from labels', () => {
+    const html = renderToStaticMarkup(
+      <UploadQueue
+        items={[{
+          id: 'pdf-page',
+          name: 'invoice.pdf',
+          status: 'Uploading PDF page 2 of 5',
+          progress: 52,
+        }]}
+        processingLabel="处理中"
+        labels={{
+          formatUploadStatus: (status: string) => status.replace('Uploading PDF page 2 of 5', '正在上传 PDF 第 2 / 5 页'),
+        }}
+        config={{
+          colorMode: 'Light',
+          theme: {
+            color: 'bg-indigo-600',
+            light: 'bg-indigo-50',
+            text: 'text-indigo-600',
+          },
+        }}
+      />,
+    )
+
+    expect(html).toContain('正在上传 PDF 第 2 / 5 页')
+    expect(html).not.toContain('Uploading PDF page 2 of 5')
   })
 })

@@ -125,9 +125,9 @@ export function SettingsModal({
           <div className={`flex items-center justify-between gap-4 rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
             <div>
               <label className={`text-[10px] font-black uppercase tracking-[2px] flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                <BellRing className="w-3.5 h-3.5" /> 消息音效
+                <BellRing className="w-3.5 h-3.5" /> {labels.notificationSoundLabel || '消息音效'}
               </label>
-              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>仅在失败、重复检测和批量完成等关键消息时播放。</p>
+              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.notificationSoundDescription || '仅在失败、重复检测和批量完成等关键消息时播放。'}</p>
             </div>
             <button
               type="button"
@@ -148,9 +148,9 @@ export function SettingsModal({
           <div className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
             <div>
               <label className={`text-[10px] font-black uppercase tracking-[2px] flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                <ListOrdered className="w-3.5 h-3.5" /> 上传队列显示数量
+                <ListOrdered className="w-3.5 h-3.5" /> {labels.uploadQueueLimitLabel || '上传队列显示数量'}
               </label>
-              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>批量上传时首页默认展示的处理任务数量。</p>
+              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.uploadQueueLimitDescription || '批量上传时首页默认展示的处理任务数量。'}</p>
             </div>
             <div className={`grid grid-cols-3 gap-1 rounded-2xl p-1 ${config.colorMode === 'Dark' ? 'bg-slate-800' : 'bg-slate-100'}`}>
               {queueLimitOptions.map((limit) => (
@@ -176,9 +176,9 @@ export function SettingsModal({
           <div className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
             <div>
               <label className={`text-[10px] font-black uppercase tracking-[2px] flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-600'}`}>
-                <ListOrdered className="w-3.5 h-3.5" /> 发票列表每页数量
+                <ListOrdered className="w-3.5 h-3.5" /> {labels.receiptListPageSizeLabel || '发票列表每页数量'}
               </label>
-              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>首页发票列表每页默认展示的记录数量。</p>
+              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.receiptListPageSizeDescription || '首页发票列表每页默认展示的记录数量。'}</p>
             </div>
             <div className={`grid grid-cols-3 gap-1 rounded-2xl p-1 ${config.colorMode === 'Dark' ? 'bg-slate-800' : 'bg-slate-100'}`}>
               {receiptPageSizeOptions.map((limit) => (
@@ -202,8 +202,8 @@ export function SettingsModal({
           </div>
 
           <div className="space-y-3">
-            <label className={`text-[10px] font-black uppercase tracking-[2px] block ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>Field extraction & export</label>
-            <FieldConfigPanel preferences={fieldPreferences} onChange={onFieldPreferencesChange} />
+            <label className={`text-[10px] font-black uppercase tracking-[2px] block ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.fieldExtractionExportLabel || 'Field extraction & export'}</label>
+            <FieldConfigPanel preferences={fieldPreferences} onChange={onFieldPreferencesChange} labels={labels} />
           </div>
         </div>
 

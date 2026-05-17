@@ -17,6 +17,7 @@ interface ReceiptCropModalProps {
   description?: string
   skipLabel?: string
   confirmLabel?: string
+  labels?: any
   onCancel: () => void
   onConfirm: (result: { processedFile: File | null; imageProcessing: ImageProcessingMetadata | null }) => void
   onError: (message: string) => void
@@ -51,6 +52,7 @@ export function ReceiptCropModal({
   description = '让票据主体尽量占满识别图，减少桌面、信封、背景纸张进入解析输入。',
   skipLabel = '跳过裁剪',
   confirmLabel = '应用裁剪并上传',
+  labels,
   onCancel,
   onConfirm,
   onError,
@@ -142,10 +144,25 @@ export function ReceiptCropModal({
         imageProcessing: processed.metadata,
       })
     } catch (error) {
-      onError(error instanceof Error ? error.message : '图片裁剪失败')
+      onError(error instanceof Error ? error.message : labels?.cropFailedLabel || '图片裁剪失败')
     } finally {
       setIsRendering(false)
     }
+  }
+
+  const formatQueuedCount = (count: number) => {
+    if (typeof labels?.queuedCountLabel === 'function') return labels.queuedCountLabel(count)
+    return `${count} 张待处理`
+  }
+
+  const formatRotation = (degrees: ReceiptRotation) => {
+    if (typeof labels?.rotationLabel === 'function') return labels.rotationLabel(degrees)
+    return `照片与输出旋转：${degrees}°`
+  }
+
+  const formatResizeLabel = (mode: DragMode) => {
+    if (typeof labels?.resizeCropLabel === 'function') return labels.resizeCropLabel(mode)
+    return `resize ${mode}`
   }
 
   return (
@@ -156,7 +173,7 @@ export function ReceiptCropModal({
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-600">
               <Crop className="h-4 w-4" />
               {title}
-              {queueCount > 1 && <span className="rounded-md bg-indigo-50 px-2 py-1 text-[10px]">{queueCount} 张待处理</span>}
+              {queueCount > 1 && <span className="rounded-md bg-indigo-50 px-2 py-1 text-[10px]">{formatQueuedCount(queueCount)}</span>}
             </div>
             <p className="mt-1 truncate text-sm font-black text-slate-900">{file.name}</p>
           </div>
@@ -165,7 +182,7 @@ export function ReceiptCropModal({
             onClick={onCancel}
             disabled={disabled || isRendering}
             className="rounded-full border border-slate-200 p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 disabled:opacity-50"
-            title="取消本张"
+            title={labels?.cancelCropLabel || '取消本张'}
           >
             <X className="h-5 w-5" />
           </button>
@@ -183,7 +200,7 @@ export function ReceiptCropModal({
                 {imageUrl && (
                   <img
                     src={imageUrl}
-                    alt="Receipt crop preview"
+                    alt={labels?.cropPreviewAlt || 'Receipt crop preview'}
                     className="block max-h-[66vh] max-w-full rounded-lg bg-white object-contain"
                     draggable={false}
                   />
@@ -198,13 +215,13 @@ export function ReceiptCropModal({
                 >
                   <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase text-slate-700 shadow">
                     <Move className="h-3.5 w-3.5" />
-                    拖动票据区域
+                    {labels?.dragCropLabel || '拖动票据区域'}
                   </div>
                   {(['nw', 'ne', 'sw', 'se'] as DragMode[]).map((mode) => (
                     <button
                       key={mode}
                       type="button"
-                      aria-label={`resize ${mode}`}
+                      aria-label={formatResizeLabel(mode)}
                       className={`absolute h-5 w-5 rounded-full border-2 border-white bg-indigo-600 shadow ${
                         mode === 'nw' ? '-left-2.5 -top-2.5 cursor-nwse-resize' :
                         mode === 'ne' ? '-right-2.5 -top-2.5 cursor-nesw-resize' :
@@ -223,11 +240,11 @@ export function ReceiptCropModal({
 
           <aside className="flex flex-col gap-4 border-l border-slate-100 bg-white p-5">
             <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">处理目标</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{labels?.cropTargetLabel || '处理目标'}</p>
               <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
                 {description}
               </p>
-              <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-indigo-600">照片与输出旋转：{rotation}°</p>
+              <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-indigo-600">{formatRotation(rotation)}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -238,7 +255,7 @@ export function ReceiptCropModal({
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
               >
                 <RotateCcw className="h-4 w-4" />
-                左转照片
+                {labels?.rotateLeftLabel || '左转照片'}
               </button>
               <button
                 type="button"
@@ -247,7 +264,7 @@ export function ReceiptCropModal({
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
               >
                 <RotateCw className="h-4 w-4" />
-                右转照片
+                {labels?.rotateRightLabel || '右转照片'}
               </button>
             </div>
 
@@ -260,7 +277,7 @@ export function ReceiptCropModal({
               disabled={disabled || isRendering}
               className="rounded-xl border border-slate-200 px-4 py-3 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
             >
-              重置裁剪框
+              {labels?.resetCropLabel || '重置裁剪框'}
             </button>
 
             <div className="mt-auto space-y-3">
@@ -279,7 +296,7 @@ export function ReceiptCropModal({
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-4 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-500 disabled:opacity-50"
               >
                 <Scissors className="h-4 w-4" />
-                {isRendering ? '正在处理' : confirmLabel}
+                {isRendering ? labels?.renderingLabel || '正在处理' : confirmLabel}
               </button>
             </div>
           </aside>

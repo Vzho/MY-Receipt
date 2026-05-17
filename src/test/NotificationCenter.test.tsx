@@ -18,6 +18,13 @@ describe('NotificationCenter', () => {
         }]}
         isOpen
         colorMode="Light"
+        labels={{
+          notificationCenterLabel: 'Message center',
+          notificationCountLabel: (count: number) => `${count} records`,
+          markAllReadLabel: 'Mark all as read',
+          clearNotificationsLabel: 'Clear messages',
+          noNotificationsLabel: 'No messages',
+        }}
         onToggle={vi.fn()}
         onMarkAllRead={vi.fn()}
         onClear={vi.fn()}
@@ -25,9 +32,10 @@ describe('NotificationCenter', () => {
       />,
     )
 
-    expect(html).toContain('消息中心')
+    expect(html).toContain('Message center')
     expect(html).toContain('OCR failed')
     expect(html).toContain('Receipt image is blurry.')
-    expect(html).toContain('1 条记录')
+    expect(html).toContain('1 records')
+    expect(html).not.toContain('消息中心')
   })
 })

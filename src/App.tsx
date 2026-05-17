@@ -164,19 +164,19 @@ const I18N: any = {
     searchUpload: '搜索商户名或发票号...',
     searchDb: '在 Supabase 数据库中搜索...',
     statusAll: '状态: 全部',
-    statusUploaded: '待智能解析 (Uploaded)',
-    statusProcessing: '解析中 (Processing)',
-    statusPending: '待核对 (Pending Sync)',
-    statusFailed: '解析失败 (Failed)',
+    statusUploaded: '待智能解析',
+    statusProcessing: '解析中',
+    statusPending: '待核对',
+    statusFailed: '解析失败',
     typeAll: '单据类型: 全部',
     tagAll: '标签: 全部',
     noPending: '没有待处理记录。',
     noData: '数据库中无记录。',
-    colMerchant: '状态/商户 (Merchant)',
-    colFinance: '财务摘要 (Financials)',
-    colTags: '分类与标签 (Tags)',
-    colAudit: '人工审计 (Audit)',
-    colCloud: 'Cloud Data (Database)',
+    colMerchant: '状态/商户',
+    colFinance: '财务摘要',
+    colTags: '分类与标签',
+    colAudit: '人工审计',
+    colCloud: '云端数据',
     colTotal: '合计金额',
     colAction: '查看单据与原图',
     modalTitle: '系统偏好与集成',
@@ -186,19 +186,19 @@ const I18N: any = {
     exportSingle: '导出当前单据 (XLSX)',
     originalImg: '单据原图',
     headerInfo: '发票抬头、商户信息与分类标签',
-    skuInfo: '商品明细表 (SKU Items)',
+    skuInfo: '商品明细表',
     financeInfo: '财务汇总与数学校验引擎',
     addSku: '添加 SKU 行',
     hold: '保持挂起',
     syncToCloud: '同步至云端',
     sequenceLabel: '序号',
-    merchantLabel: '商户名称 (Merchant)',
+    merchantLabel: '商户名称',
     thumbnailLabel: '发票缩略图',
-    dateLabel: '日期 (Date)',
-    invoiceLabel: '发票号 (Invoice No)',
-    regNoLabel: '注册号 (Reg No)',
+    dateLabel: '日期',
+    invoiceLabel: '发票号',
+    regNoLabel: '注册号',
     sstIdLabel: 'SST ID',
-    phonePaymentLabel: '电话 (Phone) & 支付 (Payment)',
+    phonePaymentLabel: '电话与支付',
     docTypeIndLabel: '单据类型 & 行业',
     quickTagsLabel: '快捷标签',
     customTagPlaceholder: '+ 自定义标签',
@@ -209,15 +209,15 @@ const I18N: any = {
     mathPassed: '数学校验通过',
     ocrTotal: '票面识别总额 (OCR):',
     subsidyInfo: '政府补贴 / 援助金',
-    itemName: 'Item Description',
-    qty: 'Qty',
-    subtotal: 'Subtotal (Items)',
-    discount: 'Discount (-)',
-    serviceCharge: 'Service Chg (+)',
-    taxSst: 'Tax/SST (+)',
-    rounding: 'Rounding (+/-)',
-    change: 'Change (找零)',
-    grandTotal: 'Calculated Grand Total',
+    itemName: '商品描述',
+    qty: '数量',
+    subtotal: '小计（明细）',
+    discount: '折扣（-）',
+    serviceCharge: '服务费（+）',
+    taxSst: '税费/SST（+）',
+    rounding: '舍入（+/-）',
+    change: '找零',
+    grandTotal: '计算总额',
     saveAndApply: '保存并应用',
     languagePref: '语言配置',
     currencyPref: '货币设置',
@@ -250,6 +250,293 @@ const I18N: any = {
     zoomTip: '详情预览',
     mathFailed: '数学校验差异',
     history: '云端档案'
+    ,
+    optionLabels: {
+      Receipt: '收据',
+      Invoice: '发票',
+      'Credit Note': '贷项通知单',
+      Expense: '费用单',
+      'E-invoice': '电子发票',
+      'Custom (自定义)': '自定义',
+      Grocery: '杂货',
+      Fuel: '燃油',
+      'F&B': '餐饮',
+      Retail: '零售',
+      Service: '服务',
+      Other: '其他',
+      Business: '商务',
+      Personal: '个人',
+      'Tax Deductible': '可抵税',
+      Pending: '待处理',
+      Uploaded: '已上传',
+      Processing: '处理中',
+      Failed: '失败',
+      Synced: '已同步',
+    },
+    processingStageLabels: {
+      uploaded: '已上传',
+      ocr_scanning: 'OCR 识别中',
+      ai_extracting: 'AI 抽取字段中',
+      generating_preview: '生成预览中',
+      ready_for_review: '待审核',
+      ocr_failed: 'OCR 失败',
+    },
+    warningLabels: {
+      total_mismatch: '总额不匹配',
+      amount_mismatch: '金额不匹配',
+      low_confidence_field: '低置信度字段',
+      blurry_image: '图片模糊',
+      ocr_failed: 'OCR 失败',
+      missing_required_field: '缺少必填字段',
+      possible_duplicate: '可能重复',
+    },
+    warningMessages: {
+      'OCR failed': 'OCR 失败',
+      'Possible duplicate receipt': '可能是重复单据',
+      'Merchant is missing': '缺少商户名称',
+      'Invoice No. is missing': '缺少发票号',
+      'Date is missing': '缺少日期',
+      'Low confidence extraction': '提取置信度较低',
+      'Line item total does not match subtotal': '明细合计与小计不一致',
+      'Calculated total does not match grand total': '计算总额与票面总额不一致',
+      'Image or item OCR quality is low': '图片或明细 OCR 质量较低',
+    },
+    noWarningsLabel: '暂无提醒',
+    warningCountLabel: (count: number) => `${count} 个提醒`,
+    statusLabels: {
+      'Preparing upload': '准备上传',
+      'Checking duplicate file': '检查重复文件',
+      'Rendering PDF pages': '渲染 PDF 页面',
+      'Preparing PDF pages for OCR': '准备 PDF 页面 OCR',
+      'Reading QR and metadata': '读取二维码和元数据',
+      'Uploading original receipt': '上传原始单据',
+      'OCR parsing in background': '后台 OCR 解析中',
+      Failed: '失败',
+    },
+    formatUploadStatus: (status: string) => {
+      const exact: Record<string, string> = {
+        'Preparing upload': '准备上传',
+        'Checking duplicate file': '检查重复文件',
+        'Rendering PDF pages': '渲染 PDF 页面',
+        'Preparing PDF pages for OCR': '准备 PDF 页面 OCR',
+        'Reading QR and metadata': '读取二维码和元数据',
+        'Uploading original receipt': '上传原始单据',
+        'OCR parsing in background': '后台 OCR 解析中',
+        Failed: '失败',
+      };
+      const rendered = status.match(/^PDF rendered: (\d+) pages?$/);
+      if (rendered) return `PDF 已渲染：${rendered[1]} 页`;
+      const uploadingPage = status.match(/^Uploading PDF page (\d+) of (\d+)$/);
+      if (uploadingPage) return `正在上传 PDF 第 ${uploadingPage[1]} / ${uploadingPage[2]} 页`;
+      return exact[status] || status;
+    },
+    showMore: (count: number) => `还有 ${count} 个`,
+    showLess: '收起',
+    totalLabel: '共',
+    prevLabel: '上一页',
+    nextLabel: '下一页',
+    pageLabel: '第',
+    pageOfLabel: '页 / 共',
+    pageSuffix: '页',
+    skuLabel: '项明细',
+    noInvoiceLabel: '无发票号',
+    openThumbnailLabel: '放大发票图片',
+    copyMerchantLabel: '复制商户名',
+    copyInvoiceLabel: '复制发票号',
+    readyForCropLabel: '可裁剪并智能解析',
+    smartParsingBackgroundLabel: '智能解析后台处理中',
+    processingReceiptLabel: '单据处理中',
+    deleteLabel: '删除',
+    rowNumberLabel: '第 {number} 行',
+    notificationCenterLabel: '消息中心',
+    notificationCountLabel: (count: number) => `${count} 条记录`,
+    markAllReadLabel: '全部标记已读',
+    clearNotificationsLabel: '清空消息',
+    noNotificationsLabel: '暂无消息',
+    notificationSoundLabel: '消息音效',
+    notificationSoundDescription: '仅在失败、重复检测和批量完成等关键消息时播放。',
+    uploadQueueLimitLabel: '上传队列显示数量',
+    uploadQueueLimitDescription: '批量上传时首页默认展示的处理任务数量。',
+    receiptListPageSizeLabel: '发票列表每页数量',
+    receiptListPageSizeDescription: '首页发票列表每页默认展示的记录数量。',
+    fieldExtractionExportLabel: '字段提取与导出',
+    showFieldLabel: '显示',
+    exportFieldLabel: '导出',
+    requiredFieldLabel: '必需',
+    fieldGroupLabels: {
+      identity: '身份信息',
+      financial: '财务',
+      items: '明细',
+      tax: '税务',
+      einvoice: '电子发票',
+    },
+    fieldLabels: {
+      merchant_name: '商户名称',
+      invoice_no: '发票号',
+      date: '日期',
+      time: '时间',
+      payment_method: '付款方式',
+      subtotal: '小计',
+      discount: '折扣',
+      tax: '税费 / SST',
+      service_charge: '服务费',
+      rounding: '舍入',
+      grand_total: '总额',
+      change: '找零',
+      company_reg_no: '公司注册号',
+      tin_no: 'TIN 编号',
+      sst_no: 'SST 编号',
+      subsidy_details: '补贴明细',
+      items: '商品明细',
+      supplier_name: '供应商名称',
+      buyer_name: '买方名称',
+      supplier_tin: '供应商 TIN',
+      buyer_tin: '买方 TIN',
+      invoice_uuid: '发票 UUID',
+      validation_link: '验证链接',
+      qr_payload: '二维码内容',
+      invoice_type: '发票类型',
+      tax_amount: '税额',
+    },
+    selectedCountLabel: (count: number) => `已选 ${count} 条`,
+    markSyncedLabel: '标记为已同步',
+    deleteSelectedLabel: '删除已选',
+    restoreSelectedLabel: '恢复已选',
+    smartParseLabel: '智能解析',
+    smartParsingLabel: '智能解析中',
+    processingTimeLabel: '处理时间',
+    restoreLabel: '恢复',
+    deletePermanentlyLabel: '永久删除',
+    generatingExcelLabel: '正在生成 Excel...',
+    closeDrawerLabel: '关闭编辑页',
+    rejectedReasonLabel: '删除原因',
+    processedImgLabel: '识别图',
+    ocrRawSummaryLabel: 'OCR 原文 / 解析说明',
+    phonePlaceholder: '电话',
+    paymentPlaceholder: '支付方式',
+    customDocTypePlaceholder: '自定义单据类型',
+    saveLabel: '保存',
+    itemQualityWarningLabel: '商品明细名称质量偏低。请对照左侧图片人工补全，或重新智能解析。',
+    unitLabel: '单价',
+    lineLabel: '行金额',
+    itemNamePlaceholder: '名称',
+    noLineItemsLabel: '暂无明细记录，请手动添加。',
+    fuelSubsidyLabel: '燃油补贴 / Budi Madani',
+    subsidyMathNoteLabel: '票面总额保留在计算总额，客户实际支付金额单独展示，避免把政府补贴误当普通折扣。',
+    actualPayableLabel: '实际支付 / OPT',
+    einvoiceSupplierLabel: '供应商',
+    einvoiceBuyerLabel: '买方',
+    einvoiceSupplierTinLabel: '供应商 TIN',
+    einvoiceBuyerTinLabel: '买方 TIN',
+    einvoiceSstNoLabel: 'SST 编号',
+    einvoiceUuidLabel: '发票 UUID',
+    einvoiceValidationLabel: '验证链接',
+    einvoiceQrPayloadLabel: '二维码内容',
+    einvoiceTypeLabel: '发票类型',
+    einvoiceTaxAmountLabel: '税额',
+    signOutLabel: '退出登录',
+    rejectedReceiptsLabel: '已删除收据',
+    cropTitle: '智能解析前裁剪',
+    cropDescription: '先框住票据主体，再用 Qwen 视觉读取图片，并由 DeepSeek 校验结构、金额和字段。',
+    cropSkipLabel: '直接解析原图',
+    cropConfirmLabel: '裁剪并智能解析',
+    queuedCountLabel: (count: number) => `${count} 张待处理`,
+    cancelCropLabel: '取消本张',
+    dragCropLabel: '拖动票据区域',
+    cropTargetLabel: '处理目标',
+    rotationLabel: (degrees: number) => `照片与输出旋转：${degrees}°`,
+    rotateLeftLabel: '左转照片',
+    rotateRightLabel: '右转照片',
+    resetCropLabel: '重置裁剪框',
+    renderingLabel: '正在处理',
+    cropFailedLabel: '图片裁剪失败',
+    cropPreviewAlt: '发票裁剪预览',
+    resizeCropLabel: (mode: string) => `调整裁剪框 ${mode}`,
+    duplicateTitle: '可能重复',
+    duplicateDescription: (filename: string, score: number) => `${filename} 与已有收据相似。相似度：${(score * 100).toFixed(0)}%。`,
+    cancelUploadLabel: '取消上传',
+    openExistingLabel: '打开旧记录',
+    continueUploadLabel: '继续上传',
+    noDeletedReceiptsLabel: '暂无已删除收据',
+    noNoteLabel: '无备注',
+    copyNoteLabel: '复制重传说明',
+    reuploadCopiedLabel: '重传说明已复制',
+    copyFailedLabel: '复制失败',
+    restoreFailedLabel: '恢复失败',
+    permanentDeleteConfirmLabel: '永久删除会移除数据库记录和 Storage 文件，确定继续吗？',
+    permanentDeleteSuccessLabel: '收据已永久删除。',
+    permanentDeleteFailedLabel: '永久删除失败。',
+    noDeletedSelectedLabel: '没有选择已删除收据。',
+    batchPermanentDeleteConfirmLabel: (count: number) => `永久删除 ${count} 张收据？`,
+    batchPermanentDeleteSuccessLabel: (count: number) => `${count} 张收据已永久删除。`,
+    batchPermanentDeleteFinishedLabel: '批量永久删除完成',
+    batchPermanentDeleteFailedLabel: '批量永久删除失败。',
+    historySearchPlaceholder: '全局搜索历史商户或发票号...',
+    syncedDataLabel: '已同步数据 (Supabase)',
+    removeArchiveLabel: '从存档移除',
+    zoomedReceiptAlt: '放大的发票图片',
+    noImageToParseLabel: '这张收据没有可用于解析的图片。',
+    loadOriginalFailedLabel: '加载原始收据图片失败，无法裁剪。',
+    prepareSmartParseFailedLabel: '准备智能解析失败。',
+    smartParseStartedLabel: '智能解析已在后台开始，完成后会提示。',
+    smartParseStartedTitle: '智能解析已开始',
+    smartParseSyncLabel: '同步智能解析结果到界面',
+    smartParseReturnedErrorLabel: '智能解析返回错误',
+    smartParseFinishedLabel: '智能解析完成',
+    smartParseFailedLabel: '智能解析失败',
+    uploadQueuedMessage: (filename: string) => `${filename} 已上传，OCR 已开始。`,
+    uploadQueuedTitle: '收据已加入 OCR 队列',
+    uploadFailedLabel: '上传失败。',
+    uploadFailedTitle: '收据上传失败',
+    duplicateAlreadyUploadingLabel: (filename: string) => `${filename} 正在上传中。`,
+    duplicateDetectedTitle: '可能重复',
+    duplicateDetectedMessage: (filename: string) => `${filename} 与已有收据相似。`,
+    duplicatePrecheckFailedLabel: '重复检测失败。',
+    pdfNoPagesLabel: 'PDF 收据没有可识别页面。',
+    pdfPageQueuedTitle: 'PDF 页面已加入队列',
+    pdfPageQueuedMessage: (filename: string, pageNumber: number, totalPages: number) => `${filename} 第 ${pageNumber} / ${totalPages} 页已加入 OCR 队列。`,
+    pdfUploadQueuedMessage: (filename: string, count: number) => `${filename}: ${count} 个 PDF 页面已上传，OCR 已开始。`,
+    pdfUploadQueuedTitle: 'PDF 上传已加入队列',
+    receiptNotFoundLabel: '收据已不存在。',
+    openNotificationReceiptFailedLabel: '无法从消息打开收据。',
+    retryingLabel: (id: string) => `正在重试 API：${id}`,
+    deletePromptLabel: '删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）',
+    batchDeletePromptLabel: '批量删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）',
+    deleteFailedLabel: '删除失败。',
+    receiptMovedRejectedLabel: '收据已移入已删除库。',
+    receiptDeletedTitle: '收据已删除',
+    noReceiptsSelectedLabel: '没有选择收据。',
+    batchDeleteSuccessLabel: (count: number) => `${count} 张收据已移入已删除库。`,
+    batchDeleteFinishedLabel: '批量删除完成',
+    batchDeleteFailedLabel: '批量删除失败。',
+    batchSyncSuccessLabel: (count: number) => `${count} 张收据已标记为已同步。`,
+    batchSyncFinishedLabel: '批量同步完成',
+    batchSyncFailedLabel: '批量同步失败。',
+    receiptRestoredLabel: '收据已恢复。',
+    batchRestoreSuccessLabel: (count: number) => `${count} 张收据已恢复。`,
+    batchRestoreFinishedLabel: '批量恢复完成',
+    batchRestoreFailedLabel: '批量恢复失败。',
+    fieldPreferencesSavedLabel: '字段偏好已保存。',
+    fieldPreferencesLocalOnlyLabel: '字段偏好仅保存到本地。',
+    customDocumentTypeSavedLabel: '自定义单据类型已保存。',
+    customDocumentTypeLocalOnlyLabel: '自定义单据类型仅保存到本地。',
+    repairProgressLabels: {
+      initial: {
+        smart: '准备智能解析',
+        vision: '准备 Qwen 视觉重解析',
+        deepseek: '准备 DeepSeek 文本修复',
+      },
+      waiting: {
+        smart: '智能解析仍在处理，请稍候',
+        vision: '视觉模型仍在处理，请稍候',
+        deepseek: 'DeepSeek 仍在处理，请稍候',
+      },
+      stages: {
+        smart: ['上传裁剪图并准备智能解析', 'Qwen 视觉模型正在读取票据图片', '抽取商户、字段、金额和明细', 'DeepSeek 正在校验结构和数学校验', '写回云端并刷新审核页'],
+        vision: ['准备裁剪图并调用 Qwen VL', 'Qwen VL 正在读取票据图片', '提取商户、金额和商品明细', 'DeepSeek 校验结构和数学校验', '等待云函数写回视觉结果'],
+        deepseek: ['连接 DeepSeek 修复引擎', '发送 OCR 原文和初始结果', '重排商户、日期、金额和明细', '校验小计、舍入和总额', '等待云函数写回结果'],
+      },
+    },
   },
   'English': {
     workflow: 'Processing',
@@ -355,7 +642,274 @@ const I18N: any = {
     systemPref: 'System Preference',
     zoomTip: 'Zoom View',
     mathFailed: 'Math Error',
-    history: 'Cloud History'
+    history: 'Cloud History',
+    optionLabels: {
+      Receipt: 'Receipt',
+      Invoice: 'Invoice',
+      'Credit Note': 'Credit Note',
+      Expense: 'Expense',
+      'E-invoice': 'E-invoice',
+      'Custom (自定义)': 'Custom',
+      Grocery: 'Grocery',
+      Fuel: 'Fuel',
+      'F&B': 'F&B',
+      Retail: 'Retail',
+      Service: 'Service',
+      Other: 'Other',
+      Business: 'Business',
+      Personal: 'Personal',
+      'Tax Deductible': 'Tax Deductible',
+      Pending: 'Pending',
+      Uploaded: 'Uploaded',
+      Processing: 'Processing',
+      Failed: 'Failed',
+      Synced: 'Synced',
+    },
+    processingStageLabels: {
+      uploaded: 'Uploaded',
+      ocr_scanning: 'OCR scanning...',
+      ai_extracting: 'AI extracting fields...',
+      generating_preview: 'Generating preview...',
+      ready_for_review: 'Ready for review',
+      ocr_failed: 'OCR failed',
+    },
+    warningLabels: {
+      total_mismatch: 'Total mismatch detected',
+      amount_mismatch: 'Amount mismatch',
+      low_confidence_field: 'Low confidence field',
+      blurry_image: 'Blurry image',
+      ocr_failed: 'OCR failed',
+      missing_required_field: 'Missing required field',
+      possible_duplicate: 'Possible duplicate',
+    },
+    warningMessages: {},
+    noWarningsLabel: 'No warnings',
+    warningCountLabel: (count: number) => `${count} warning${count > 1 ? 's' : ''}`,
+    statusLabels: {},
+    formatUploadStatus: (status: string) => {
+      const exact: Record<string, string> = {
+        'Preparing upload': 'Preparing upload',
+        'Checking duplicate file': 'Checking duplicate file',
+        'Rendering PDF pages': 'Rendering PDF pages',
+        'Preparing PDF pages for OCR': 'Preparing PDF pages for OCR',
+        'Reading QR and metadata': 'Reading QR and metadata',
+        'Uploading original receipt': 'Uploading original receipt',
+        'OCR parsing in background': 'OCR parsing in background',
+        Failed: 'Failed',
+      };
+      const rendered = status.match(/^PDF rendered: (\d+) pages?$/);
+      if (rendered) return `PDF rendered: ${rendered[1]} page${Number(rendered[1]) > 1 ? 's' : ''}`;
+      const uploadingPage = status.match(/^Uploading PDF page (\d+) of (\d+)$/);
+      if (uploadingPage) return `Uploading PDF page ${uploadingPage[1]} of ${uploadingPage[2]}`;
+      return exact[status] || status;
+    },
+    showMore: (count: number) => `Show ${count} more`,
+    showLess: 'Show less',
+    totalLabel: 'Total',
+    prevLabel: 'Prev',
+    nextLabel: 'Next',
+    pageLabel: 'Page',
+    pageOfLabel: 'of',
+    pageSuffix: '',
+    skuLabel: 'SKUs',
+    noInvoiceLabel: 'N/A',
+    openThumbnailLabel: 'Open receipt image',
+    copyMerchantLabel: 'Copy merchant',
+    copyInvoiceLabel: 'Copy invoice no.',
+    readyForCropLabel: 'Ready for crop and smart parse',
+    smartParsingBackgroundLabel: 'Smart parsing in background',
+    processingReceiptLabel: 'Processing receipt',
+    deleteLabel: 'Delete',
+    rowNumberLabel: 'Receipt row number {number}',
+    notificationCenterLabel: 'Message center',
+    notificationCountLabel: (count: number) => `${count} record${count > 1 ? 's' : ''}`,
+    markAllReadLabel: 'Mark all as read',
+    clearNotificationsLabel: 'Clear messages',
+    noNotificationsLabel: 'No messages',
+    notificationSoundLabel: 'Notification sound',
+    notificationSoundDescription: 'Play sound only for key messages such as failures, duplicate checks, and batch completion.',
+    uploadQueueLimitLabel: 'Upload queue display limit',
+    uploadQueueLimitDescription: 'Default number of processing tasks shown on the home page during batch upload.',
+    receiptListPageSizeLabel: 'Receipts per page',
+    receiptListPageSizeDescription: 'Default number of records shown per receipt list page.',
+    fieldExtractionExportLabel: 'Field extraction & export',
+    showFieldLabel: 'Show',
+    exportFieldLabel: 'Export',
+    requiredFieldLabel: 'required',
+    fieldGroupLabels: {
+      identity: 'identity',
+      financial: 'financial',
+      items: 'items',
+      tax: 'tax',
+      einvoice: 'e-invoice',
+    },
+    fieldLabels: {
+      merchant_name: 'Merchant',
+      invoice_no: 'Invoice No',
+      date: 'Date',
+      time: 'Time',
+      payment_method: 'Payment Method',
+      subtotal: 'Subtotal',
+      discount: 'Discount',
+      tax: 'Tax / SST',
+      service_charge: 'Service Charge',
+      rounding: 'Rounding',
+      grand_total: 'Grand Total',
+      change: 'Change',
+      company_reg_no: 'Company Reg No',
+      tin_no: 'TIN No',
+      sst_no: 'SST No',
+      subsidy_details: 'Subsidy Details',
+      items: 'Line Items',
+      supplier_name: 'Supplier Name',
+      buyer_name: 'Buyer Name',
+      supplier_tin: 'Supplier TIN',
+      buyer_tin: 'Buyer TIN',
+      invoice_uuid: 'Invoice UUID',
+      validation_link: 'Validation Link',
+      qr_payload: 'QR Payload',
+      invoice_type: 'Invoice Type',
+      tax_amount: 'Tax Amount',
+    },
+    selectedCountLabel: (count: number) => `${count} selected`,
+    markSyncedLabel: 'Mark synced',
+    deleteSelectedLabel: 'Delete selected',
+    restoreSelectedLabel: 'Restore selected',
+    smartParseLabel: 'Smart parse',
+    smartParsingLabel: 'Smart parsing',
+    processingTimeLabel: 'Processing time',
+    restoreLabel: 'Restore',
+    deletePermanentlyLabel: 'Delete permanently',
+    generatingExcelLabel: 'Generating Excel...',
+    closeDrawerLabel: 'Close editor',
+    rejectedReasonLabel: 'Rejected reason',
+    processedImgLabel: 'Processed image',
+    ocrRawSummaryLabel: 'OCR text / parser notes',
+    phonePlaceholder: 'Phone',
+    paymentPlaceholder: 'Payment',
+    customDocTypePlaceholder: 'Custom document type',
+    saveLabel: 'Save',
+    itemQualityWarningLabel: 'Line item names look unreliable. Please compare with the receipt image and complete them manually, or retry smart parsing.',
+    unitLabel: 'Unit',
+    lineLabel: 'Line',
+    itemNamePlaceholder: 'Name',
+    noLineItemsLabel: 'No line items. Add one manually.',
+    fuelSubsidyLabel: 'Fuel subsidy / Budi Madani',
+    subsidyMathNoteLabel: 'Receipt grand total is preserved; customer payable is shown separately to avoid treating government subsidy as a normal discount.',
+    actualPayableLabel: 'Payable / OPT',
+    einvoiceSupplierLabel: 'Supplier',
+    einvoiceBuyerLabel: 'Buyer',
+    einvoiceSupplierTinLabel: 'Supplier TIN',
+    einvoiceBuyerTinLabel: 'Buyer TIN',
+    einvoiceSstNoLabel: 'SST No',
+    einvoiceUuidLabel: 'Invoice UUID',
+    einvoiceValidationLabel: 'Validation link',
+    einvoiceQrPayloadLabel: 'QR payload',
+    einvoiceTypeLabel: 'Invoice type',
+    einvoiceTaxAmountLabel: 'Tax amount',
+    signOutLabel: 'Sign out',
+    rejectedReceiptsLabel: 'Deleted receipts',
+    cropTitle: 'Crop before smart parse',
+    cropDescription: 'Frame the receipt body first, then let Qwen read the image and DeepSeek verify structure, totals, and fields.',
+    cropSkipLabel: 'Parse original image',
+    cropConfirmLabel: 'Crop and smart parse',
+    queuedCountLabel: (count: number) => `${count} queued`,
+    cancelCropLabel: 'Cancel this file',
+    dragCropLabel: 'Drag receipt area',
+    cropTargetLabel: 'Processing target',
+    rotationLabel: (degrees: number) => `Photo and output rotation: ${degrees}°`,
+    rotateLeftLabel: 'Rotate photo left',
+    rotateRightLabel: 'Rotate photo right',
+    resetCropLabel: 'Reset crop box',
+    renderingLabel: 'Processing',
+    cropFailedLabel: 'Image crop failed',
+    cropPreviewAlt: 'Receipt crop preview',
+    resizeCropLabel: (mode: string) => `Resize crop ${mode}`,
+    duplicateTitle: 'Possible duplicate',
+    duplicateDescription: (filename: string, score: number) => `${filename} looks similar to an existing receipt. Score: ${(score * 100).toFixed(0)}%.`,
+    cancelUploadLabel: 'Cancel upload',
+    openExistingLabel: 'Open existing',
+    continueUploadLabel: 'Continue upload',
+    noDeletedReceiptsLabel: 'No deleted receipts',
+    noNoteLabel: 'No note',
+    copyNoteLabel: 'Copy note',
+    reuploadCopiedLabel: 'Reupload request copied.',
+    copyFailedLabel: 'Copy failed.',
+    restoreFailedLabel: 'Restore failed.',
+    permanentDeleteConfirmLabel: 'Permanent delete removes the database row and Storage file. Continue?',
+    permanentDeleteSuccessLabel: 'Receipt permanently deleted.',
+    permanentDeleteFailedLabel: 'Permanent delete failed.',
+    noDeletedSelectedLabel: 'No deleted receipts selected.',
+    batchPermanentDeleteConfirmLabel: (count: number) => `Permanently delete ${count} receipts?`,
+    batchPermanentDeleteSuccessLabel: (count: number) => `${count} receipts permanently deleted.`,
+    batchPermanentDeleteFinishedLabel: 'Batch permanent delete finished',
+    batchPermanentDeleteFailedLabel: 'Batch permanent delete failed.',
+    historySearchPlaceholder: 'Search synced merchants or invoice numbers...',
+    syncedDataLabel: 'Synced Data (Supabase)',
+    removeArchiveLabel: 'Remove from archive',
+    zoomedReceiptAlt: 'Zoomed receipt',
+    noImageToParseLabel: 'This receipt has no image to parse.',
+    loadOriginalFailedLabel: 'Failed to load original receipt image for cropping.',
+    prepareSmartParseFailedLabel: 'Failed to prepare smart parse.',
+    smartParseStartedLabel: 'Smart parsing has started in the background. You will be notified when it finishes.',
+    smartParseStartedTitle: 'Smart parse started',
+    smartParseSyncLabel: 'Syncing smart parse result to the review page',
+    smartParseReturnedErrorLabel: 'Smart parse returned an error',
+    smartParseFinishedLabel: 'Smart parse finished',
+    smartParseFailedLabel: 'Smart parse failed',
+    uploadQueuedMessage: (filename: string) => `${filename} uploaded. OCR started.`,
+    uploadQueuedTitle: 'Receipt upload queued',
+    uploadFailedLabel: 'Upload failed.',
+    uploadFailedTitle: 'Receipt upload failed',
+    duplicateAlreadyUploadingLabel: (filename: string) => `${filename} is already uploading.`,
+    duplicateDetectedTitle: 'Possible duplicate detected',
+    duplicateDetectedMessage: (filename: string) => `${filename} looks similar to an existing receipt.`,
+    duplicatePrecheckFailedLabel: 'Duplicate precheck failed.',
+    pdfNoPagesLabel: 'PDF receipt has no pages.',
+    pdfPageQueuedTitle: 'PDF page queued',
+    pdfPageQueuedMessage: (filename: string, pageNumber: number, totalPages: number) => `${filename} page ${pageNumber} of ${totalPages} is queued for OCR.`,
+    pdfUploadQueuedMessage: (filename: string, count: number) => `${filename}: ${count} PDF page${count > 1 ? 's' : ''} uploaded. OCR started.`,
+    pdfUploadQueuedTitle: 'PDF upload queued',
+    receiptNotFoundLabel: 'Receipt no longer exists.',
+    openNotificationReceiptFailedLabel: 'Failed to open receipt from message.',
+    retryingLabel: (id: string) => `Retrying API for ID: ${id}`,
+    deletePromptLabel: 'Delete reason (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
+    batchDeletePromptLabel: 'Batch delete reason (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
+    deleteFailedLabel: 'Delete failed.',
+    receiptMovedRejectedLabel: 'Receipt moved to deleted receipts.',
+    receiptDeletedTitle: 'Receipt deleted',
+    noReceiptsSelectedLabel: 'No receipts selected.',
+    batchDeleteSuccessLabel: (count: number) => `${count} receipts moved to deleted receipts.`,
+    batchDeleteFinishedLabel: 'Batch delete finished',
+    batchDeleteFailedLabel: 'Batch delete failed.',
+    batchSyncSuccessLabel: (count: number) => `${count} receipts marked as synced.`,
+    batchSyncFinishedLabel: 'Batch sync finished',
+    batchSyncFailedLabel: 'Batch sync failed.',
+    receiptRestoredLabel: 'Receipt restored.',
+    batchRestoreSuccessLabel: (count: number) => `${count} receipts restored.`,
+    batchRestoreFinishedLabel: 'Batch restore finished',
+    batchRestoreFailedLabel: 'Batch restore failed.',
+    fieldPreferencesSavedLabel: 'Field preferences saved.',
+    fieldPreferencesLocalOnlyLabel: 'Field preferences saved locally only.',
+    customDocumentTypeSavedLabel: 'Custom document type saved.',
+    customDocumentTypeLocalOnlyLabel: 'Custom document type saved locally only.',
+    repairProgressLabels: {
+      initial: {
+        smart: 'Preparing smart parse',
+        vision: 'Preparing Qwen vision re-parse',
+        deepseek: 'Preparing DeepSeek text repair',
+      },
+      waiting: {
+        smart: 'Smart parse is still running. Please wait.',
+        vision: 'Vision model is still running. Please wait.',
+        deepseek: 'DeepSeek is still running. Please wait.',
+      },
+      stages: {
+        smart: ['Uploading cropped image and preparing smart parse', 'Qwen vision is reading the receipt image', 'Extracting merchant, fields, totals, and line items', 'DeepSeek is verifying structure and math', 'Writing back to cloud and refreshing review page'],
+        vision: ['Preparing cropped image and calling Qwen VL', 'Qwen VL is reading the receipt image', 'Extracting merchant, totals, and line items', 'DeepSeek is verifying structure and math', 'Waiting for the edge function to write back vision results'],
+        deepseek: ['Connecting DeepSeek repair engine', 'Sending OCR text and initial result', 'Reordering merchant, date, totals, and line items', 'Verifying subtotal, rounding, and grand total', 'Waiting for the edge function to write back results'],
+      },
+    },
   },
   'Melayu': {
     workflow: 'Pemprosesan',
@@ -462,7 +1016,274 @@ const I18N: any = {
     systemPref: 'Pilihan Sistem',
     zoomTip: 'Pandangan Besar',
     mathFailed: 'Ralat Matematik',
-    history: 'Sejarah Awan'
+    history: 'Sejarah Awan',
+    optionLabels: {
+      Receipt: 'Resit',
+      Invoice: 'Invois',
+      'Credit Note': 'Nota Kredit',
+      Expense: 'Perbelanjaan',
+      'E-invoice': 'E-invois',
+      'Custom (自定义)': 'Tersuai',
+      Grocery: 'Runcit',
+      Fuel: 'Minyak',
+      'F&B': 'F&B',
+      Retail: 'Runcit',
+      Service: 'Servis',
+      Other: 'Lain-lain',
+      Business: 'Bisnes',
+      Personal: 'Peribadi',
+      'Tax Deductible': 'Boleh Tolak Cukai',
+      Pending: 'Menunggu',
+      Uploaded: 'Dimuat Naik',
+      Processing: 'Diproses',
+      Failed: 'Gagal',
+      Synced: 'Disegerak',
+    },
+    processingStageLabels: {
+      uploaded: 'Dimuat naik',
+      ocr_scanning: 'OCR sedang mengimbas',
+      ai_extracting: 'AI mengekstrak medan',
+      generating_preview: 'Menjana pratonton',
+      ready_for_review: 'Sedia disemak',
+      ocr_failed: 'OCR gagal',
+    },
+    warningLabels: {
+      total_mismatch: 'Jumlah tidak padan',
+      amount_mismatch: 'Amaun tidak padan',
+      low_confidence_field: 'Medan keyakinan rendah',
+      blurry_image: 'Imej kabur',
+      ocr_failed: 'OCR gagal',
+      missing_required_field: 'Medan wajib tiada',
+      possible_duplicate: 'Mungkin pendua',
+    },
+    warningMessages: {},
+    noWarningsLabel: 'Tiada amaran',
+    warningCountLabel: (count: number) => `${count} amaran`,
+    statusLabels: {},
+    formatUploadStatus: (status: string) => {
+      const exact: Record<string, string> = {
+        'Preparing upload': 'Menyediakan muat naik',
+        'Checking duplicate file': 'Memeriksa fail pendua',
+        'Rendering PDF pages': 'Merender halaman PDF',
+        'Preparing PDF pages for OCR': 'Menyediakan halaman PDF untuk OCR',
+        'Reading QR and metadata': 'Membaca QR dan metadata',
+        'Uploading original receipt': 'Memuat naik resit asal',
+        'OCR parsing in background': 'OCR berjalan di latar belakang',
+        Failed: 'Gagal',
+      };
+      const rendered = status.match(/^PDF rendered: (\d+) pages?$/);
+      if (rendered) return `PDF dirender: ${rendered[1]} halaman`;
+      const uploadingPage = status.match(/^Uploading PDF page (\d+) of (\d+)$/);
+      if (uploadingPage) return `Memuat naik PDF halaman ${uploadingPage[1]} / ${uploadingPage[2]}`;
+      return exact[status] || status;
+    },
+    showMore: (count: number) => `Lihat ${count} lagi`,
+    showLess: 'Ringkaskan',
+    totalLabel: 'Jumlah',
+    prevLabel: 'Sebelum',
+    nextLabel: 'Seterusnya',
+    pageLabel: 'Halaman',
+    pageOfLabel: 'daripada',
+    pageSuffix: '',
+    skuLabel: 'SKU',
+    noInvoiceLabel: 'Tiada no invois',
+    openThumbnailLabel: 'Buka imej resit',
+    copyMerchantLabel: 'Salin saudagar',
+    copyInvoiceLabel: 'Salin no invois',
+    readyForCropLabel: 'Sedia untuk potong dan huraian pintar',
+    smartParsingBackgroundLabel: 'Huraian pintar berjalan di latar belakang',
+    processingReceiptLabel: 'Resit sedang diproses',
+    deleteLabel: 'Padam',
+    rowNumberLabel: 'Nombor baris resit {number}',
+    notificationCenterLabel: 'Pusat mesej',
+    notificationCountLabel: (count: number) => `${count} rekod`,
+    markAllReadLabel: 'Tanda semua dibaca',
+    clearNotificationsLabel: 'Kosongkan mesej',
+    noNotificationsLabel: 'Tiada mesej',
+    notificationSoundLabel: 'Bunyi notifikasi',
+    notificationSoundDescription: 'Mainkan bunyi hanya untuk mesej penting seperti kegagalan, pendua, dan siap kelompok.',
+    uploadQueueLimitLabel: 'Had paparan giliran muat naik',
+    uploadQueueLimitDescription: 'Bilangan tugas pemprosesan yang dipaparkan secara lalai semasa muat naik kelompok.',
+    receiptListPageSizeLabel: 'Resit setiap halaman',
+    receiptListPageSizeDescription: 'Bilangan rekod yang dipaparkan setiap halaman senarai resit.',
+    fieldExtractionExportLabel: 'Pengekstrakan medan & eksport',
+    showFieldLabel: 'Papar',
+    exportFieldLabel: 'Eksport',
+    requiredFieldLabel: 'wajib',
+    fieldGroupLabels: {
+      identity: 'identiti',
+      financial: 'kewangan',
+      items: 'item',
+      tax: 'cukai',
+      einvoice: 'e-invois',
+    },
+    fieldLabels: {
+      merchant_name: 'Nama Saudagar',
+      invoice_no: 'No Invois',
+      date: 'Tarikh',
+      time: 'Masa',
+      payment_method: 'Kaedah Bayaran',
+      subtotal: 'Subjumlah',
+      discount: 'Diskaun',
+      tax: 'Cukai / SST',
+      service_charge: 'Caj Perkhidmatan',
+      rounding: 'Pembundaran',
+      grand_total: 'Jumlah Akhir',
+      change: 'Baki',
+      company_reg_no: 'No Pendaftaran Syarikat',
+      tin_no: 'No TIN',
+      sst_no: 'No SST',
+      subsidy_details: 'Butiran Subsidi',
+      items: 'Item',
+      supplier_name: 'Nama Pembekal',
+      buyer_name: 'Nama Pembeli',
+      supplier_tin: 'TIN Pembekal',
+      buyer_tin: 'TIN Pembeli',
+      invoice_uuid: 'UUID Invois',
+      validation_link: 'Pautan Sah',
+      qr_payload: 'Kandungan QR',
+      invoice_type: 'Jenis Invois',
+      tax_amount: 'Amaun Cukai',
+    },
+    selectedCountLabel: (count: number) => `${count} dipilih`,
+    markSyncedLabel: 'Tanda disegerak',
+    deleteSelectedLabel: 'Padam pilihan',
+    restoreSelectedLabel: 'Pulihkan pilihan',
+    smartParseLabel: 'Huraian pintar',
+    smartParsingLabel: 'Huraian pintar berjalan',
+    processingTimeLabel: 'Masa proses',
+    restoreLabel: 'Pulihkan',
+    deletePermanentlyLabel: 'Padam kekal',
+    generatingExcelLabel: 'Menjana Excel...',
+    closeDrawerLabel: 'Tutup editor',
+    rejectedReasonLabel: 'Sebab ditolak',
+    processedImgLabel: 'Imej diproses',
+    ocrRawSummaryLabel: 'Teks OCR / nota parser',
+    phonePlaceholder: 'Telefon',
+    paymentPlaceholder: 'Bayaran',
+    customDocTypePlaceholder: 'Jenis dokumen tersuai',
+    saveLabel: 'Simpan',
+    itemQualityWarningLabel: 'Nama item kurang yakin. Semak imej resit dan lengkapkan secara manual, atau cuba huraian pintar semula.',
+    unitLabel: 'Unit',
+    lineLabel: 'Baris',
+    itemNamePlaceholder: 'Nama',
+    noLineItemsLabel: 'Tiada item. Tambah secara manual.',
+    fuelSubsidyLabel: 'Subsidi minyak / Budi Madani',
+    subsidyMathNoteLabel: 'Jumlah resit dikekalkan; bayaran pelanggan dipaparkan berasingan supaya subsidi kerajaan tidak dianggap diskaun biasa.',
+    actualPayableLabel: 'Bayaran sebenar / OPT',
+    einvoiceSupplierLabel: 'Pembekal',
+    einvoiceBuyerLabel: 'Pembeli',
+    einvoiceSupplierTinLabel: 'TIN pembekal',
+    einvoiceBuyerTinLabel: 'TIN pembeli',
+    einvoiceSstNoLabel: 'No SST',
+    einvoiceUuidLabel: 'UUID invois',
+    einvoiceValidationLabel: 'Pautan sah',
+    einvoiceQrPayloadLabel: 'Kandungan QR',
+    einvoiceTypeLabel: 'Jenis invois',
+    einvoiceTaxAmountLabel: 'Amaun cukai',
+    signOutLabel: 'Log keluar',
+    rejectedReceiptsLabel: 'Resit dipadam',
+    cropTitle: 'Potong sebelum huraian pintar',
+    cropDescription: 'Bingkaikan badan resit dahulu, kemudian Qwen membaca imej dan DeepSeek menyemak struktur, jumlah, dan medan.',
+    cropSkipLabel: 'Huraikan imej asal',
+    cropConfirmLabel: 'Potong dan huraikan',
+    queuedCountLabel: (count: number) => `${count} menunggu`,
+    cancelCropLabel: 'Batal fail ini',
+    dragCropLabel: 'Seret kawasan resit',
+    cropTargetLabel: 'Sasaran proses',
+    rotationLabel: (degrees: number) => `Putaran foto dan output: ${degrees}°`,
+    rotateLeftLabel: 'Putar foto kiri',
+    rotateRightLabel: 'Putar foto kanan',
+    resetCropLabel: 'Tetapkan semula kotak potong',
+    renderingLabel: 'Sedang diproses',
+    cropFailedLabel: 'Gagal memotong imej',
+    cropPreviewAlt: 'Pratonton potong resit',
+    resizeCropLabel: (mode: string) => `Ubah saiz potong ${mode}`,
+    duplicateTitle: 'Mungkin pendua',
+    duplicateDescription: (filename: string, score: number) => `${filename} serupa dengan resit sedia ada. Skor: ${(score * 100).toFixed(0)}%.`,
+    cancelUploadLabel: 'Batal muat naik',
+    openExistingLabel: 'Buka rekod lama',
+    continueUploadLabel: 'Teruskan muat naik',
+    noDeletedReceiptsLabel: 'Tiada resit dipadam',
+    noNoteLabel: 'Tiada nota',
+    copyNoteLabel: 'Salin nota',
+    reuploadCopiedLabel: 'Permintaan muat naik semula disalin.',
+    copyFailedLabel: 'Salin gagal.',
+    restoreFailedLabel: 'Pulih gagal.',
+    permanentDeleteConfirmLabel: 'Padam kekal akan membuang rekod pangkalan data dan fail Storage. Teruskan?',
+    permanentDeleteSuccessLabel: 'Resit dipadam kekal.',
+    permanentDeleteFailedLabel: 'Padam kekal gagal.',
+    noDeletedSelectedLabel: 'Tiada resit dipadam dipilih.',
+    batchPermanentDeleteConfirmLabel: (count: number) => `Padam kekal ${count} resit?`,
+    batchPermanentDeleteSuccessLabel: (count: number) => `${count} resit dipadam kekal.`,
+    batchPermanentDeleteFinishedLabel: 'Padam kekal kelompok selesai',
+    batchPermanentDeleteFailedLabel: 'Padam kekal kelompok gagal.',
+    historySearchPlaceholder: 'Cari saudagar atau no invois disegerak...',
+    syncedDataLabel: 'Data Disegerak (Supabase)',
+    removeArchiveLabel: 'Buang dari arkib',
+    zoomedReceiptAlt: 'Resit dibesarkan',
+    noImageToParseLabel: 'Resit ini tiada imej untuk dihuraikan.',
+    loadOriginalFailedLabel: 'Gagal memuatkan imej resit asal untuk dipotong.',
+    prepareSmartParseFailedLabel: 'Gagal menyediakan huraian pintar.',
+    smartParseStartedLabel: 'Huraian pintar telah bermula di latar belakang. Anda akan dimaklumkan apabila selesai.',
+    smartParseStartedTitle: 'Huraian pintar bermula',
+    smartParseSyncLabel: 'Menyegerakkan hasil huraian pintar ke halaman semakan',
+    smartParseReturnedErrorLabel: 'Huraian pintar mengembalikan ralat',
+    smartParseFinishedLabel: 'Huraian pintar selesai',
+    smartParseFailedLabel: 'Huraian pintar gagal',
+    uploadQueuedMessage: (filename: string) => `${filename} dimuat naik. OCR bermula.`,
+    uploadQueuedTitle: 'Resit dimasukkan ke giliran OCR',
+    uploadFailedLabel: 'Muat naik gagal.',
+    uploadFailedTitle: 'Muat naik resit gagal',
+    duplicateAlreadyUploadingLabel: (filename: string) => `${filename} sedang dimuat naik.`,
+    duplicateDetectedTitle: 'Mungkin pendua dikesan',
+    duplicateDetectedMessage: (filename: string) => `${filename} serupa dengan resit sedia ada.`,
+    duplicatePrecheckFailedLabel: 'Semakan pendua gagal.',
+    pdfNoPagesLabel: 'Resit PDF tiada halaman.',
+    pdfPageQueuedTitle: 'Halaman PDF dimasukkan ke giliran',
+    pdfPageQueuedMessage: (filename: string, pageNumber: number, totalPages: number) => `${filename} halaman ${pageNumber} / ${totalPages} dimasukkan ke giliran OCR.`,
+    pdfUploadQueuedMessage: (filename: string, count: number) => `${filename}: ${count} halaman PDF dimuat naik. OCR bermula.`,
+    pdfUploadQueuedTitle: 'Muat naik PDF dimasukkan ke giliran',
+    receiptNotFoundLabel: 'Resit tidak lagi wujud.',
+    openNotificationReceiptFailedLabel: 'Gagal membuka resit daripada mesej.',
+    retryingLabel: (id: string) => `Mencuba semula API untuk ID: ${id}`,
+    deletePromptLabel: 'Sebab padam (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
+    batchDeletePromptLabel: 'Sebab padam kelompok (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
+    deleteFailedLabel: 'Padam gagal.',
+    receiptMovedRejectedLabel: 'Resit dipindahkan ke senarai dipadam.',
+    receiptDeletedTitle: 'Resit dipadam',
+    noReceiptsSelectedLabel: 'Tiada resit dipilih.',
+    batchDeleteSuccessLabel: (count: number) => `${count} resit dipindahkan ke senarai dipadam.`,
+    batchDeleteFinishedLabel: 'Padam kelompok selesai',
+    batchDeleteFailedLabel: 'Padam kelompok gagal.',
+    batchSyncSuccessLabel: (count: number) => `${count} resit ditanda disegerak.`,
+    batchSyncFinishedLabel: 'Segerak kelompok selesai',
+    batchSyncFailedLabel: 'Segerak kelompok gagal.',
+    receiptRestoredLabel: 'Resit dipulihkan.',
+    batchRestoreSuccessLabel: (count: number) => `${count} resit dipulihkan.`,
+    batchRestoreFinishedLabel: 'Pulih kelompok selesai',
+    batchRestoreFailedLabel: 'Pulih kelompok gagal.',
+    fieldPreferencesSavedLabel: 'Keutamaan medan disimpan.',
+    fieldPreferencesLocalOnlyLabel: 'Keutamaan medan hanya disimpan setempat.',
+    customDocumentTypeSavedLabel: 'Jenis dokumen tersuai disimpan.',
+    customDocumentTypeLocalOnlyLabel: 'Jenis dokumen tersuai hanya disimpan setempat.',
+    repairProgressLabels: {
+      initial: {
+        smart: 'Menyediakan huraian pintar',
+        vision: 'Menyediakan huraian semula Qwen vision',
+        deepseek: 'Menyediakan pembaikan teks DeepSeek',
+      },
+      waiting: {
+        smart: 'Huraian pintar masih berjalan. Sila tunggu.',
+        vision: 'Model vision masih berjalan. Sila tunggu.',
+        deepseek: 'DeepSeek masih berjalan. Sila tunggu.',
+      },
+      stages: {
+        smart: ['Memuat naik imej dipotong dan menyediakan huraian pintar', 'Qwen vision membaca imej resit', 'Mengekstrak saudagar, medan, jumlah, dan item', 'DeepSeek menyemak struktur dan matematik', 'Menulis ke awan dan menyegarkan halaman semakan'],
+        vision: ['Menyediakan imej dipotong dan memanggil Qwen VL', 'Qwen VL membaca imej resit', 'Mengekstrak saudagar, jumlah, dan item', 'DeepSeek menyemak struktur dan matematik', 'Menunggu edge function menulis hasil vision'],
+        deepseek: ['Menyambung enjin pembaikan DeepSeek', 'Menghantar teks OCR dan hasil awal', 'Menyusun saudagar, tarikh, jumlah, dan item', 'Menyemak subjumlah, pembundaran, dan jumlah akhir', 'Menunggu edge function menulis hasil'],
+      },
+    },
   }
 };
 
@@ -935,7 +1756,7 @@ export default function App() {
       if (pendingUploadHashesRef.current.has(fileHash)) {
         URL.revokeObjectURL(previewUrl);
         setUploadList((old: any[]) => old.filter((item) => item.id !== uploadId));
-        showToast(`${file.name} is already uploading.`, 'info');
+        showToast(typeof t.duplicateAlreadyUploadingLabel === 'function' ? t.duplicateAlreadyUploadingLabel(file.name) : `${file.name} is already uploading.`, 'info');
         return;
       }
 
@@ -950,7 +1771,7 @@ export default function App() {
           : item));
         renderedPdfPages = await renderPdfPagesToReceiptImages(file);
         if (renderedPdfPages.length === 0) {
-          throw new Error('PDF receipt has no pages.')
+          throw new Error(t.pdfNoPagesLabel)
         }
         duplicateFileHashes.push(buildPdfPageFileHash(fileHash, renderedPdfPages[0].metadata.source_page || 1));
       }
@@ -967,8 +1788,8 @@ export default function App() {
         setDuplicatePrompt({ file, previewUrl, fileHash, perceptualHash, candidates, renderedPdfPages });
         addNotification({
           type: 'warning',
-          title: 'Possible duplicate detected',
-          message: `${file.name} looks similar to an existing receipt.`,
+          title: t.duplicateDetectedTitle,
+          message: typeof t.duplicateDetectedMessage === 'function' ? t.duplicateDetectedMessage(file.name) : `${file.name} looks similar to an existing receipt.`,
           receipt_id: candidates[0]?.receipt.id,
         });
         return;
@@ -982,9 +1803,9 @@ export default function App() {
       URL.revokeObjectURL(previewUrl);
       setUploadList((old: any[]) => old.map((item) => item.id === uploadId ? { ...item, status: 'Failed', progress: 100 } : item));
       console.error('Duplicate precheck failed:', error);
-      showToast(error instanceof Error ? error.message : 'Duplicate precheck failed.', 'error', {
+      showToast(error instanceof Error ? error.message : t.duplicatePrecheckFailedLabel, 'error', {
         persist: true,
-        title: 'Duplicate precheck failed',
+        title: t.duplicatePrecheckFailedLabel,
       });
     }
   };
@@ -999,7 +1820,7 @@ export default function App() {
       pendingUploadHashesRef.current.delete(prompt.fileHash);
       URL.revokeObjectURL(prompt.previewUrl);
       console.error('QR decode failed:', error);
-      showToast(error instanceof Error ? error.message : 'Upload failed.', 'error');
+      showToast(error instanceof Error ? error.message : t.uploadFailedLabel, 'error');
     }
   };
 
@@ -1042,7 +1863,7 @@ export default function App() {
     try {
       const receipt = await getReceipt(receiptId);
       if (!receipt) {
-        showToast('Receipt no longer exists.', 'info');
+        showToast(t.receiptNotFoundLabel, 'info');
         return;
       }
       const displayReceipt = await buildDisplayReceipt(receipt);
@@ -1056,7 +1877,7 @@ export default function App() {
       setSelectedReceipt(displayReceipt);
     } catch (error) {
       console.error('Failed to open notification receipt:', error);
-      showToast('Failed to open receipt from message.', 'error');
+      showToast(t.openNotificationReceiptFailedLabel, 'error');
     }
   };
 
@@ -1072,7 +1893,7 @@ export default function App() {
       renderedPages = await renderPdfPagesToReceiptImages(file);
     }
     if (renderedPages.length === 0) {
-      throw new Error('PDF receipt has no pages.');
+      throw new Error(t.pdfNoPagesLabel);
     }
 
     const totalPages = renderedPages.length;
@@ -1113,17 +1934,17 @@ export default function App() {
       upsertHistoryReceipt(displayReceipt);
       addNotification({
         type: 'info',
-        title: 'PDF page queued',
-        message: `${file.name} page ${pageNumber} of ${totalPages} is queued for OCR.`,
+        title: t.pdfPageQueuedTitle,
+        message: typeof t.pdfPageQueuedMessage === 'function' ? t.pdfPageQueuedMessage(file.name, pageNumber, totalPages) : `${file.name} page ${pageNumber} of ${totalPages} is queued for OCR.`,
         receipt_id: result.receipt.id,
       });
       startReceiptResultPolling(result.receipt.id, pagePreviewUrl);
     }
 
     setUploadList((old: any[]) => old.filter((item) => item.id !== uploadId));
-    showToast(`${file.name}: ${createdReceipts.length} PDF page${createdReceipts.length > 1 ? 's' : ''} uploaded. OCR started.`, 'success', {
+    showToast(typeof t.pdfUploadQueuedMessage === 'function' ? t.pdfUploadQueuedMessage(file.name, createdReceipts.length) : `${file.name}: ${createdReceipts.length} PDF page${createdReceipts.length > 1 ? 's' : ''} uploaded. OCR started.`, 'success', {
       persist: true,
-      title: 'PDF upload queued',
+      title: t.pdfUploadQueuedTitle,
     });
   };
 
@@ -1186,18 +2007,18 @@ export default function App() {
       const displayReceipt = await buildDisplayReceipt(result.receipt, displayPreviewUrl);
 
       upsertHistoryReceipt(displayReceipt);
-      showToast(`${file.name} uploaded. OCR started.`, 'success', {
+      showToast(typeof t.uploadQueuedMessage === 'function' ? t.uploadQueuedMessage(file.name) : `${file.name} uploaded. OCR started.`, 'success', {
         persist: true,
-        title: 'Receipt upload queued',
+        title: t.uploadQueuedTitle,
         receiptId: result.receipt.id,
       });
       startReceiptResultPolling(result.receipt.id, displayPreviewUrl, uploadId);
     } catch (error) {
       console.error('Receipt upload failed:', error);
       setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, status: 'Failed', progress: 100 } : u));
-      showToast(error instanceof Error ? error.message : 'Upload failed.', 'error', {
+      showToast(error instanceof Error ? error.message : t.uploadFailedLabel, 'error', {
         persist: true,
-        title: 'Receipt upload failed',
+        title: t.uploadFailedTitle,
       });
       URL.revokeObjectURL(previewUrl);
       if (displayPreviewUrl !== previewUrl && displayPreviewUrl.startsWith('blob:')) {
@@ -1210,7 +2031,7 @@ export default function App() {
   };
 
   const handleRetry = (id: string) => {
-    showToast(`Retrying API for ID: ${id}`, 'info');
+    showToast(typeof t.retryingLabel === 'function' ? t.retryingLabel(id) : `Retrying API for ID: ${id}`, 'info');
     setHistory(history.filter(h => h.id !== id));
   };
 
@@ -1222,28 +2043,30 @@ export default function App() {
   };
 
   const startRepairProgress = (receiptId: string, mode: RepairProgress['mode'] = 'deepseek') => {
+    const repairLabels = t.repairProgressLabels || {};
+    const stageTexts = repairLabels.stages?.[mode];
     const stages = mode === 'smart'
       ? [
-        { percent: 12, label: '上传裁剪图并准备智能解析' },
-        { percent: 28, label: 'Qwen 视觉模型正在读取票据图片' },
-        { percent: 48, label: '抽取商户、字段、金额和明细' },
-        { percent: 68, label: 'DeepSeek 正在校验结构和数学校验' },
-        { percent: 88, label: '写回云端并刷新审核页' },
+        { percent: 12, label: stageTexts?.[0] || '上传裁剪图并准备智能解析' },
+        { percent: 28, label: stageTexts?.[1] || 'Qwen 视觉模型正在读取票据图片' },
+        { percent: 48, label: stageTexts?.[2] || '抽取商户、字段、金额和明细' },
+        { percent: 68, label: stageTexts?.[3] || 'DeepSeek 正在校验结构和数学校验' },
+        { percent: 88, label: stageTexts?.[4] || '写回云端并刷新审核页' },
       ]
       : mode === 'vision'
       ? [
-        { percent: 14, label: '准备裁剪图并调用 Qwen VL' },
-        { percent: 32, label: 'Qwen VL 正在读取票据图片' },
-        { percent: 52, label: '提取商户、金额和商品明细' },
-        { percent: 72, label: 'DeepSeek 校验结构和数学校验' },
-        { percent: 88, label: '等待云函数写回视觉结果' },
+        { percent: 14, label: stageTexts?.[0] || '准备裁剪图并调用 Qwen VL' },
+        { percent: 32, label: stageTexts?.[1] || 'Qwen VL 正在读取票据图片' },
+        { percent: 52, label: stageTexts?.[2] || '提取商户、金额和商品明细' },
+        { percent: 72, label: stageTexts?.[3] || 'DeepSeek 校验结构和数学校验' },
+        { percent: 88, label: stageTexts?.[4] || '等待云函数写回视觉结果' },
       ]
       : [
-        { percent: 18, label: '连接 DeepSeek 修复引擎' },
-        { percent: 34, label: '发送 OCR 原文和初始结果' },
-        { percent: 56, label: '重排商户、日期、金额和明细' },
-        { percent: 74, label: '校验小计、舍入和总额' },
-        { percent: 86, label: '等待云函数写回结果' },
+        { percent: 18, label: stageTexts?.[0] || '连接 DeepSeek 修复引擎' },
+        { percent: 34, label: stageTexts?.[1] || '发送 OCR 原文和初始结果' },
+        { percent: 56, label: stageTexts?.[2] || '重排商户、日期、金额和明细' },
+        { percent: 74, label: stageTexts?.[3] || '校验小计、舍入和总额' },
+        { percent: 86, label: stageTexts?.[4] || '等待云函数写回结果' },
       ];
     let stageIndex = 0;
 
@@ -1252,7 +2075,7 @@ export default function App() {
       receiptId,
       mode,
       percent: 8,
-      label: mode === 'smart' ? '准备智能解析' : mode === 'vision' ? '准备 Qwen 视觉重解析' : '准备 DeepSeek 文本修复',
+      label: repairLabels.initial?.[mode] || (mode === 'smart' ? '准备智能解析' : mode === 'vision' ? '准备 Qwen 视觉重解析' : '准备 DeepSeek 文本修复'),
     });
 
     repairProgressTimerRef.current = window.setInterval(() => {
@@ -1264,7 +2087,7 @@ export default function App() {
             receiptId,
             mode,
             percent: Math.min(90, current.percent + 1),
-            label: mode === 'smart' ? '智能解析仍在处理，请稍候' : mode === 'vision' ? '视觉模型仍在处理，请稍候' : 'DeepSeek 仍在处理，请稍候',
+            label: repairLabels.waiting?.[mode] || (mode === 'smart' ? '智能解析仍在处理，请稍候' : mode === 'vision' ? '视觉模型仍在处理，请稍候' : 'DeepSeek 仍在处理，请稍候'),
           };
         });
         return;
@@ -1281,13 +2104,13 @@ export default function App() {
       ? selectedReceipt.processed_image_url || selectedReceipt.image_url
       : selectedReceipt.original_image_url || selectedReceipt.image_url;
     if (!imageUrl) {
-      showToast('This receipt has no image to parse.', 'error');
+      showToast(t.noImageToParseLabel, 'error');
       return;
     }
 
     try {
       const response = await fetch(imageUrl);
-      if (!response.ok) throw new Error('Failed to load original receipt image for cropping.');
+      if (!response.ok) throw new Error(t.loadOriginalFailedLabel);
       const blob = await response.blob();
       const file = new File([blob], selectedReceipt.filename || `${selectedReceipt.id}.jpg`, {
         type: blob.type || selectedReceipt.mime_type || 'image/jpeg',
@@ -1295,7 +2118,7 @@ export default function App() {
       setSmartCropTarget({ receipt: selectedReceipt, file });
     } catch (error) {
       console.error('Failed to prepare smart parse crop:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to prepare smart parse.', 'error');
+      showToast(error instanceof Error ? error.message : t.prepareSmartParseFailedLabel, 'error');
     }
   };
 
@@ -1322,9 +2145,9 @@ export default function App() {
     startRepairProgress(receiptId, 'smart');
     setSelectedReceipt(null);
     setHistory((current) => current.map((item) => item.id === receiptId ? { ...item, status: 'Processing', processing_stage: 'ai_extracting' } : item));
-    showToast('智能解析已在后台开始，完成后会提示。', 'info', {
+    showToast(t.smartParseStartedLabel, 'info', {
       persist: true,
-      title: 'Smart parse started',
+      title: t.smartParseStartedTitle,
       receiptId,
     });
 
@@ -1347,7 +2170,7 @@ export default function App() {
         qrPayload: receipt.extra_fields?.qr_payload,
       });
       clearRepairProgressTimer();
-      setRepairProgress({ receiptId, mode: 'smart', percent: 94, label: '同步智能解析结果到界面' });
+      setRepairProgress({ receiptId, mode: 'smart', percent: 94, label: t.smartParseSyncLabel });
       const originalSignedUrl = await createReceiptFileSignedUrl(result.receipt.file_path);
       const processedSignedUrl = await createReceiptFileSignedUrl(result.receipt.processed_file_path || null);
       const displayReceipt = toDisplayReceipt({
@@ -1358,20 +2181,20 @@ export default function App() {
       });
 
       setHistory((current) => current.map((item) => item.id === displayReceipt.id ? displayReceipt : item));
-      setRepairProgress({ receiptId, mode: 'smart', percent: 100, label: result.parseError ? '智能解析返回错误' : '智能解析完成' });
-      showToast(result.parseError || `${displayReceipt.merchant_name || displayReceipt.filename || 'Receipt'} 智能解析完成。`, result.parseError ? 'error' : 'success', {
+      setRepairProgress({ receiptId, mode: 'smart', percent: 100, label: result.parseError ? t.smartParseReturnedErrorLabel : t.smartParseFinishedLabel });
+      showToast(result.parseError || `${displayReceipt.merchant_name || displayReceipt.filename || 'Receipt'} ${t.smartParseFinishedLabel}.`, result.parseError ? 'error' : 'success', {
         persist: true,
-        title: result.parseError ? 'Smart parse failed' : 'Smart parse finished',
+        title: result.parseError ? t.smartParseFailedLabel : t.smartParseFinishedLabel,
         receiptId,
       });
     } catch (error) {
       console.error('Smart parse failed:', error);
       clearRepairProgressTimer();
-      setRepairProgress({ receiptId, mode: 'smart', percent: 100, label: '智能解析失败' });
+      setRepairProgress({ receiptId, mode: 'smart', percent: 100, label: t.smartParseFailedLabel });
       setHistory((current) => current.map((item) => item.id === receiptId ? { ...item, status: receipt.status || 'Uploaded' } : item));
-      showToast(error instanceof Error ? error.message : 'Smart parse failed.', 'error', {
+      showToast(error instanceof Error ? error.message : t.smartParseFailedLabel, 'error', {
         persist: true,
-        title: 'Smart parse failed',
+        title: t.smartParseFailedLabel,
         receiptId,
       });
     } finally {
@@ -1384,14 +2207,14 @@ export default function App() {
 
   const handleDelete = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const reason = window.prompt('删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）', 'other');
+    const reason = window.prompt(t.deletePromptLabel, 'other');
     if (!reason) return;
 
     try {
       await softDeleteReceipt(id, { reason });
     } catch (err) {
       console.error('Failed to delete from Supabase:', err);
-      showToast('Delete failed.', 'error', { persist: true, title: 'Delete failed', receiptId: id });
+      showToast(t.deleteFailedLabel, 'error', { persist: true, title: t.deleteFailedLabel, receiptId: id });
       return;
     }
 
@@ -1401,9 +2224,9 @@ export default function App() {
       setDeletedReceipts((current) => [{ ...deleted, deleted_reason: reason, deleted_at: new Date().toISOString() }, ...current]);
     }
     if (selectedReceipt?.id === id) setSelectedReceipt(null);
-    showToast('Receipt moved to Rejected.', 'success', {
+    showToast(t.receiptMovedRejectedLabel, 'success', {
       persist: true,
-      title: 'Receipt deleted',
+      title: t.receiptDeletedTitle,
       receiptId: id,
     });
   };
@@ -1411,11 +2234,11 @@ export default function App() {
   const handleBatchDelete = async () => {
     const targets = history.filter((item) => selectedRowIds.includes(item.id));
     if (targets.length === 0) {
-      showToast('No receipts selected.', 'info');
+      showToast(t.noReceiptsSelectedLabel, 'info');
       return;
     }
 
-    const reason = window.prompt('批量删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）', 'duplicate');
+    const reason = window.prompt(t.batchDeletePromptLabel, 'duplicate');
     if (!reason) return;
 
     try {
@@ -1427,20 +2250,20 @@ export default function App() {
       ]);
       if (selectedReceipt && selectedRowIds.includes(selectedReceipt.id)) setSelectedReceipt(null);
       setSelectedRowIds([]);
-      showToast(`${targets.length} receipts moved to Rejected.`, 'success', {
+      showToast(typeof t.batchDeleteSuccessLabel === 'function' ? t.batchDeleteSuccessLabel(targets.length) : `${targets.length} receipts moved to Rejected.`, 'success', {
         persist: true,
-        title: 'Batch delete finished',
+        title: t.batchDeleteFinishedLabel,
       });
     } catch (error) {
       console.error('Batch delete failed:', error);
-      showToast('Batch delete failed.', 'error', { persist: true, title: 'Batch delete failed' });
+      showToast(t.batchDeleteFailedLabel, 'error', { persist: true, title: t.batchDeleteFailedLabel });
     }
   };
 
   const handleBatchMarkSynced = async () => {
     const targets = history.filter((item) => selectedRowIds.includes(item.id));
     if (targets.length === 0) {
-      showToast('No receipts selected.', 'info');
+      showToast(t.noReceiptsSelectedLabel, 'info');
       return;
     }
 
@@ -1452,13 +2275,13 @@ export default function App() {
       setHistory((current) => current.map((item) => displayReceipts.find((updated) => updated.id === item.id) || item));
       setSelectedReceipt((current: any) => displayReceipts.find((updated) => updated.id === current?.id) || current);
       setSelectedRowIds([]);
-      showToast(`${targets.length} receipts marked as synced.`, 'success', {
+      showToast(typeof t.batchSyncSuccessLabel === 'function' ? t.batchSyncSuccessLabel(targets.length) : `${targets.length} receipts marked as synced.`, 'success', {
         persist: true,
-        title: 'Batch sync finished',
+        title: t.batchSyncFinishedLabel,
       });
     } catch (error) {
       console.error('Batch mark synced failed:', error);
-      showToast('Batch mark synced failed.', 'error', { persist: true, title: 'Batch sync failed' });
+      showToast(t.batchSyncFailedLabel, 'error', { persist: true, title: t.batchSyncFailedLabel });
     }
   };
 
@@ -1470,31 +2293,31 @@ export default function App() {
       upsertHistoryReceipt(displayReceipt);
       setSelectedDeletedIds((current) => current.filter((itemId) => itemId !== id));
       if (selectedReceipt?.id === id) setSelectedReceipt(displayReceipt);
-      showToast('Receipt restored.', 'success', { persist: true, title: 'Receipt restored', receiptId: id });
+      showToast(t.receiptRestoredLabel, 'success', { persist: true, title: t.receiptRestoredLabel, receiptId: id });
     } catch (error) {
       console.error('Restore failed:', error);
-      showToast('Restore failed.', 'error', { persist: true, title: 'Restore failed', receiptId: id });
+      showToast(t.restoreFailedLabel, 'error', { persist: true, title: t.restoreFailedLabel, receiptId: id });
     }
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!window.confirm('永久删除会移除数据库记录和 Storage 文件，确定继续吗？')) return;
+    if (!window.confirm(t.permanentDeleteConfirmLabel)) return;
     try {
       await permanentlyDeleteReceipt(id);
       setDeletedReceipts((current) => current.filter((item) => item.id !== id));
       setSelectedDeletedIds((current) => current.filter((itemId) => itemId !== id));
       if (selectedReceipt?.id === id) setSelectedReceipt(null);
-      showToast('Receipt permanently deleted.', 'success', { persist: true, title: 'Receipt permanently deleted' });
+      showToast(t.permanentDeleteSuccessLabel, 'success', { persist: true, title: t.permanentDeleteSuccessLabel });
     } catch (error) {
       console.error('Permanent delete failed:', error);
-      showToast('Permanent delete failed.', 'error', { persist: true, title: 'Permanent delete failed', receiptId: id });
+      showToast(t.permanentDeleteFailedLabel, 'error', { persist: true, title: t.permanentDeleteFailedLabel, receiptId: id });
     }
   };
 
   const handleBatchRestoreDeleted = async () => {
     const targets = deletedReceipts.filter((item) => selectedDeletedIds.includes(item.id));
     if (targets.length === 0) {
-      showToast('No deleted receipts selected.', 'info');
+      showToast(t.noDeletedSelectedLabel, 'info');
       return;
     }
 
@@ -1507,36 +2330,36 @@ export default function App() {
         ...current.filter((item) => !displayReceipts.some((restored) => restored.id === item.id)),
       ]);
       setSelectedDeletedIds([]);
-      showToast(`${targets.length} receipts restored.`, 'success', {
+      showToast(typeof t.batchRestoreSuccessLabel === 'function' ? t.batchRestoreSuccessLabel(targets.length) : `${targets.length} receipts restored.`, 'success', {
         persist: true,
-        title: 'Batch restore finished',
+        title: t.batchRestoreFinishedLabel,
       });
     } catch (error) {
       console.error('Batch restore failed:', error);
-      showToast('Batch restore failed.', 'error', { persist: true, title: 'Batch restore failed' });
+      showToast(t.batchRestoreFailedLabel, 'error', { persist: true, title: t.batchRestoreFailedLabel });
     }
   };
 
   const handleBatchPermanentDelete = async () => {
     const targets = deletedReceipts.filter((item) => selectedDeletedIds.includes(item.id));
     if (targets.length === 0) {
-      showToast('No deleted receipts selected.', 'info');
+      showToast(t.noDeletedSelectedLabel, 'info');
       return;
     }
-    if (!window.confirm(`永久删除 ${targets.length} 张收据？`)) return;
+    if (!window.confirm(typeof t.batchPermanentDeleteConfirmLabel === 'function' ? t.batchPermanentDeleteConfirmLabel(targets.length) : `永久删除 ${targets.length} 张收据？`)) return;
 
     try {
       await Promise.all(targets.map((item) => permanentlyDeleteReceipt(item.id)));
       setDeletedReceipts((current) => current.filter((item) => !selectedDeletedIds.includes(item.id)));
       if (selectedReceipt && selectedDeletedIds.includes(selectedReceipt.id)) setSelectedReceipt(null);
       setSelectedDeletedIds([]);
-      showToast(`${targets.length} receipts permanently deleted.`, 'success', {
+      showToast(typeof t.batchPermanentDeleteSuccessLabel === 'function' ? t.batchPermanentDeleteSuccessLabel(targets.length) : `${targets.length} receipts permanently deleted.`, 'success', {
         persist: true,
-        title: 'Batch permanent delete finished',
+        title: t.batchPermanentDeleteFinishedLabel,
       });
     } catch (error) {
       console.error('Batch permanent delete failed:', error);
-      showToast('Batch permanent delete failed.', 'error', { persist: true, title: 'Batch permanent delete failed' });
+      showToast(t.batchPermanentDeleteFailedLabel, 'error', { persist: true, title: t.batchPermanentDeleteFailedLabel });
     }
   };
 
@@ -1545,10 +2368,10 @@ export default function App() {
     try {
       const saved = await saveFieldPreferences(preferences);
       setFieldPreferences(saved);
-      showToast('Field preferences saved.', 'success');
+      showToast(t.fieldPreferencesSavedLabel, 'success');
     } catch (error) {
       console.error('Save field preferences failed:', error);
-      showToast('Field preferences saved locally only.', 'error');
+      showToast(t.fieldPreferencesLocalOnlyLabel, 'error');
     }
   };
 
@@ -1559,10 +2382,10 @@ export default function App() {
     setSelectedReceipt((current: any) => current ? { ...current, doc_type: 'Custom (自定义)', custom_doc_type: value } : current);
     try {
       await saveCustomDocumentType(value);
-      showToast('Custom document type saved.', 'success');
+      showToast(t.customDocumentTypeSavedLabel, 'success');
     } catch (error) {
       console.error('Save custom document type failed:', error);
-      showToast('Custom document type saved locally only.', 'error');
+      showToast(t.customDocumentTypeLocalOnlyLabel, 'error');
     }
   };
 
@@ -1645,10 +2468,11 @@ export default function App() {
           file={smartCropTarget.file}
           queueCount={1}
           disabled={isCropModalBusy}
-          title="智能解析前裁剪"
-          description="先框住票据主体，再用 Qwen 视觉读取图片，并由 DeepSeek 校验结构、金额和字段。"
-          skipLabel="直接解析原图"
-          confirmLabel="裁剪并智能解析"
+          title={t.cropTitle}
+          description={t.cropDescription}
+          skipLabel={t.cropSkipLabel}
+          confirmLabel={t.cropConfirmLabel}
+          labels={t}
           onCancel={() => setSmartCropTarget(null)}
           onConfirm={handleSmartCropConfirm}
           onError={(message) => showToast(message, 'error')}
@@ -1659,6 +2483,7 @@ export default function App() {
         <DuplicateDialog
           filename={duplicatePrompt.file.name}
           candidates={duplicatePrompt.candidates}
+          labels={t}
           onCancel={cancelDuplicateUpload}
           onContinue={continueDuplicateUpload}
           onOpenExisting={openDuplicateCandidate}
@@ -1673,7 +2498,9 @@ export default function App() {
           deletedCount={deletedReceipts.length}
           labels={{
             workflow: t.workflow,
+            workflowSection: t.upload,
             history: t.history,
+            rejected: t.rejectedReceiptsLabel,
             settings: t.settings,
           }}
           config={config}
@@ -1686,7 +2513,7 @@ export default function App() {
           <header className={`border-b h-16 flex items-center justify-between px-8 shrink-0 z-10 transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
              <div className="flex items-center gap-4">
                 <h2 className={`text-sm font-black uppercase tracking-widest ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-800'}`}>
-                  {activeTab === 'upload' ? t.auditQueue : activeTab === 'rejected' ? 'Rejected Receipts' : t.archiveLib}
+                  {activeTab === 'upload' ? t.auditQueue : activeTab === 'rejected' ? t.rejectedReceiptsLabel : t.archiveLib}
                 </h2>
              </div>
              <div className="flex items-center gap-4">
@@ -1694,16 +2521,17 @@ export default function App() {
                   notifications={notifications}
                   isOpen={isNotificationCenterOpen}
                   colorMode={config.colorMode}
+                  labels={t}
                   onToggle={() => setIsNotificationCenterOpen((current) => !current)}
                   onMarkAllRead={() => setNotifications((current) => markAppNotificationsRead(current))}
                   onClear={() => setNotifications([])}
                   onOpenReceipt={handleOpenNotificationReceipt}
                 />
                 <button onClick={handleSignOut} className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-[10px] font-black uppercase transition-all shadow-sm ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                   <LogOut className="w-4 h-4" /> 退出登录
+                   <LogOut className="w-4 h-4" /> {t.signOutLabel}
                 </button>
                 <button disabled={isExporting} onClick={() => handleExport()} className={`flex items-center gap-2 px-5 py-2 text-white rounded-xl text-[10px] font-black uppercase transition-all shadow-md disabled:cursor-wait disabled:opacity-60 ${config.colorMode === 'Dark' ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-900 hover:bg-slate-800'}`}>
-                   <FileSpreadsheet className="w-4 h-4" /> {isExporting ? 'Generating Excel...' : t.exportExcel}
+                   <FileSpreadsheet className="w-4 h-4" /> {isExporting ? t.generatingExcelLabel : t.exportExcel}
                 </button>
              </div>
           </header>
@@ -1720,7 +2548,7 @@ export default function App() {
                   <input type="file" className="hidden" multiple onChange={handleUpload} accept="image/png,image/jpeg,application/pdf" />
                 </label>
 
-                <UploadQueue items={uploadList} visibleLimit={config.uploadQueueLimit || 10} processingLabel={t.processing} config={config} />
+                <UploadQueue items={uploadList} visibleLimit={config.uploadQueueLimit || 10} processingLabel={t.processing} labels={t} config={config} />
 
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-3 items-center p-2">
@@ -1742,7 +2570,7 @@ export default function App() {
                      <div className="relative">
                         <select value={filters.docType} onChange={e => setFilters({...filters, docType: e.target.value})} className={`appearance-none border rounded-xl pl-4 pr-10 py-2.5 text-xs font-black outline-none shadow-sm transition-all cursor-pointer ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800 text-slate-400 focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-500'}`}>
                            <option value="All">{t.typeAll}</option>
-                           {documentTypeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                           {documentTypeOptions.map((type) => <option key={type} value={type}>{t.optionLabels?.[type] || type}</option>)}
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                      </div>
@@ -1750,7 +2578,7 @@ export default function App() {
                      <div className="relative">
                         <select value={filters.tag} onChange={e => setFilters({...filters, tag: e.target.value})} className={`appearance-none border rounded-xl pl-4 pr-10 py-2.5 text-xs font-black outline-none shadow-sm transition-all cursor-pointer ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800 text-slate-400 focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-500'}`}>
                            <option value="All">{t.tagAll}</option>
-                           {TAGS_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                           {TAGS_OPTIONS.map((tag) => <option key={tag} value={tag}>{t.optionLabels?.[tag] || tag}</option>)}
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                      </div>
@@ -1758,11 +2586,11 @@ export default function App() {
 
                   {selectedRowIds.length > 0 && (
                     <div className={`mx-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${config.colorMode === 'Dark' ? 'border-indigo-900 bg-indigo-950/30' : 'border-indigo-100 bg-indigo-50'}`}>
-                      <p className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-indigo-200' : 'text-indigo-700'}`}>{selectedRowIds.length} selected</p>
+                      <p className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-indigo-200' : 'text-indigo-700'}`}>{typeof t.selectedCountLabel === 'function' ? t.selectedCountLabel(selectedRowIds.length) : `${selectedRowIds.length} selected`}</p>
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => handleExport()} className="rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-700 shadow-sm hover:bg-slate-50">Export selected</button>
-                        <button type="button" onClick={handleBatchMarkSynced} className="rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-emerald-500">Mark synced</button>
-                        <button type="button" onClick={handleBatchDelete} className="rounded-xl bg-rose-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-rose-500">Delete selected</button>
+                        <button type="button" onClick={() => handleExport()} className="rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-700 shadow-sm hover:bg-slate-50">{t.exportSelected}</button>
+                        <button type="button" onClick={handleBatchMarkSynced} className="rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-emerald-500">{t.markSyncedLabel || 'Mark synced'}</button>
+                        <button type="button" onClick={handleBatchDelete} className="rounded-xl bg-rose-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-rose-500">{t.deleteSelectedLabel || 'Delete selected'}</button>
                       </div>
                     </div>
                   )}
@@ -1770,18 +2598,7 @@ export default function App() {
                   <ReceiptTable
                     items={filteredHistory}
                     selectedRowIds={selectedRowIds}
-                    labels={{
-                      sequenceLabel: t.sequenceLabel,
-                      merchantLabel: t.merchantLabel,
-                      thumbnailLabel: t.thumbnailLabel,
-                      financialsLabel: t.financialsLabel,
-                      tagsLabel: t.tagsLabel,
-                      auditLabel: t.auditLabel,
-                      retry: t.retry,
-                      loadingRecords: t.loadingRecords,
-                      noRecords: t.noRecords,
-                      totalItems: t.totalItems,
-                    }}
+                    labels={t}
                     isLoading={isReceiptsLoading}
                     pageSize={config.receiptListPageSize || 10}
                     config={config}
@@ -1807,17 +2624,18 @@ export default function App() {
                         onChange={() => setSelectedDeletedIds((current) => current.length === deletedReceipts.length ? [] : deletedReceipts.map((receipt) => receipt.id))}
                         className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                       />
-                      {selectedDeletedIds.length} selected
+                      {typeof t.selectedCountLabel === 'function' ? t.selectedCountLabel(selectedDeletedIds.length) : `${selectedDeletedIds.length} selected`}
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={handleBatchRestoreDeleted} className="rounded-xl bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase text-emerald-700 hover:bg-emerald-100">Restore selected</button>
-                      <button type="button" onClick={handleBatchPermanentDelete} className="rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black uppercase text-rose-700 hover:bg-rose-100">Delete selected</button>
+                      <button type="button" onClick={handleBatchRestoreDeleted} className="rounded-xl bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase text-emerald-700 hover:bg-emerald-100">{t.restoreSelectedLabel || 'Restore selected'}</button>
+                      <button type="button" onClick={handleBatchPermanentDelete} className="rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black uppercase text-rose-700 hover:bg-rose-100">{t.deleteSelectedLabel || 'Delete selected'}</button>
                     </div>
                   </div>
                 )}
                 <DeletedReceiptList
                   receipts={deletedReceipts.map(toApiReceipt)}
                   selectedIds={selectedDeletedIds}
+                  labels={t}
                   onToggleSelect={(id) => setSelectedDeletedIds((current) => current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id])}
                   onOpen={(id) => {
                     const found = deletedReceipts.find((receipt) => receipt.id === id);
@@ -1825,8 +2643,8 @@ export default function App() {
                   }}
                   onCopyReuploadMessage={(message) => {
                     void copyTextToClipboard(message)
-                      .then(() => showToast('Reupload request copied.', 'success'))
-                      .catch(() => showToast('Copy failed.', 'error'));
+                      .then(() => showToast(t.reuploadCopiedLabel, 'success'))
+                      .catch(() => showToast(t.copyFailedLabel, 'error'));
                   }}
                   onRestore={handleRestoreDeleted}
                   onPermanentDelete={handlePermanentDelete}
@@ -1837,14 +2655,14 @@ export default function App() {
                  <div className="flex gap-4 items-center">
                      <div className="relative flex-1 group min-w-[200px]">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input type="text" placeholder="全局搜索历史商户或发票号..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs font-medium focus:outline-none focus:border-indigo-500 shadow-sm" />
+                        <input type="text" placeholder={t.historySearchPlaceholder} value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs font-medium focus:outline-none focus:border-indigo-500 shadow-sm" />
                      </div>
                  </div>
 
                  <div className="bg-white border border-slate-200 rounded-[24px] overflow-hidden shadow-sm">
                     <table className="w-full text-left">
                        <thead className="bg-slate-50 text-[10px] font-black text-slate-500 uppercase border-b border-slate-100">
-                          <tr><th className="px-6 py-4">已同步数据 (Supabase)</th><th className="px-6 py-4">Total</th><th className="px-6 py-4 text-right">Action</th></tr>
+                          <tr><th className="px-6 py-4">{t.syncedDataLabel}</th><th className="px-6 py-4">{t.totalLabel}</th><th className="px-6 py-4 text-right">{t.auditLabel}</th></tr>
                        </thead>
                        <tbody className="divide-y divide-slate-50">
                           {filteredHistory.filter(h => h.status === 'Synced').map(item => (
@@ -1854,7 +2672,7 @@ export default function App() {
                               <td className="px-6 py-5 text-right">
                                  <div className="flex items-center justify-end gap-2">
                                   <ExternalLink className="w-4 h-4 text-slate-400" />
-                                  <button onClick={(e) => handleDelete(item.id, e)} className={`p-1.5 rounded-lg transition-all ${config.colorMode === 'Dark' ? 'text-slate-600 hover:bg-rose-600/20 hover:text-rose-500' : 'text-slate-300 hover:bg-rose-50 hover:text-rose-500'}`} title="从存档移除">
+                                  <button onClick={(e) => handleDelete(item.id, e)} className={`p-1.5 rounded-lg transition-all ${config.colorMode === 'Dark' ? 'text-slate-600 hover:bg-rose-600/20 hover:text-rose-500' : 'text-slate-300 hover:bg-rose-50 hover:text-rose-500'}`} title={t.removeArchiveLabel}>
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                  </div>
@@ -1924,7 +2742,7 @@ export default function App() {
            </button>
            <img 
               src={zoomImage} 
-              alt="Zoomed Receipt" 
+              alt={t.zoomedReceiptAlt}
               className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-lg cursor-default" 
               onClick={(e) => e.stopPropagation()} 
               referrerPolicy="no-referrer"

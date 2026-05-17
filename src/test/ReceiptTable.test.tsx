@@ -14,6 +14,29 @@ describe('ReceiptTable', () => {
     retry: '重试',
     noRecords: '没有记录',
     totalItems: '条记录',
+    totalLabel: '共',
+    prevLabel: '上一页',
+    nextLabel: '下一页',
+    pageLabel: '第',
+    pageOfLabel: '页 / 共',
+    pageSuffix: '页',
+    skuLabel: '项明细',
+    noInvoiceLabel: '无发票号',
+    openThumbnailLabel: '放大发票图片',
+    copyMerchantLabel: '复制商户名',
+    copyInvoiceLabel: '复制发票号',
+    readyForCropLabel: '可裁剪并智能解析',
+    smartParsingBackgroundLabel: '智能解析后台处理中',
+    processingReceiptLabel: '单据处理中',
+    deleteLabel: '删除',
+    rowNumberLabel: '第 {number} 行',
+    optionLabels: {
+      Receipt: '收据',
+      Invoice: '发票',
+      Business: '商务',
+      Personal: '个人',
+      Pending: '待处理',
+    },
   }
 
   const baseConfig = {
@@ -60,7 +83,7 @@ describe('ReceiptTable', () => {
     expect(html.indexOf('商户名称 (Merchant)')).toBeLessThan(html.indexOf('发票缩略图'))
     expect(html.indexOf('发票缩略图')).toBeLessThan(html.indexOf('财务详情'))
     expect(html).toContain('src="https://example.test/receipt.jpg"')
-    expect(html).toContain('alt="Receipt thumbnail"')
+    expect(html).toContain('alt="发票缩略图"')
     expect(html).toContain('aria-label="放大发票图片"')
     expect(html).toContain('PDF Page 2 of 3')
   })
@@ -97,8 +120,8 @@ describe('ReceiptTable', () => {
     )
 
     expect(html.indexOf('序号')).toBeLessThan(html.indexOf('商户名称 (Merchant)'))
-    expect(html).toContain('aria-label="Receipt row number 1"')
-    expect(html).toContain('aria-label="Receipt row number 2"')
+    expect(html).toContain('aria-label="第 1 行"')
+    expect(html).toContain('aria-label="第 2 行"')
   })
 
   it('limits visible receipts by the configured page size', () => {
@@ -126,7 +149,9 @@ describe('ReceiptTable', () => {
     expect(html).toContain('Merchant 0')
     expect(html).toContain('Merchant 9')
     expect(html).not.toContain('Merchant 10')
-    expect(html).toContain('Page 1 of 2')
+    expect(html).toContain('第 1 页 / 共 2 页')
+    expect(html).toContain('上一页')
+    expect(html).toContain('下一页')
   })
 
   it('renders every selected classification tag without truncating to two', () => {
@@ -150,10 +175,11 @@ describe('ReceiptTable', () => {
       />,
     )
 
-    expect(html).toContain('Business')
-    expect(html).toContain('Personal')
-    expect(html).toContain('Pending')
-    expect(html.indexOf('Business')).toBeLessThan(html.indexOf('Personal'))
-    expect(html.indexOf('Personal')).toBeLessThan(html.indexOf('Pending'))
+    expect(html).toContain('商务')
+    expect(html).toContain('个人')
+    expect(html).toContain('待处理')
+    expect(html.indexOf('商务')).toBeLessThan(html.indexOf('个人'))
+    expect(html.indexOf('个人')).toBeLessThan(html.indexOf('待处理'))
+    expect(html).not.toContain('Business')
   })
 })
