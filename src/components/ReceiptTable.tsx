@@ -1,5 +1,5 @@
 import type React from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
   CheckCircle,
@@ -89,9 +89,6 @@ interface ReceiptTableProps {
   config: {
     colorMode: string
     currency: string
-    theme: {
-      color: string
-    }
   }
   isSelectableForBulk: (item: any) => boolean
   onToggleSelectAll: () => void
@@ -105,7 +102,7 @@ interface ReceiptTableProps {
   isLoading?: boolean
 }
 
-export function ReceiptTable({
+function ReceiptTableComponent({
   items,
   selectedRowIds,
   labels,
@@ -318,3 +315,5 @@ export function ReceiptTable({
     </div>
   )
 }
+
+export const ReceiptTable = memo(ReceiptTableComponent)

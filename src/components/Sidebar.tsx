@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Database, Receipt, RefreshCw, Settings, Trash2 } from 'lucide-react'
 
 interface SidebarLabels {
@@ -24,7 +25,7 @@ interface SidebarProps {
   onSettingsOpen: () => void
 }
 
-export function Sidebar({
+function SidebarComponent({
   activeTab,
   uploadCount,
   syncedCount,
@@ -70,3 +71,5 @@ export function Sidebar({
     </aside>
   )
 }
+
+export const Sidebar = memo(SidebarComponent)

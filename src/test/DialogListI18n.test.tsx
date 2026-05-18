@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { DeletedReceiptList } from '../components/DeletedReceiptList'
 import { DuplicateDialog } from '../components/DuplicateDialog'
+import { ReceiptList } from '../components/ReceiptList'
 
 const baseReceipt: any = {
   id: 'receipt-1',
@@ -39,6 +40,19 @@ const baseReceipt: any = {
 }
 
 describe('dialog and deleted receipt i18n', () => {
+  it('renders receipt list empty state from labels', () => {
+    const html = renderToStaticMarkup(
+      <ReceiptList
+        receipts={[]}
+        labels={{ noRecords: 'No records found' }}
+        onOpen={vi.fn()}
+      />,
+    )
+
+    expect(html).toContain('No records found')
+    expect(html).not.toContain('没有记录')
+  })
+
   it('renders duplicate actions from labels', () => {
     const html = renderToStaticMarkup(
       <DuplicateDialog

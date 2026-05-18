@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Upload, Search, CheckCircle, AlertCircle, X, Trash2,
   ExternalLink, ChevronDown, Info, FileSpreadsheet, LogOut
@@ -197,7 +197,8 @@ const I18N: any = {
     dateLabel: '日期',
     invoiceLabel: '发票号',
     regNoLabel: '注册号',
-    sstIdLabel: 'SST ID',
+    tinLabel: 'TIN 号',
+    sstIdLabel: 'SST 编号',
     phonePaymentLabel: '电话与支付',
     docTypeIndLabel: '单据类型 & 行业',
     quickTagsLabel: '快捷标签',
@@ -424,6 +425,7 @@ const I18N: any = {
     fuelSubsidyLabel: '燃油补贴 / Budi Madani',
     subsidyMathNoteLabel: '票面总额保留在计算总额，客户实际支付金额单独展示，避免把政府补贴误当普通折扣。',
     actualPayableLabel: '实际支付 / OPT',
+    einvoiceSectionLabel: '电子发票信息',
     einvoiceSupplierLabel: '供应商',
     einvoiceBuyerLabel: '买方',
     einvoiceSupplierTinLabel: '供应商 TIN',
@@ -589,6 +591,7 @@ const I18N: any = {
     dateLabel: 'Date',
     invoiceLabel: 'Invoice No',
     regNoLabel: 'Registration No',
+    tinLabel: 'TIN No',
     sstIdLabel: 'SST ID',
     phonePaymentLabel: 'Phone & Payment',
     docTypeIndLabel: 'Doc Type & Industry',
@@ -797,6 +800,7 @@ const I18N: any = {
     fuelSubsidyLabel: 'Fuel subsidy / Budi Madani',
     subsidyMathNoteLabel: 'Receipt grand total is preserved; customer payable is shown separately to avoid treating government subsidy as a normal discount.',
     actualPayableLabel: 'Payable / OPT',
+    einvoiceSectionLabel: 'E-invoice',
     einvoiceSupplierLabel: 'Supplier',
     einvoiceBuyerLabel: 'Buyer',
     einvoiceSupplierTinLabel: 'Supplier TIN',
@@ -963,6 +967,7 @@ const I18N: any = {
     dateLabel: 'Tarikh',
     invoiceLabel: 'No Invois',
     regNoLabel: 'No Pendaftaran',
+    tinLabel: 'No TIN',
     sstIdLabel: 'ID SST',
     phonePaymentLabel: 'Telefon & Pembayaran',
     docTypeIndLabel: 'Jenis Dok. & Industri',
@@ -1171,6 +1176,7 @@ const I18N: any = {
     fuelSubsidyLabel: 'Subsidi minyak / Budi Madani',
     subsidyMathNoteLabel: 'Jumlah resit dikekalkan; bayaran pelanggan dipaparkan berasingan supaya subsidi kerajaan tidak dianggap diskaun biasa.',
     actualPayableLabel: 'Bayaran sebenar / OPT',
+    einvoiceSectionLabel: 'Maklumat E-invois',
     einvoiceSupplierLabel: 'Pembekal',
     einvoiceBuyerLabel: 'Pembeli',
     einvoiceSupplierTinLabel: 'TIN pembekal',
@@ -1332,6 +1338,7 @@ export default function App() {
   const [smartParsingReceiptId, setSmartParsingReceiptId] = useState<string | null>(null);
   const [repairProgress, setRepairProgress] = useState<RepairProgress | null>(null);
   const repairProgressTimerRef = useRef<number | null>(null);
+  const configPersistenceTimerRef = useRef<number | null>(null);
   const pollingReceiptIdsRef = useRef<Set<string>>(new Set());
   const pendingUploadHashesRef = useRef<Set<string>>(new Set());
   const pendingRealtimeReceiptIdsRef = useRef<Set<string>>(new Set());
@@ -1354,10 +1361,33 @@ export default function App() {
       receiptListPageSize: 10,
     };
   });
+  const latestConfigRef = useRef(config);
 
   useEffect(() => {
-    localStorage.setItem('my_receipt_config', JSON.stringify(config));
+    latestConfigRef.current = config;
+    if (configPersistenceTimerRef.current) {
+      window.clearTimeout(configPersistenceTimerRef.current);
+    }
+    configPersistenceTimerRef.current = window.setTimeout(() => {
+      localStorage.setItem('my_receipt_config', JSON.stringify(latestConfigRef.current));
+      configPersistenceTimerRef.current = null;
+    }, 300);
+
+    return () => {
+      if (configPersistenceTimerRef.current) {
+        window.clearTimeout(configPersistenceTimerRef.current);
+        configPersistenceTimerRef.current = null;
+      }
+    };
   }, [config]);
+
+  useEffect(() => () => {
+    if (configPersistenceTimerRef.current) {
+      window.clearTimeout(configPersistenceTimerRef.current);
+      configPersistenceTimerRef.current = null;
+    }
+    localStorage.setItem('my_receipt_config', JSON.stringify(latestConfigRef.current));
+  }, []);
 
   useEffect(() => {
     saveAppNotifications(notifications);
@@ -1371,13 +1401,13 @@ export default function App() {
     };
   }, []);
 
-  const addNotification = (input: AppNotificationInput) => {
+  const addNotification = useCallback((input: AppNotificationInput) => {
     setNotifications((current) => prependAppNotification(current, createAppNotification(input)));
     playNotificationSound(Boolean(config.notificationSound), input);
-  };
+  }, [config.notificationSound]);
 
   // Toast Function
-  const showToast = (
+  const showToast = useCallback((
     message: string,
     type: 'info' | 'success' | 'error' = 'info',
     notification?: { persist?: boolean; title?: string; receiptId?: string },
@@ -1392,21 +1422,25 @@ export default function App() {
         receipt_id: notification.receiptId,
       });
     }
-  };
+  }, [addNotification]);
 
   const t = useMemo(() => {
     const langMap: any = { 'zh': '中文', 'en': 'English', 'ms': 'Melayu' };
     const langKey = langMap[config.language] || 'English';
     return I18N[langKey];
   }, [config.language]);
+  const receiptTableConfig = useMemo(() => ({
+    colorMode: config.colorMode,
+    currency: config.currency,
+  }), [config.colorMode, config.currency]);
 
   const documentTypeOptions = useMemo(() => {
     const customOptions = customDocumentTypes.filter((name) => !DOC_TYPES.includes(name));
     return [...DOC_TYPES, ...customOptions];
   }, [customDocumentTypes]);
 
-  const isSelectableForBulk = (receipt: any) => receipt.status === 'Pending' || receipt.status === 'Failed';
-  const isAuditFieldVisible = (fieldKey: FieldKey) => isFieldEnabled(fieldPreferences, fieldKey);
+  const isSelectableForBulk = useCallback((receipt: any) => receipt.status === 'Pending' || receipt.status === 'Failed', []);
+  const isAuditFieldVisible = useCallback((fieldKey: FieldKey) => isFieldEnabled(fieldPreferences, fieldKey), [fieldPreferences]);
   const enabledFieldKeys = useMemo(
     () => fieldPreferences.filter((preference) => preference.enabled).map((preference) => preference.field_key),
     [fieldPreferences],
@@ -1632,24 +1666,6 @@ export default function App() {
     };
   }, []);
 
-  const handleToggleSelectAll = () => {
-    const currentPendingIds = filteredHistory.filter(isSelectableForBulk).map(h => h.id);
-    if (selectedRowIds.length === currentPendingIds.length) {
-      setSelectedRowIds([]);
-    } else {
-      setSelectedRowIds(currentPendingIds);
-    }
-  };
-
-  const handleToggleSelectRow = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const receipt = history.find((item) => item.id === id);
-    if (receipt && !isSelectableForBulk(receipt)) return;
-    setSelectedRowIds(prev => 
-      prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]
-    );
-  };
-
   const filteredHistory = useMemo(() => {
     return history.filter(item => {
       const search = filters.search.trim().toLowerCase();
@@ -1663,6 +1679,24 @@ export default function App() {
       return matchSearch && matchStatus && matchType && matchTag;
     });
   }, [history, filters]);
+
+  const handleToggleSelectAll = useCallback(() => {
+    const currentPendingIds = filteredHistory.filter(isSelectableForBulk).map(h => h.id);
+    if (selectedRowIds.length === currentPendingIds.length) {
+      setSelectedRowIds([]);
+    } else {
+      setSelectedRowIds(currentPendingIds);
+    }
+  }, [filteredHistory, isSelectableForBulk, selectedRowIds.length]);
+
+  const handleToggleSelectRow = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const receipt = history.find((item) => item.id === id);
+    if (receipt && !isSelectableForBulk(receipt)) return;
+    setSelectedRowIds(prev =>
+      prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]
+    );
+  }, [history, isSelectableForBulk]);
 
   const handleExport = async (singleItem: any = null) => {
     if (isExporting) return;
@@ -1696,7 +1730,7 @@ export default function App() {
     }
   };
 
-  const handleCopyText = async (value: string | null | undefined, label: string, event?: React.MouseEvent) => {
+  const handleCopyText = useCallback(async (value: string | null | undefined, label: string, event?: React.MouseEvent) => {
     event?.stopPropagation();
     if (!value) {
       showToast(`${label} is empty.`, 'info');
@@ -1709,7 +1743,7 @@ export default function App() {
       console.error('Copy failed:', error);
       showToast(`Failed to copy ${label}.`, 'error');
     }
-  };
+  }, [showToast]);
 
   const handleSignOut = async () => {
     await supabase?.auth.signOut();
@@ -2030,10 +2064,10 @@ export default function App() {
     }
   };
 
-  const handleRetry = (id: string) => {
+  const handleRetry = useCallback((id: string) => {
     showToast(typeof t.retryingLabel === 'function' ? t.retryingLabel(id) : `Retrying API for ID: ${id}`, 'info');
     setHistory(history.filter(h => h.id !== id));
-  };
+  }, [history, showToast, t]);
 
   const clearRepairProgressTimer = () => {
     if (repairProgressTimerRef.current) {
@@ -2205,7 +2239,7 @@ export default function App() {
     }
   };
 
-  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+  const handleDelete = useCallback(async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const reason = window.prompt(t.deletePromptLabel, 'other');
     if (!reason) return;
@@ -2229,7 +2263,7 @@ export default function App() {
       title: t.receiptDeletedTitle,
       receiptId: id,
     });
-  };
+  }, [history, selectedReceipt?.id, showToast, t]);
 
   const handleBatchDelete = async () => {
     const targets = history.filter((item) => selectedRowIds.includes(item.id));
@@ -2586,11 +2620,11 @@ export default function App() {
 
                   {selectedRowIds.length > 0 && (
                     <div className={`mx-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${config.colorMode === 'Dark' ? 'border-indigo-900 bg-indigo-950/30' : 'border-indigo-100 bg-indigo-50'}`}>
-                      <p className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-indigo-200' : 'text-indigo-700'}`}>{typeof t.selectedCountLabel === 'function' ? t.selectedCountLabel(selectedRowIds.length) : `${selectedRowIds.length} selected`}</p>
+                      <p className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-indigo-200' : 'text-indigo-700'}`}>{typeof t.selectedCountLabel === 'function' ? t.selectedCountLabel(selectedRowIds.length) : `已选 ${selectedRowIds.length} 条`}</p>
                       <div className="flex flex-wrap gap-2">
                         <button type="button" onClick={() => handleExport()} className="rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-700 shadow-sm hover:bg-slate-50">{t.exportSelected}</button>
-                        <button type="button" onClick={handleBatchMarkSynced} className="rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-emerald-500">{t.markSyncedLabel || 'Mark synced'}</button>
-                        <button type="button" onClick={handleBatchDelete} className="rounded-xl bg-rose-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-rose-500">{t.deleteSelectedLabel || 'Delete selected'}</button>
+                        <button type="button" onClick={handleBatchMarkSynced} className="rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-emerald-500">{t.markSyncedLabel || '标记为已同步'}</button>
+                        <button type="button" onClick={handleBatchDelete} className="rounded-xl bg-rose-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-rose-500">{t.deleteSelectedLabel || '删除已选'}</button>
                       </div>
                     </div>
                   )}
@@ -2601,7 +2635,7 @@ export default function App() {
                     labels={t}
                     isLoading={isReceiptsLoading}
                     pageSize={config.receiptListPageSize || 10}
-                    config={config}
+                    config={receiptTableConfig}
                     isSelectableForBulk={isSelectableForBulk}
                     onToggleSelectAll={handleToggleSelectAll}
                     onToggleSelectRow={handleToggleSelectRow}
@@ -2624,11 +2658,11 @@ export default function App() {
                         onChange={() => setSelectedDeletedIds((current) => current.length === deletedReceipts.length ? [] : deletedReceipts.map((receipt) => receipt.id))}
                         className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                       />
-                      {typeof t.selectedCountLabel === 'function' ? t.selectedCountLabel(selectedDeletedIds.length) : `${selectedDeletedIds.length} selected`}
+                      {typeof t.selectedCountLabel === 'function' ? t.selectedCountLabel(selectedDeletedIds.length) : `已选 ${selectedDeletedIds.length} 条`}
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={handleBatchRestoreDeleted} className="rounded-xl bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase text-emerald-700 hover:bg-emerald-100">{t.restoreSelectedLabel || 'Restore selected'}</button>
-                      <button type="button" onClick={handleBatchPermanentDelete} className="rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black uppercase text-rose-700 hover:bg-rose-100">{t.deleteSelectedLabel || 'Delete selected'}</button>
+                      <button type="button" onClick={handleBatchRestoreDeleted} className="rounded-xl bg-emerald-50 px-3 py-2 text-[10px] font-black uppercase text-emerald-700 hover:bg-emerald-100">{t.restoreSelectedLabel || '恢复已选'}</button>
+                      <button type="button" onClick={handleBatchPermanentDelete} className="rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black uppercase text-rose-700 hover:bg-rose-100">{t.deleteSelectedLabel || '删除已选'}</button>
                     </div>
                   </div>
                 )}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { memo, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import {
   AlertTriangle,
   Building2,
@@ -62,7 +62,7 @@ interface ReceiptReviewDrawerProps {
   onZoomImage: (url: string) => void
 }
 
-export function ReceiptReviewDrawer({
+function ReceiptReviewDrawerComponent({
   receipt,
   config,
   labels,
@@ -207,7 +207,7 @@ export function ReceiptReviewDrawer({
                 {receipt.display_filename || receipt.source_page_label}
               </p>
             )}
-            <p className={`text-[10px] font-bold uppercase mt-0.5 ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.processingTimeLabel || 'Processing time'}: {receipt.time || '10:20'}</p>
+            <p className={`text-[10px] font-bold uppercase mt-0.5 ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.processingTimeLabel || '处理时间'}: {receipt.time || '10:20'}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -370,11 +370,11 @@ export function ReceiptReviewDrawer({
                     <input type="text" value={receipt.company_reg_no || ''} onChange={(event) => updateReceipt({ company_reg_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('tin_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
-                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>TIN No</label>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.tinLabel || 'TIN 号'}</label>
                     <input type="text" value={receipt.tin_no || ''} onChange={(event) => updateReceipt({ tin_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('sst_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
-                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>SST ID</label>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.sstIdLabel || 'SST 编号'}</label>
                     <input type="text" value={receipt.sst_no || ''} onChange={(event) => updateReceipt({ sst_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className="col-span-6 xl:col-span-4 space-y-1.5">
@@ -451,7 +451,7 @@ export function ReceiptReviewDrawer({
               <div className={`mb-4 rounded-xl border px-4 py-3 text-[10px] font-bold leading-5 ${config.colorMode === 'Dark' ? 'border-amber-800 bg-amber-950/30 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{labels.itemQualityWarningLabel || 'Line item names look unreliable. Please compare with the receipt image and complete them manually, or retry smart parsing.'}</span>
+                  <span>{labels.itemQualityWarningLabel || '商品明细名称质量偏低。请对照左侧图片人工补全，或重新智能解析。'}</span>
                 </div>
               </div>
             )}
@@ -554,7 +554,7 @@ export function ReceiptReviewDrawer({
 
             {receipt.doc_type === 'E-invoice' && receipt.extra_fields && (
               <div className={`rounded-2xl border p-5 ${config.colorMode === 'Dark' ? 'border-indigo-900/50 bg-indigo-950/20' : 'border-indigo-100 bg-indigo-50/60'}`}>
-                <p className={`text-[10px] font-black uppercase tracking-[2px] ${config.colorMode === 'Dark' ? 'text-indigo-300' : 'text-indigo-700'}`}>E-invoice</p>
+                <p className={`text-[10px] font-black uppercase tracking-[2px] ${config.colorMode === 'Dark' ? 'text-indigo-300' : 'text-indigo-700'}`}>{labels.einvoiceSectionLabel || '电子发票信息'}</p>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
                   {[
                     [labels.einvoiceSupplierLabel || 'Supplier', receipt.extra_fields.supplier_name, 'supplier_name'],
@@ -615,3 +615,5 @@ export function ReceiptReviewDrawer({
     </ReceiptDetailPanel>
   )
 }
+
+export const ReceiptReviewDrawer = memo(ReceiptReviewDrawerComponent)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Cpu, FileText } from 'lucide-react'
 
 interface UploadQueueItem {
@@ -29,7 +29,7 @@ function normalizeProgress(value: number) {
   return Math.max(0, Math.min(100, Math.round(progress)))
 }
 
-export function UploadQueue({ items, visibleLimit = 10, processingLabel, labels, config }: UploadQueueProps) {
+function UploadQueueComponent({ items, visibleLimit = 10, processingLabel, labels, config }: UploadQueueProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (items.length === 0) return null
@@ -74,7 +74,7 @@ export function UploadQueue({ items, visibleLimit = 10, processingLabel, labels,
           onClick={() => setIsExpanded((current) => !current)}
           className={`w-full px-6 py-3 text-center text-[10px] font-black uppercase tracking-wider transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 text-slate-400 hover:bg-slate-800' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
         >
-          {isExpanded ? (labels?.showLess || 'Show less') : formatShowMore(hiddenCount, labels)}
+          {isExpanded ? (labels?.showLess || '收起') : formatShowMore(hiddenCount, labels)}
         </button>
       )}
     </div>
@@ -83,10 +83,12 @@ export function UploadQueue({ items, visibleLimit = 10, processingLabel, labels,
 
 function formatShowMore(count: number, labels?: any) {
   if (typeof labels?.showMore === 'function') return labels.showMore(count)
-  return `Show ${count} more`
+  return `还有 ${count} 个`
 }
 
 function formatUploadStatus(status: string, labels?: any) {
   if (typeof labels?.formatUploadStatus === 'function') return labels.formatUploadStatus(status)
   return labels?.statusLabels?.[status] || status
 }
+
+export const UploadQueue = memo(UploadQueueComponent)
