@@ -63,6 +63,12 @@ const labels: Record<string, any> = {
   keepPending: '保持挂起',
   syncToSheets: '同步至云端',
   deleteLabel: '删除',
+  statusSummaryLabel: '状态',
+  mathSummaryLabel: '数学校验',
+  warningSummaryLabel: '提醒',
+  itemsSummaryLabel: '明细',
+  warningCountLabel: (count: number) => `${count} 条提醒`,
+  lineItemCountLabel: (count: number) => `${count} 条明细`,
   customDocTypePlaceholder: '自定义单据类型',
   saveLabel: '保存',
   einvoiceSectionLabel: '电子发票信息',
@@ -150,6 +156,9 @@ describe('ReceiptReviewDrawer i18n labels', () => {
     expect(html).toContain('SST 编号')
     expect(html).toContain('电子发票信息')
     expect(html).toContain('商品明细名称质量偏低')
+    expect(html).toContain('状态')
+    expect(html).toContain('0 条提醒')
+    expect(html).toContain('0 条明细')
     expect(html).not.toContain('TIN No')
     expect(html).not.toContain('Line item names look unreliable')
   })

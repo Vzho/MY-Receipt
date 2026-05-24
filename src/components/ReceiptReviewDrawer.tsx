@@ -187,6 +187,9 @@ function ReceiptReviewDrawerComponent({
 
   const mathDelta = manualTotal - grandTotal
   const mathPassed = Math.abs(mathDelta) < 0.05
+  const warningCount = Array.isArray(receipt.warnings) ? receipt.warnings.length : 0
+  const itemCount = Array.isArray(receipt.items) ? receipt.items.length : 0
+  const statusLabel = labels.optionLabels?.[receipt.status] || labels.statusLabels?.[receipt.status] || receipt.status
 
   return (
     <ReceiptDetailPanel colorMode={config.colorMode}>
@@ -229,6 +232,12 @@ function ReceiptReviewDrawerComponent({
               <button disabled={isExporting} onClick={onExport} className={`px-4 py-2 border rounded-xl text-[10px] font-black flex items-center gap-2 transition-all shadow-sm disabled:cursor-wait disabled:opacity-60 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                 <FileOutput className="w-3.5 h-3.5" /> {isExporting ? labels.generatingExcelLabel || 'Generating Excel...' : labels.exportSingle}
               </button>
+              <button
+                onClick={onSync}
+                className={`px-5 py-2.5 ${config.theme.color} text-white rounded-xl text-[10px] font-black flex items-center gap-2 transition-all shadow-md hover:brightness-110 active:scale-95`}
+              >
+                <Save className="w-3.5 h-3.5" /> {labels.syncToSheets}
+              </button>
             </>
           )}
           <button onClick={onClose} className={`p-2 border rounded-xl transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-100'}`} title={labels.closeDrawerLabel || 'Close'}>
@@ -256,6 +265,33 @@ function ReceiptReviewDrawerComponent({
           </div>
         </div>
       )}
+
+      <div className={`grid grid-cols-2 gap-3 border-b px-8 py-4 lg:grid-cols-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
+        <ReviewSummaryChip
+          label={labels.statusSummaryLabel || labels.statusAll || 'Status'}
+          value={statusLabel}
+          tone="neutral"
+          colorMode={config.colorMode}
+        />
+        <ReviewSummaryChip
+          label={labels.mathSummaryLabel || labels.calculator || 'Math'}
+          value={mathPassed ? labels.mathPassed : `${labels.mathFailed} ${config.currency} ${mathDelta.toFixed(2)}`}
+          tone={mathPassed ? 'success' : 'danger'}
+          colorMode={config.colorMode}
+        />
+        <ReviewSummaryChip
+          label={labels.warningSummaryLabel || 'Warnings'}
+          value={typeof labels.warningCountLabel === 'function' ? labels.warningCountLabel(warningCount) : `${warningCount} warnings`}
+          tone={warningCount > 0 ? 'warning' : 'success'}
+          colorMode={config.colorMode}
+        />
+        <ReviewSummaryChip
+          label={labels.itemsSummaryLabel || labels.skuItems || 'Items'}
+          value={typeof labels.lineItemCountLabel === 'function' ? labels.lineItemCountLabel(itemCount) : `${itemCount} items`}
+          tone="neutral"
+          colorMode={config.colorMode}
+        />
+      </div>
 
       <div className={`grid grid-cols-1 gap-3 border-b px-8 py-4 lg:grid-cols-2 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
         <ProcessingPanel stage={receipt.processing_stage} status={receipt.status} labels={labels} />
@@ -613,6 +649,33 @@ function ReceiptReviewDrawerComponent({
         </div>
       </div>
     </ReceiptDetailPanel>
+  )
+}
+
+function ReviewSummaryChip({
+  label,
+  value,
+  tone,
+  colorMode,
+}: {
+  label: string
+  value: string
+  tone: 'neutral' | 'success' | 'warning' | 'danger'
+  colorMode: string
+}) {
+  const toneClass = tone === 'success'
+    ? colorMode === 'Dark' ? 'border-emerald-900/60 bg-emerald-950/20 text-emerald-300' : 'border-emerald-100 bg-emerald-50 text-emerald-700'
+    : tone === 'warning'
+      ? colorMode === 'Dark' ? 'border-amber-900/60 bg-amber-950/20 text-amber-300' : 'border-amber-100 bg-amber-50 text-amber-700'
+      : tone === 'danger'
+        ? colorMode === 'Dark' ? 'border-rose-900/60 bg-rose-950/20 text-rose-300' : 'border-rose-100 bg-rose-50 text-rose-700'
+        : colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40 text-slate-200' : 'border-slate-100 bg-slate-50 text-slate-700'
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${toneClass}`}>
+      <p className="text-[9px] font-black uppercase tracking-[1.5px] opacity-60">{label}</p>
+      <p className="mt-1 truncate text-xs font-black">{value}</p>
+    </div>
   )
 }
 
