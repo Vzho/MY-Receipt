@@ -85,6 +85,7 @@ describe('ReceiptTable', () => {
     expect(html).toContain('src="https://example.test/receipt.jpg"')
     expect(html).toContain('alt="发票缩略图"')
     expect(html).toContain('aria-label="放大发票图片"')
+    expect(html).toContain('min-w-[1120px]')
     expect(html).toContain('PDF Page 2 of 3')
   })
 

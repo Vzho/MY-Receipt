@@ -133,7 +133,8 @@ function ReceiptTableComponent({
 
   return (
     <div className={`rounded-[24px] border shadow-sm overflow-hidden transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-      <table className="w-full text-left">
+      <div className="overflow-x-auto">
+      <table className="min-w-[1120px] w-full text-left">
         <thead className={`text-[10px] font-black uppercase tracking-widest border-b ${config.colorMode === 'Dark' ? 'bg-slate-800/50 text-slate-500 border-slate-800' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
           <tr>
             <th className="px-6 py-4 w-10">
@@ -290,6 +291,7 @@ function ReceiptTableComponent({
           )}
         </tbody>
       </table>
+      </div>
       <div className={`px-6 py-3 border-t flex flex-wrap justify-between gap-3 items-center text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'bg-slate-800/30 border-slate-800 text-slate-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
         <span>{labels.totalLabel || 'Total'}: {visibleItems.length} {labels.totalItems}</span>
         <div className="flex items-center gap-2">

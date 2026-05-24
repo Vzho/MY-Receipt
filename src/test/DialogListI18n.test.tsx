@@ -104,4 +104,19 @@ describe('dialog and deleted receipt i18n', () => {
     expect(html).not.toContain('No note')
     expect(html).not.toContain('Copy note')
   })
+
+  it('renders deleted receipt empty state from labels', () => {
+    const html = renderToStaticMarkup(
+      <DeletedReceiptList
+        receipts={[]}
+        labels={{ noDeletedReceiptsLabel: 'No rejected receipts' }}
+        onRestore={vi.fn()}
+        onPermanentDelete={vi.fn()}
+      />,
+    )
+
+    expect(html).toContain('No rejected receipts')
+    expect(html).toContain('rounded-[24px]')
+    expect(html).not.toContain('暂无已删除收据')
+  })
 })

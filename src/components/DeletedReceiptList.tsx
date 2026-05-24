@@ -1,4 +1,4 @@
-import { MessageSquareText, RotateCcw, Trash2 } from 'lucide-react'
+import { ArchiveX, MessageSquareText, RotateCcw, Trash2 } from 'lucide-react'
 import type { Receipt } from '../types/receipt'
 import { buildReuploadRequestMessage } from '../lib/reuploadTemplate'
 
@@ -15,13 +15,20 @@ interface DeletedReceiptListProps {
 
 export function DeletedReceiptList({ receipts, selectedIds = [], labels, onToggleSelect, onOpen, onCopyReuploadMessage, onRestore, onPermanentDelete }: DeletedReceiptListProps) {
   if (receipts.length === 0) {
-    return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-xs font-bold text-slate-400">{labels?.noDeletedReceiptsLabel || '暂无已删除收据'}</div>
+    return (
+      <div className="rounded-[24px] border border-dashed border-slate-200 bg-white px-8 py-12 text-center shadow-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+          <ArchiveX className="h-5 w-5" />
+        </div>
+        <p className="mt-4 text-xs font-black uppercase tracking-wider text-slate-400">{labels?.noDeletedReceiptsLabel || '暂无已删除收据'}</p>
+      </div>
+    )
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
       {receipts.map((receipt) => (
-        <div key={receipt.id} className="grid grid-cols-[auto_1fr_auto] gap-4 border-b border-slate-100 px-5 py-4 last:border-b-0">
+        <div key={receipt.id} className="grid grid-cols-[auto_1fr] gap-4 border-b border-slate-100 px-5 py-4 last:border-b-0 lg:grid-cols-[auto_1fr_auto]">
           <div className="flex items-center">
             <input
               type="checkbox"
@@ -36,7 +43,7 @@ export function DeletedReceiptList({ receipts, selectedIds = [], labels, onToggl
               {receipt.deleted_reason || 'other'} / {receipt.deleted_at?.slice(0, 10) || '-'} / {receipt.deleted_note || labels?.noNoteLabel || 'No note'}
             </p>
           </button>
-          <div className="flex items-center gap-2">
+          <div className="col-span-2 flex flex-wrap items-center gap-2 pl-8 lg:col-span-1 lg:justify-end lg:pl-0">
             <button type="button" onClick={() => onCopyReuploadMessage?.(buildReuploadRequestMessage(receipt))} className="rounded-xl bg-slate-50 px-3 py-2 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-100">
               <MessageSquareText className="mr-1 inline h-3.5 w-3.5" /> {labels?.copyNoteLabel || 'Copy note'}
             </button>
