@@ -14,6 +14,7 @@ describe('SettingsModal', () => {
           notificationSound: false,
           uploadQueueLimit: 10,
           receiptListPageSize: 10,
+          fontScale: 1.08,
           theme: { name: 'Indigo', color: 'bg-indigo-600' },
         }}
         labels={{
@@ -26,6 +27,11 @@ describe('SettingsModal', () => {
           brandColor: '品牌主色调',
           notificationSoundLabel: '消息音效',
           notificationSoundDescription: '仅在关键消息时播放。',
+          fontScaleLabel: '界面字号',
+          fontScaleDescription: '调整页面文字、表格和按钮的显示大小。',
+          fontScaleCompactLabel: '标准',
+          fontScaleComfortableLabel: '较大',
+          fontScaleLargeLabel: '特大',
           uploadQueueLimitLabel: '上传队列显示数量',
           uploadQueueLimitDescription: '批量上传时首页默认展示的处理任务数量。',
           receiptListPageSizeLabel: '发票列表每页数量',
@@ -50,6 +56,9 @@ describe('SettingsModal', () => {
 
     expect(html).toContain('消息音效')
     expect(html).toContain('仅在关键消息时播放。')
+    expect(html).toContain('界面字号')
+    expect(html).toContain('较大')
+    expect(html).toContain('特大')
     expect(html).toContain('上传队列显示数量')
     expect(html).toContain('发票列表每页数量')
     expect(html).toContain('字段提取与导出')

@@ -70,6 +70,15 @@ const THEMES = [
 ];
 const LANGUAGES = ['中文', 'English', 'Melayu'];
 const CURRENCIES = ['RM', 'SGD', 'USD', '¥'];
+const DEFAULT_FONT_SCALE = 1.08;
+const FONT_SCALE_OPTIONS = [1, DEFAULT_FONT_SCALE, 1.16];
+
+function normalizeFontScale(value: unknown) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return DEFAULT_FONT_SCALE;
+  const rounded = Math.round(numeric * 100) / 100;
+  return FONT_SCALE_OPTIONS.includes(rounded) ? rounded : DEFAULT_FONT_SCALE;
+}
 
 const DISPLAY_STATUS_BY_DB_STATUS: Record<string, string> = {
   uploaded: 'Uploaded',
@@ -373,6 +382,11 @@ const I18N: any = {
     attentionNotificationsLabel: '需处理',
     notificationSoundLabel: '消息音效',
     notificationSoundDescription: '仅在失败、重复检测和批量完成等关键消息时播放。',
+    fontScaleLabel: '界面字号',
+    fontScaleDescription: '调整页面文字、表格和按钮的显示大小。',
+    fontScaleCompactLabel: '标准',
+    fontScaleComfortableLabel: '较大',
+    fontScaleLargeLabel: '特大',
     uploadQueueLimitLabel: '上传队列显示数量',
     uploadQueueLimitDescription: '批量上传时首页默认展示的处理任务数量。',
     receiptListPageSizeLabel: '发票列表每页数量',
@@ -785,6 +799,11 @@ const I18N: any = {
     attentionNotificationsLabel: 'Attention',
     notificationSoundLabel: 'Notification sound',
     notificationSoundDescription: 'Play sound only for key messages such as failures, duplicate checks, and batch completion.',
+    fontScaleLabel: 'Interface text size',
+    fontScaleDescription: 'Adjust the display size for page text, tables, and buttons.',
+    fontScaleCompactLabel: 'Standard',
+    fontScaleComfortableLabel: 'Large',
+    fontScaleLargeLabel: 'Extra large',
     uploadQueueLimitLabel: 'Upload queue display limit',
     uploadQueueLimitDescription: 'Default number of processing tasks shown on the home page during batch upload.',
     receiptListPageSizeLabel: 'Receipts per page',
@@ -1198,6 +1217,11 @@ const I18N: any = {
     attentionNotificationsLabel: 'Perlu tindakan',
     notificationSoundLabel: 'Bunyi notifikasi',
     notificationSoundDescription: 'Mainkan bunyi hanya untuk mesej penting seperti kegagalan, pendua, dan siap kelompok.',
+    fontScaleLabel: 'Saiz teks antara muka',
+    fontScaleDescription: 'Laraskan saiz paparan teks halaman, jadual, dan butang.',
+    fontScaleCompactLabel: 'Standard',
+    fontScaleComfortableLabel: 'Besar',
+    fontScaleLargeLabel: 'Sangat besar',
     uploadQueueLimitLabel: 'Had paparan giliran muat naik',
     uploadQueueLimitDescription: 'Bilangan tugas pemprosesan yang dipaparkan secara lalai semasa muat naik kelompok.',
     receiptListPageSizeLabel: 'Resit setiap halaman',
@@ -1470,9 +1494,7 @@ export default function App() {
   const [filters, setFilters] = useState({ search: '', status: 'All', docType: 'All', tag: 'All', attention: false });
 
   const [config, setConfig] = useState(() => {
-    const saved = localStorage.getItem('my_receipt_config');
-    if (saved) return JSON.parse(saved);
-    return {
+    const defaultConfig = {
       theme: THEMES[0],
       language: 'zh',
       currency: 'RM',
@@ -1480,9 +1502,31 @@ export default function App() {
       notificationSound: false,
       uploadQueueLimit: 10,
       receiptListPageSize: 10,
+      fontScale: DEFAULT_FONT_SCALE,
     };
+    const saved = localStorage.getItem('my_receipt_config');
+    if (!saved) return defaultConfig;
+    try {
+      const parsed = JSON.parse(saved);
+      return {
+        ...defaultConfig,
+        ...parsed,
+        theme: parsed.theme || THEMES[0],
+        fontScale: normalizeFontScale(parsed.fontScale),
+      };
+    } catch {
+      return defaultConfig;
+    }
   });
   const latestConfigRef = useRef(config);
+  const appFontScale = normalizeFontScale(config.fontScale);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--app-font-scale', String(appFontScale));
+    return () => {
+      document.documentElement.style.removeProperty('--app-font-scale');
+    };
+  }, [appFontScale]);
 
   useEffect(() => {
     latestConfigRef.current = config;
@@ -2741,7 +2785,7 @@ export default function App() {
 
           <main className="flex-1 overflow-y-auto p-8 lg:p-10">
             {activeTab === 'upload' ? (
-              <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+              <div className="mx-auto max-w-[1520px] space-y-8 animate-in fade-in duration-500">
                 <label className={`group relative block border-2 border-dashed rounded-[32px] p-16 text-center transition-all cursor-pointer shadow-sm ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-700 hover:border-indigo-500' : 'bg-white border-slate-300 hover:border-indigo-400'}`}>
                   <div className={`w-16 h-16 ${config.theme.light} rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-all duration-300 ${config.colorMode === 'Dark' ? 'bg-indigo-900/30' : ''}`}>
                     <Upload className={`w-8 h-8 ${config.theme.text}`} />
@@ -2840,7 +2884,7 @@ export default function App() {
                 </div>
               </div>
             ) : activeTab === 'rejected' ? (
-              <div className="max-w-6xl mx-auto space-y-6">
+              <div className="mx-auto max-w-[1520px] space-y-6">
                 {deletedReceipts.length > 0 && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
                     <label className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500">
@@ -2877,7 +2921,7 @@ export default function App() {
                 />
               </div>
             ) : (
-              <div className="max-w-6xl mx-auto space-y-6">
+              <div className="mx-auto max-w-[1520px] space-y-6">
                  <div className="flex gap-4 items-center">
                      <div className="relative flex-1 group min-w-[200px]">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

@@ -1,4 +1,4 @@
-import { Banknote, BellRing, CheckCircle, Languages, ListOrdered, Moon, Settings, Sun, X } from 'lucide-react'
+import { Banknote, BellRing, CheckCircle, Languages, ListOrdered, Moon, Settings, Sun, Type, X } from 'lucide-react'
 import { playNotificationSoundPreview, shouldPreviewNotificationSoundOnToggle } from '../lib/notificationSound'
 import { FieldConfigPanel } from './FieldConfigPanel'
 import type { FieldPreference } from '../types/fieldConfig'
@@ -24,8 +24,14 @@ export function SettingsModal({
 }: SettingsModalProps) {
   const uploadQueueLimit = Math.max(1, Math.round(Number(config.uploadQueueLimit) || 10))
   const receiptListPageSize = Math.max(1, Math.round(Number(config.receiptListPageSize) || 10))
+  const fontScale = Math.round((Number(config.fontScale) || 1.08) * 100) / 100
   const queueLimitOptions = [5, 10, 20]
   const receiptPageSizeOptions = [10, 20, 50]
+  const fontScaleOptions = [
+    { value: 1, label: labels.fontScaleCompactLabel || '标准' },
+    { value: 1.08, label: labels.fontScaleComfortableLabel || '较大' },
+    { value: 1.16, label: labels.fontScaleLargeLabel || '特大' },
+  ]
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
@@ -117,6 +123,34 @@ export function SettingsModal({
                   className={`w-10 h-10 rounded-2xl ${theme.color} flex items-center justify-center transition-all ${config.theme.name === theme.name ? 'scale-110 ring-4 ring-offset-4 ' + (config.colorMode === 'Dark' ? 'ring-slate-700 ring-offset-slate-900' : 'ring-slate-200 ring-offset-white') : 'opacity-40 hover:opacity-100'}`}
                 >
                   {config.theme.name === theme.name && <CheckCircle className="w-5 h-5 text-white" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
+            <div>
+              <label className={`text-[10px] font-black uppercase tracking-[2px] flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                <Type className="w-3.5 h-3.5" /> {labels.fontScaleLabel || '界面字号'}
+              </label>
+              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.fontScaleDescription || '调整页面文字、表格和按钮的显示大小。'}</p>
+            </div>
+            <div className={`grid grid-cols-3 gap-1 rounded-2xl p-1 ${config.colorMode === 'Dark' ? 'bg-slate-800' : 'bg-slate-100'}`}>
+              {fontScaleOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onConfigChange({ ...config, fontScale: option.value })}
+                  aria-pressed={fontScale === option.value}
+                  className={`min-w-16 rounded-xl px-4 py-2 text-xs font-black transition-all ${
+                    fontScale === option.value
+                      ? `${config.theme.color} text-white shadow-sm`
+                      : config.colorMode === 'Dark'
+                        ? 'text-slate-400 hover:bg-slate-700'
+                        : 'text-slate-500 hover:bg-white'
+                  }`}
+                >
+                  {option.label}
                 </button>
               ))}
             </div>
