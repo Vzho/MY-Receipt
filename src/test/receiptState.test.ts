@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyReceiptDraftToCollection } from '../lib/receiptState'
+import { applyReceiptDraftToCollection, applyReceiptDraftToSelection } from '../lib/receiptState'
 
 describe('applyReceiptDraftToCollection', () => {
   it('keeps receipt tag edits visible in the matching list row', () => {
@@ -26,5 +26,21 @@ describe('applyReceiptDraftToCollection', () => {
 
     expect(applyReceiptDraftToCollection({ tags: ['Business'] }, receipts)).toBe(receipts)
     expect(applyReceiptDraftToCollection(null, receipts)).toBe(receipts)
+  })
+
+  it('keeps an open receipt detail updated while background parsing continues', () => {
+    const selected = { id: 'receipt-1', status: 'Pending', merchant_name: 'Old Merchant' }
+
+    expect(applyReceiptDraftToSelection({ id: 'receipt-1', status: 'Processing' }, selected)).toEqual({
+      id: 'receipt-1',
+      status: 'Processing',
+      merchant_name: 'Old Merchant',
+    })
+  })
+
+  it('does not reopen a receipt detail after the user closed it', () => {
+    expect(applyReceiptDraftToSelection({ id: 'receipt-1', status: 'Pending' }, null)).toBeNull()
+    const selected = { id: 'receipt-2', status: 'Pending' }
+    expect(applyReceiptDraftToSelection({ id: 'receipt-1', status: 'Processing' }, selected)).toBe(selected)
   })
 })

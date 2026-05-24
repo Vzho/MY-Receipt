@@ -34,7 +34,7 @@ import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/r
 import { constrainSelectionToVisible, filterReceiptQueue, summarizeReceiptQueue } from './lib/receiptFilters';
 import { keepSyncedReceiptSelected } from './lib/syncSelection';
 import { playNotificationSound } from './lib/notificationSound';
-import { applyReceiptDraftToCollection } from './lib/receiptState';
+import { applyReceiptDraftToCollection, applyReceiptDraftToSelection } from './lib/receiptState';
 import {
   createAppNotification,
   loadAppNotifications,
@@ -2355,8 +2355,9 @@ export default function App() {
 
     setSmartParsingReceiptId(receiptId);
     startRepairProgress(receiptId, 'smart');
-    setSelectedReceipt(null);
-    setHistory((current) => current.map((item) => item.id === receiptId ? { ...item, status: 'Processing', processing_stage: 'ai_extracting' } : item));
+    const processingDraft = { id: receiptId, status: 'Processing', processing_stage: 'ai_extracting' };
+    setSelectedReceipt((current: any) => applyReceiptDraftToSelection(processingDraft, current));
+    setHistory((current) => applyReceiptDraftToCollection(processingDraft, current));
     showToast(t.smartParseStartedLabel, 'info', {
       persist: true,
       title: t.smartParseStartedTitle,
@@ -2367,13 +2368,16 @@ export default function App() {
       if (processedFile && imageProcessing) {
         const updated = await uploadProcessedReceiptImage(receiptId, processedFile, imageProcessing);
         const displayProcessingReceipt = await buildDisplayReceipt(updated, currentImageUrl);
-        setHistory((current) => current.map((item) => item.id === displayProcessingReceipt.id ? {
+        const displayProcessingDraft = {
           ...displayProcessingReceipt,
           status: 'Processing',
           processing_stage: 'ai_extracting',
-        } : item));
+        };
+        setHistory((current) => applyReceiptDraftToCollection(displayProcessingDraft, current));
+        setSelectedReceipt((current: any) => applyReceiptDraftToSelection(displayProcessingDraft, current));
       } else {
-        setHistory((current) => current.map((item) => item.id === receiptId ? { ...item, status: 'Processing' } : item));
+        setHistory((current) => applyReceiptDraftToCollection(processingDraft, current));
+        setSelectedReceipt((current: any) => applyReceiptDraftToSelection(processingDraft, current));
       }
 
       const result = await smartParseReceipt(receiptId, {
@@ -2392,7 +2396,8 @@ export default function App() {
         processed_image_url: processedSignedUrl || currentProcessedImageUrl,
       });
 
-      setHistory((current) => current.map((item) => item.id === displayReceipt.id ? displayReceipt : item));
+      setHistory((current) => applyReceiptDraftToCollection(displayReceipt, current));
+      setSelectedReceipt((current: any) => applyReceiptDraftToSelection(displayReceipt, current));
       setRepairProgress({ receiptId, mode: 'smart', percent: 100, label: result.parseError ? t.smartParseReturnedErrorLabel : t.smartParseFinishedLabel });
       showToast(result.parseError || `${displayReceipt.merchant_name || displayReceipt.filename || 'Receipt'} ${t.smartParseFinishedLabel}.`, result.parseError ? 'error' : 'success', {
         persist: true,
@@ -2403,7 +2408,13 @@ export default function App() {
       console.error('Smart parse failed:', error);
       clearRepairProgressTimer();
       setRepairProgress({ receiptId, mode: 'smart', percent: 100, label: t.smartParseFailedLabel });
-      setHistory((current) => current.map((item) => item.id === receiptId ? { ...item, status: receipt.status || 'Uploaded' } : item));
+      const failureDraft = {
+        id: receiptId,
+        status: receipt.status || 'Uploaded',
+        processing_stage: receipt.processing_stage,
+      };
+      setHistory((current) => applyReceiptDraftToCollection(failureDraft, current));
+      setSelectedReceipt((current: any) => applyReceiptDraftToSelection(failureDraft, current));
       showToast(error instanceof Error ? error.message : t.smartParseFailedLabel, 'error', {
         persist: true,
         title: t.smartParseFailedLabel,
