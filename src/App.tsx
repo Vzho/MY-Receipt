@@ -31,6 +31,7 @@ import { downloadReceiptsXlsx } from './lib/exportExcel';
 import { formatSubsidyHeadline } from './lib/subsidyDetails';
 import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages } from './lib/pdfPreprocess';
 import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/receiptDisplay';
+import { constrainSelectionToVisible, filterReceiptQueue, summarizeReceiptQueue } from './lib/receiptFilters';
 import { keepSyncedReceiptSelected } from './lib/syncSelection';
 import { playNotificationSound } from './lib/notificationSound';
 import { applyReceiptDraftToCollection } from './lib/receiptState';
@@ -376,6 +377,11 @@ const I18N: any = {
     uploadQueueLimitDescription: '批量上传时首页默认展示的处理任务数量。',
     receiptListPageSizeLabel: '发票列表每页数量',
     receiptListPageSizeDescription: '首页发票列表每页默认展示的记录数量。',
+    queueFilterAllLabel: '全部',
+    queueFilterAttentionLabel: '需处理',
+    queueFilterReadyLabel: '待审核',
+    queueFilterProcessingLabel: '处理中',
+    queueFilterFailedLabel: '失败',
     fieldExtractionExportLabel: '字段提取与导出',
     showFieldLabel: '显示',
     exportFieldLabel: '导出',
@@ -783,6 +789,11 @@ const I18N: any = {
     uploadQueueLimitDescription: 'Default number of processing tasks shown on the home page during batch upload.',
     receiptListPageSizeLabel: 'Receipts per page',
     receiptListPageSizeDescription: 'Default number of records shown per receipt list page.',
+    queueFilterAllLabel: 'All',
+    queueFilterAttentionLabel: 'Attention',
+    queueFilterReadyLabel: 'Ready',
+    queueFilterProcessingLabel: 'Processing',
+    queueFilterFailedLabel: 'Failed',
     fieldExtractionExportLabel: 'Field extraction & export',
     showFieldLabel: 'Show',
     exportFieldLabel: 'Export',
@@ -1191,6 +1202,11 @@ const I18N: any = {
     uploadQueueLimitDescription: 'Bilangan tugas pemprosesan yang dipaparkan secara lalai semasa muat naik kelompok.',
     receiptListPageSizeLabel: 'Resit setiap halaman',
     receiptListPageSizeDescription: 'Bilangan rekod yang dipaparkan setiap halaman senarai resit.',
+    queueFilterAllLabel: 'Semua',
+    queueFilterAttentionLabel: 'Perlu tindakan',
+    queueFilterReadyLabel: 'Sedia',
+    queueFilterProcessingLabel: 'Diproses',
+    queueFilterFailedLabel: 'Gagal',
     fieldExtractionExportLabel: 'Pengekstrakan medan & eksport',
     showFieldLabel: 'Papar',
     exportFieldLabel: 'Eksport',
@@ -1451,7 +1467,7 @@ export default function App() {
   const pendingRealtimeFullRefreshRef = useRef(false);
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [toast, setToast] = useState<{message: string, type: 'info' | 'success' | 'error'} | null>(null);
-  const [filters, setFilters] = useState({ search: '', status: 'All', docType: 'All', tag: 'All' });
+  const [filters, setFilters] = useState({ search: '', status: 'All', docType: 'All', tag: 'All', attention: false });
 
   const [config, setConfig] = useState(() => {
     const saved = localStorage.getItem('my_receipt_config');
@@ -1782,19 +1798,19 @@ export default function App() {
     };
   }, []);
 
-  const filteredHistory = useMemo(() => {
-    return history.filter(item => {
-      const search = filters.search.trim().toLowerCase();
-      const matchSearch = !search
-        || item.merchant_name?.toLowerCase().includes(search)
-        || item.invoice_no?.toLowerCase().includes(search)
-        || item.filename?.toLowerCase().includes(search);
-      const matchStatus = filters.status === 'All' || item.status === filters.status;
-      const matchType = filters.docType === 'All' || item.doc_type === filters.docType;
-      const matchTag = filters.tag === 'All' || item.tags?.includes(filters.tag);
-      return matchSearch && matchStatus && matchType && matchTag;
-    });
-  }, [history, filters]);
+  const filteredHistory = useMemo(() => filterReceiptQueue(history, filters), [history, filters]);
+  const receiptQueueStats = useMemo(() => summarizeReceiptQueue(history), [history]);
+  const queueQuickFilters = useMemo(() => [
+    { key: 'all', label: t.queueFilterAllLabel, count: receiptQueueStats.active, status: 'All', attention: false },
+    { key: 'attention', label: t.queueFilterAttentionLabel, count: receiptQueueStats.attention, status: 'All', attention: true },
+    { key: 'ready', label: t.queueFilterReadyLabel, count: receiptQueueStats.ready, status: 'Pending', attention: false },
+    { key: 'processing', label: t.queueFilterProcessingLabel, count: receiptQueueStats.processing, status: 'Processing', attention: false },
+    { key: 'failed', label: t.queueFilterFailedLabel, count: receiptQueueStats.failed, status: 'Failed', attention: false },
+  ], [receiptQueueStats, t]);
+
+  useEffect(() => {
+    setSelectedRowIds((current) => constrainSelectionToVisible(current, filteredHistory));
+  }, [filteredHistory]);
 
   const handleToggleSelectAll = useCallback(() => {
     const currentPendingIds = filteredHistory.filter(isSelectableForBulk).map(h => h.id);
@@ -2738,13 +2754,36 @@ export default function App() {
                 <UploadQueue items={uploadList} visibleLimit={config.uploadQueueLimit || 10} processingLabel={t.processing} labels={t} config={config} />
 
                 <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 px-2 md:grid-cols-5">
+                    {queueQuickFilters.map((chip) => {
+                      const active = filters.status === chip.status && Boolean(filters.attention) === chip.attention;
+                      return (
+                        <button
+                          key={chip.key}
+                          type="button"
+                          onClick={() => setFilters((current) => ({ ...current, status: chip.status, attention: chip.attention }))}
+                          className={`rounded-2xl border px-4 py-3 text-left transition-all ${
+                            active
+                              ? `${config.theme.color} border-transparent text-white shadow-lg`
+                              : config.colorMode === 'Dark'
+                                ? 'border-slate-800 bg-slate-900 text-slate-400 hover:bg-slate-800'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-100 hover:bg-indigo-50/50'
+                          }`}
+                        >
+                          <span className="block text-[9px] font-black uppercase tracking-[1.5px] opacity-70">{chip.label}</span>
+                          <span className="mt-1 block text-xl font-black tabular-nums">{chip.count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   <div className="flex flex-wrap gap-3 items-center p-2">
                      <div className="relative flex-1 min-w-[200px]">
                         <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-400'}`} />
                         <input type="text" placeholder={t.searchPlaceholder} value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className={`w-full border rounded-xl pl-10 pr-4 py-2.5 text-xs font-medium focus:outline-none transition-all shadow-sm ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800 text-white focus:border-indigo-500 ring-indigo-500/10' : 'bg-white border-slate-200 text-slate-900 focus:border-indigo-500 ring-indigo-500/10'}`} />
                      </div>
                      <div className="relative">
-                        <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} className={`appearance-none border rounded-xl pl-4 pr-10 py-2.5 text-xs font-black outline-none shadow-sm transition-all cursor-pointer ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800 text-slate-400 focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-500'}`}>
+                        <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value, attention: false})} className={`appearance-none border rounded-xl pl-4 pr-10 py-2.5 text-xs font-black outline-none shadow-sm transition-all cursor-pointer ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800 text-slate-400 focus:border-indigo-500' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-500'}`}>
                            <option value="All">{t.statusAll}</option>
                            <option value="Uploaded">{t.statusUploaded}</option>
                            <option value="Processing">{t.statusProcessing}</option>
