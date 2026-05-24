@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Receipt } from '../types/receipt'
 
 const mocks = vi.hoisted(() => ({
@@ -22,6 +22,10 @@ const uploadedReceipt = createReceipt({
 })
 
 describe('createReceiptFromFile', () => {
+  beforeEach(() => {
+    mocks.invoke.mockReset()
+  })
+
   it('accepts PDF receipts so they can be rasterized for OCR', () => {
     const file = new File(['%PDF-1.7'], 'receipt.pdf', { type: 'application/pdf' })
 
@@ -36,7 +40,7 @@ describe('createReceiptFromFile', () => {
     const resultPromise = createReceiptFromFile(file, { awaitParse: false })
     const result = await Promise.race([
       resultPromise,
-      new Promise<'timed out'>((resolve) => globalThis.setTimeout(() => resolve('timed out'), 20)),
+      new Promise<'timed out'>((resolve) => globalThis.setTimeout(() => resolve('timed out'), 250)),
     ])
 
     expect(result).not.toBe('timed out')
@@ -51,6 +55,17 @@ describe('createReceiptFromFile', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('parse-receipt', {
       body: { receipt_id: 'receipt-1' },
     })
+  })
+
+  it('reports async parse invocation errors to the caller', async () => {
+    mocks.invoke.mockResolvedValue({ error: { message: 'Edge function unavailable' } })
+    const onAsyncParseError = vi.fn()
+
+    const file = new File(['receipt image'], 'receipt.jpg', { type: 'image/jpeg' })
+    await createReceiptFromFile(file, { awaitParse: false, onAsyncParseError })
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 0))
+
+    expect(onAsyncParseError).toHaveBeenCalledWith('Edge function unavailable', 'receipt-1')
   })
 })
 

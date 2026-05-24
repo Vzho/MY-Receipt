@@ -24,6 +24,9 @@ describe('NotificationCenter', () => {
           markAllReadLabel: 'Mark all as read',
           clearNotificationsLabel: 'Clear messages',
           noNotificationsLabel: 'No messages',
+          allNotificationsLabel: 'All',
+          unreadNotificationsLabel: 'Unread',
+          attentionNotificationsLabel: 'Attention',
         }}
         onToggle={vi.fn()}
         onMarkAllRead={vi.fn()}
@@ -36,6 +39,9 @@ describe('NotificationCenter', () => {
     expect(html).toContain('OCR failed')
     expect(html).toContain('Receipt image is blurry.')
     expect(html).toContain('1 records')
+    expect(html).toContain('Unread')
+    expect(html).toContain('Attention')
     expect(html).not.toContain('消息中心')
+    expect(html).not.toContain('全部')
   })
 })

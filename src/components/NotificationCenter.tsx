@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { Bell, CheckCheck, CircleAlert, CircleCheck, Info, Trash2, TriangleAlert } from 'lucide-react'
 import type { AppNotification } from '../types/notification'
 
@@ -22,7 +23,19 @@ export function NotificationCenter({
   onClear,
   onOpenReceipt,
 }: NotificationCenterProps) {
+  const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'attention'>('all')
   const unreadCount = notifications.filter((notification) => !notification.read_at).length
+  const attentionCount = notifications.filter((notification) => notification.type === 'error' || notification.type === 'warning').length
+  const filteredNotifications = useMemo(() => {
+    if (activeFilter === 'unread') return notifications.filter((notification) => !notification.read_at)
+    if (activeFilter === 'attention') return notifications.filter((notification) => notification.type === 'error' || notification.type === 'warning')
+    return notifications
+  }, [activeFilter, notifications])
+  const filterOptions = [
+    { key: 'all' as const, label: labels?.allNotificationsLabel || '全部', count: notifications.length },
+    { key: 'unread' as const, label: labels?.unreadNotificationsLabel || '未读', count: unreadCount },
+    { key: 'attention' as const, label: labels?.attentionNotificationsLabel || '需处理', count: attentionCount },
+  ]
 
   return (
     <div className="relative">
@@ -58,10 +71,29 @@ export function NotificationCenter({
             </div>
           </div>
 
+          <div className={`flex gap-2 border-b px-4 py-3 ${colorMode === 'Dark' ? 'border-slate-800' : 'border-slate-100'}`}>
+            {filterOptions.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setActiveFilter(option.key)}
+                className={`rounded-full px-3 py-1.5 text-[10px] font-black uppercase transition ${
+                  activeFilter === option.key
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : colorMode === 'Dark'
+                      ? 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                {option.label} {option.count}
+              </button>
+            ))}
+          </div>
+
           <div className="max-h-[440px] overflow-y-auto">
-            {notifications.length === 0 ? (
+            {filteredNotifications.length === 0 ? (
               <div className="px-5 py-10 text-center text-xs font-bold text-slate-400">{labels?.noNotificationsLabel || '暂无消息'}</div>
-            ) : notifications.map((notification) => (
+            ) : filteredNotifications.map((notification) => (
               <button
                 key={notification.id}
                 type="button"

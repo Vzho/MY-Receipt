@@ -43,6 +43,7 @@ import {
   type AppNotificationInput,
 } from './lib/appNotifications';
 import { DeletedReceiptList } from './components/DeletedReceiptList';
+import { DeleteReceiptDialog, type DeleteDialogSubmitPayload } from './components/DeleteReceiptDialog';
 import { DuplicateDialog } from './components/DuplicateDialog';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ReceiptCropModal } from './components/ReceiptCropModal';
@@ -90,6 +91,13 @@ type RepairProgress = {
   percent: number;
   label: string;
   mode: 'deepseek' | 'vision' | 'smart';
+};
+
+type DeleteDialogState = {
+  mode: 'soft' | 'permanent';
+  ids: string[];
+  defaultReason?: string;
+  isSubmitting: boolean;
 };
 
 type SmartCropTarget = {
@@ -354,6 +362,9 @@ const I18N: any = {
     markAllReadLabel: '全部标记已读',
     clearNotificationsLabel: '清空消息',
     noNotificationsLabel: '暂无消息',
+    allNotificationsLabel: '全部',
+    unreadNotificationsLabel: '未读',
+    attentionNotificationsLabel: '需处理',
     notificationSoundLabel: '消息音效',
     notificationSoundDescription: '仅在失败、重复检测和批量完成等关键消息时播放。',
     uploadQueueLimitLabel: '上传队列显示数量',
@@ -470,6 +481,13 @@ const I18N: any = {
     permanentDeleteFailedLabel: '永久删除失败。',
     noDeletedSelectedLabel: '没有选择已删除收据。',
     batchPermanentDeleteConfirmLabel: (count: number) => `永久删除 ${count} 张收据？`,
+    permanentDeleteDialogTitle: '永久删除收据',
+    batchPermanentDeleteDialogTitle: (count: number) => `永久删除：${count} 张`,
+    permanentDeleteDialogDescription: '永久删除会移除数据库记录和 Storage 文件，无法恢复。',
+    batchPermanentDeleteDialogDescription: (count: number) => `${count} 张收据会被永久删除，并移除对应 Storage 文件。`,
+    permanentDeleteWarningLabel: '此操作不会进入 Rejected 库，删除后无法恢复。',
+    confirmPermanentDeleteLabel: '确认永久删除',
+    processingActionLabel: '处理中',
     batchPermanentDeleteSuccessLabel: (count: number) => `${count} 张收据已永久删除。`,
     batchPermanentDeleteFinishedLabel: '批量永久删除完成',
     batchPermanentDeleteFailedLabel: '批量永久删除失败。',
@@ -504,6 +522,23 @@ const I18N: any = {
     retryingLabel: (id: string) => `正在重试 API：${id}`,
     deletePromptLabel: '删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）',
     batchDeletePromptLabel: '批量删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）',
+    deleteDialogTitle: '移入已删除库',
+    batchDeleteDialogTitle: (count: number) => `移入已删除库：${count} 张`,
+    deleteDialogDescription: (name: string) => `请选择 ${name} 的删除原因，会计可在 Rejected 库查看并复制重传说明。`,
+    batchDeleteDialogDescription: (count: number) => `${count} 张收据会从主列表移入 Rejected 库，并保留删除原因。`,
+    deleteReasonLabel: '删除原因',
+    deleteReasonOptions: {
+      blurry_image: '照片模糊',
+      duplicate: '重复单据',
+      amount_not_clear: '金额不清楚',
+      not_receipt: '不是收据',
+      missing_required_info: '缺少必要信息',
+      other: '其他',
+    },
+    deleteNoteLabel: '备注',
+    deleteNotePlaceholder: '可填写需要客户重新提交的说明，例如照片模糊、金额被遮挡。',
+    confirmDeleteLabel: '移入已删除库',
+    cancelLabel: '取消',
     deleteFailedLabel: '删除失败。',
     receiptMovedRejectedLabel: '收据已移入已删除库。',
     receiptDeletedTitle: '收据已删除',
@@ -729,6 +764,9 @@ const I18N: any = {
     markAllReadLabel: 'Mark all as read',
     clearNotificationsLabel: 'Clear messages',
     noNotificationsLabel: 'No messages',
+    allNotificationsLabel: 'All',
+    unreadNotificationsLabel: 'Unread',
+    attentionNotificationsLabel: 'Attention',
     notificationSoundLabel: 'Notification sound',
     notificationSoundDescription: 'Play sound only for key messages such as failures, duplicate checks, and batch completion.',
     uploadQueueLimitLabel: 'Upload queue display limit',
@@ -845,6 +883,13 @@ const I18N: any = {
     permanentDeleteFailedLabel: 'Permanent delete failed.',
     noDeletedSelectedLabel: 'No deleted receipts selected.',
     batchPermanentDeleteConfirmLabel: (count: number) => `Permanently delete ${count} receipts?`,
+    permanentDeleteDialogTitle: 'Permanently delete receipt',
+    batchPermanentDeleteDialogTitle: (count: number) => `Permanently delete ${count} receipts`,
+    permanentDeleteDialogDescription: 'This removes the database row and Storage file. It cannot be restored.',
+    batchPermanentDeleteDialogDescription: (count: number) => `${count} receipts will be permanently deleted and their Storage files removed.`,
+    permanentDeleteWarningLabel: 'This action bypasses the Rejected library and cannot be undone.',
+    confirmPermanentDeleteLabel: 'Permanently delete',
+    processingActionLabel: 'Processing',
     batchPermanentDeleteSuccessLabel: (count: number) => `${count} receipts permanently deleted.`,
     batchPermanentDeleteFinishedLabel: 'Batch permanent delete finished',
     batchPermanentDeleteFailedLabel: 'Batch permanent delete failed.',
@@ -879,6 +924,23 @@ const I18N: any = {
     retryingLabel: (id: string) => `Retrying API for ID: ${id}`,
     deletePromptLabel: 'Delete reason (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
     batchDeletePromptLabel: 'Batch delete reason (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
+    deleteDialogTitle: 'Move to Deleted',
+    batchDeleteDialogTitle: (count: number) => `Move ${count} receipts to Deleted`,
+    deleteDialogDescription: (name: string) => `Choose why ${name} is being removed. Accounting can review it in Rejected and copy the reupload request.`,
+    batchDeleteDialogDescription: (count: number) => `${count} receipts will leave the main list and keep their delete reason in Rejected.`,
+    deleteReasonLabel: 'Delete reason',
+    deleteReasonOptions: {
+      blurry_image: 'Blurry image',
+      duplicate: 'Duplicate receipt',
+      amount_not_clear: 'Amount not clear',
+      not_receipt: 'Not a receipt',
+      missing_required_info: 'Missing required info',
+      other: 'Other',
+    },
+    deleteNoteLabel: 'Note',
+    deleteNotePlaceholder: 'Add a customer-facing reason, for example blurry photo or blocked amount.',
+    confirmDeleteLabel: 'Move to Deleted',
+    cancelLabel: 'Cancel',
     deleteFailedLabel: 'Delete failed.',
     receiptMovedRejectedLabel: 'Receipt moved to deleted receipts.',
     receiptDeletedTitle: 'Receipt deleted',
@@ -1105,6 +1167,9 @@ const I18N: any = {
     markAllReadLabel: 'Tanda semua dibaca',
     clearNotificationsLabel: 'Kosongkan mesej',
     noNotificationsLabel: 'Tiada mesej',
+    allNotificationsLabel: 'Semua',
+    unreadNotificationsLabel: 'Belum dibaca',
+    attentionNotificationsLabel: 'Perlu tindakan',
     notificationSoundLabel: 'Bunyi notifikasi',
     notificationSoundDescription: 'Mainkan bunyi hanya untuk mesej penting seperti kegagalan, pendua, dan siap kelompok.',
     uploadQueueLimitLabel: 'Had paparan giliran muat naik',
@@ -1221,6 +1286,13 @@ const I18N: any = {
     permanentDeleteFailedLabel: 'Padam kekal gagal.',
     noDeletedSelectedLabel: 'Tiada resit dipadam dipilih.',
     batchPermanentDeleteConfirmLabel: (count: number) => `Padam kekal ${count} resit?`,
+    permanentDeleteDialogTitle: 'Padam resit kekal',
+    batchPermanentDeleteDialogTitle: (count: number) => `Padam kekal ${count} resit`,
+    permanentDeleteDialogDescription: 'Ini membuang rekod pangkalan data dan fail Storage. Ia tidak boleh dipulihkan.',
+    batchPermanentDeleteDialogDescription: (count: number) => `${count} resit akan dipadam kekal dan fail Storage dibuang.`,
+    permanentDeleteWarningLabel: 'Tindakan ini tidak masuk ke senarai Rejected dan tidak boleh dibuat asal.',
+    confirmPermanentDeleteLabel: 'Padam kekal',
+    processingActionLabel: 'Sedang diproses',
     batchPermanentDeleteSuccessLabel: (count: number) => `${count} resit dipadam kekal.`,
     batchPermanentDeleteFinishedLabel: 'Padam kekal kelompok selesai',
     batchPermanentDeleteFailedLabel: 'Padam kekal kelompok gagal.',
@@ -1255,6 +1327,23 @@ const I18N: any = {
     retryingLabel: (id: string) => `Mencuba semula API untuk ID: ${id}`,
     deletePromptLabel: 'Sebab padam (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
     batchDeletePromptLabel: 'Sebab padam kelompok (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
+    deleteDialogTitle: 'Pindah ke senarai dipadam',
+    batchDeleteDialogTitle: (count: number) => `Pindah ${count} resit ke senarai dipadam`,
+    deleteDialogDescription: (name: string) => `Pilih sebab ${name} dibuang. Akauntan boleh semak dalam Rejected dan salin permintaan muat naik semula.`,
+    batchDeleteDialogDescription: (count: number) => `${count} resit akan dikeluarkan dari senarai utama dan sebab padam disimpan dalam Rejected.`,
+    deleteReasonLabel: 'Sebab padam',
+    deleteReasonOptions: {
+      blurry_image: 'Imej kabur',
+      duplicate: 'Resit pendua',
+      amount_not_clear: 'Amaun tidak jelas',
+      not_receipt: 'Bukan resit',
+      missing_required_info: 'Maklumat wajib tiada',
+      other: 'Lain-lain',
+    },
+    deleteNoteLabel: 'Nota',
+    deleteNotePlaceholder: 'Tambah sebab untuk pelanggan, contohnya foto kabur atau amaun terlindung.',
+    confirmDeleteLabel: 'Pindah ke senarai dipadam',
+    cancelLabel: 'Batal',
     deleteFailedLabel: 'Padam gagal.',
     receiptMovedRejectedLabel: 'Resit dipindahkan ke senarai dipadam.',
     receiptDeletedTitle: 'Resit dipadam',
@@ -1333,6 +1422,7 @@ export default function App() {
   const [uploadList, setUploadList] = useState<any[]>([]);
   const [notifications, setNotifications] = useState(() => loadAppNotifications());
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null);
   const [smartCropTarget, setSmartCropTarget] = useState<SmartCropTarget | null>(null);
   const [isCropModalBusy, setIsCropModalBusy] = useState(false);
   const [smartParsingReceiptId, setSmartParsingReceiptId] = useState<string | null>(null);
@@ -1576,6 +1666,17 @@ export default function App() {
       }
     })();
   };
+
+  const handleAsyncParseError = useCallback((message: string, receiptId: string) => {
+    showToast(message || t.uploadFailedLabel, 'error', {
+      persist: true,
+      title: t.warningLabels?.ocr_failed || t.uploadFailedTitle,
+      receiptId,
+    });
+    void refreshReceiptSnapshot(receiptId).catch((error) => {
+      console.error('Failed to refresh receipt after async parse error:', error);
+    });
+  }, [showToast, t]);
 
   useEffect(() => {
     let refreshTimer: number | null = null;
@@ -1956,6 +2057,7 @@ export default function App() {
         fileHash: pageHash,
         autoParse: true,
         awaitParse: false,
+        onAsyncParseError: handleAsyncParseError,
         parseMode: 'ocr',
         enabledFieldKeys,
         docType: looksLikeEInvoiceQrPayload(effectiveQrPayload) ? 'E-invoice' : null,
@@ -2032,6 +2134,7 @@ export default function App() {
         fileHash,
         autoParse: true,
         awaitParse: false,
+        onAsyncParseError: handleAsyncParseError,
         parseMode: 'ocr',
         enabledFieldKeys,
         docType: looksLikeEInvoiceQrPayload(effectiveQrPayload) ? 'E-invoice' : null,
@@ -2241,29 +2344,8 @@ export default function App() {
 
   const handleDelete = useCallback(async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const reason = window.prompt(t.deletePromptLabel, 'other');
-    if (!reason) return;
-
-    try {
-      await softDeleteReceipt(id, { reason });
-    } catch (err) {
-      console.error('Failed to delete from Supabase:', err);
-      showToast(t.deleteFailedLabel, 'error', { persist: true, title: t.deleteFailedLabel, receiptId: id });
-      return;
-    }
-
-    const deleted = history.find((item) => item.id === id);
-    setHistory(prev => prev.filter(h => h.id !== id));
-    if (deleted) {
-      setDeletedReceipts((current) => [{ ...deleted, deleted_reason: reason, deleted_at: new Date().toISOString() }, ...current]);
-    }
-    if (selectedReceipt?.id === id) setSelectedReceipt(null);
-    showToast(t.receiptMovedRejectedLabel, 'success', {
-      persist: true,
-      title: t.receiptDeletedTitle,
-      receiptId: id,
-    });
-  }, [history, selectedReceipt?.id, showToast, t]);
+    setDeleteDialog({ mode: 'soft', ids: [id], defaultReason: 'other', isSubmitting: false });
+  }, []);
 
   const handleBatchDelete = async () => {
     const targets = history.filter((item) => selectedRowIds.includes(item.id));
@@ -2272,26 +2354,7 @@ export default function App() {
       return;
     }
 
-    const reason = window.prompt(t.batchDeletePromptLabel, 'duplicate');
-    if (!reason) return;
-
-    try {
-      await Promise.all(targets.map((item) => softDeleteReceipt(item.id, { reason })));
-      setHistory((current) => current.filter((item) => !selectedRowIds.includes(item.id)));
-      setDeletedReceipts((current) => [
-        ...targets.map((item) => ({ ...item, deleted_reason: reason, deleted_at: new Date().toISOString() })),
-        ...current,
-      ]);
-      if (selectedReceipt && selectedRowIds.includes(selectedReceipt.id)) setSelectedReceipt(null);
-      setSelectedRowIds([]);
-      showToast(typeof t.batchDeleteSuccessLabel === 'function' ? t.batchDeleteSuccessLabel(targets.length) : `${targets.length} receipts moved to Rejected.`, 'success', {
-        persist: true,
-        title: t.batchDeleteFinishedLabel,
-      });
-    } catch (error) {
-      console.error('Batch delete failed:', error);
-      showToast(t.batchDeleteFailedLabel, 'error', { persist: true, title: t.batchDeleteFailedLabel });
-    }
+    setDeleteDialog({ mode: 'soft', ids: targets.map((item) => item.id), defaultReason: 'duplicate', isSubmitting: false });
   };
 
   const handleBatchMarkSynced = async () => {
@@ -2335,17 +2398,7 @@ export default function App() {
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (!window.confirm(t.permanentDeleteConfirmLabel)) return;
-    try {
-      await permanentlyDeleteReceipt(id);
-      setDeletedReceipts((current) => current.filter((item) => item.id !== id));
-      setSelectedDeletedIds((current) => current.filter((itemId) => itemId !== id));
-      if (selectedReceipt?.id === id) setSelectedReceipt(null);
-      showToast(t.permanentDeleteSuccessLabel, 'success', { persist: true, title: t.permanentDeleteSuccessLabel });
-    } catch (error) {
-      console.error('Permanent delete failed:', error);
-      showToast(t.permanentDeleteFailedLabel, 'error', { persist: true, title: t.permanentDeleteFailedLabel, receiptId: id });
-    }
+    setDeleteDialog({ mode: 'permanent', ids: [id], isSubmitting: false });
   };
 
   const handleBatchRestoreDeleted = async () => {
@@ -2380,20 +2433,79 @@ export default function App() {
       showToast(t.noDeletedSelectedLabel, 'info');
       return;
     }
-    if (!window.confirm(typeof t.batchPermanentDeleteConfirmLabel === 'function' ? t.batchPermanentDeleteConfirmLabel(targets.length) : `永久删除 ${targets.length} 张收据？`)) return;
+    setDeleteDialog({ mode: 'permanent', ids: targets.map((item) => item.id), isSubmitting: false });
+  };
+
+  const handleConfirmDeleteDialog = async ({ reason = 'other', note }: DeleteDialogSubmitPayload) => {
+    if (!deleteDialog || deleteDialog.ids.length === 0) return;
+    const ids = deleteDialog.ids;
+    const idSet = new Set(ids);
+    const trimmedNote = note?.trim() || undefined;
+
+    setDeleteDialog((current) => current ? { ...current, isSubmitting: true } : current);
+
+    if (deleteDialog.mode === 'soft') {
+      const targets = history.filter((item) => idSet.has(item.id));
+      try {
+        await Promise.all(ids.map((id) => softDeleteReceipt(id, { reason, note: trimmedNote })));
+        const deletedAt = new Date().toISOString();
+        setHistory((current) => current.filter((item) => !idSet.has(item.id)));
+        if (targets.length > 0) {
+          setDeletedReceipts((current) => [
+            ...targets.map((item) => ({ ...item, deleted_reason: reason, deleted_note: trimmedNote || null, deleted_at: deletedAt })),
+            ...current,
+          ]);
+        }
+        if (selectedReceipt && idSet.has(selectedReceipt.id)) setSelectedReceipt(null);
+        setSelectedRowIds((current) => current.filter((id) => !idSet.has(id)));
+        setDeleteDialog(null);
+        showToast(
+          ids.length > 1 && typeof t.batchDeleteSuccessLabel === 'function'
+            ? t.batchDeleteSuccessLabel(ids.length)
+            : t.receiptMovedRejectedLabel,
+          'success',
+          {
+            persist: true,
+            title: ids.length > 1 ? t.batchDeleteFinishedLabel : t.receiptDeletedTitle,
+            receiptId: ids.length === 1 ? ids[0] : undefined,
+          },
+        );
+      } catch (error) {
+        console.error('Delete failed:', error);
+        setDeleteDialog((current) => current ? { ...current, isSubmitting: false } : current);
+        showToast(ids.length > 1 ? t.batchDeleteFailedLabel : t.deleteFailedLabel, 'error', {
+          persist: true,
+          title: ids.length > 1 ? t.batchDeleteFailedLabel : t.deleteFailedLabel,
+          receiptId: ids.length === 1 ? ids[0] : undefined,
+        });
+      }
+      return;
+    }
 
     try {
-      await Promise.all(targets.map((item) => permanentlyDeleteReceipt(item.id)));
-      setDeletedReceipts((current) => current.filter((item) => !selectedDeletedIds.includes(item.id)));
-      if (selectedReceipt && selectedDeletedIds.includes(selectedReceipt.id)) setSelectedReceipt(null);
-      setSelectedDeletedIds([]);
-      showToast(typeof t.batchPermanentDeleteSuccessLabel === 'function' ? t.batchPermanentDeleteSuccessLabel(targets.length) : `${targets.length} receipts permanently deleted.`, 'success', {
-        persist: true,
-        title: t.batchPermanentDeleteFinishedLabel,
-      });
+      await Promise.all(ids.map((id) => permanentlyDeleteReceipt(id)));
+      setDeletedReceipts((current) => current.filter((item) => !idSet.has(item.id)));
+      setSelectedDeletedIds((current) => current.filter((itemId) => !idSet.has(itemId)));
+      if (selectedReceipt && idSet.has(selectedReceipt.id)) setSelectedReceipt(null);
+      setDeleteDialog(null);
+      showToast(
+        ids.length > 1 && typeof t.batchPermanentDeleteSuccessLabel === 'function'
+          ? t.batchPermanentDeleteSuccessLabel(ids.length)
+          : t.permanentDeleteSuccessLabel,
+        'success',
+        {
+          persist: true,
+          title: ids.length > 1 ? t.batchPermanentDeleteFinishedLabel : t.permanentDeleteSuccessLabel,
+        },
+      );
     } catch (error) {
-      console.error('Batch permanent delete failed:', error);
-      showToast(t.batchPermanentDeleteFailedLabel, 'error', { persist: true, title: t.batchPermanentDeleteFailedLabel });
+      console.error('Permanent delete failed:', error);
+      setDeleteDialog((current) => current ? { ...current, isSubmitting: false } : current);
+      showToast(ids.length > 1 ? t.batchPermanentDeleteFailedLabel : t.permanentDeleteFailedLabel, 'error', {
+        persist: true,
+        title: ids.length > 1 ? t.batchPermanentDeleteFailedLabel : t.permanentDeleteFailedLabel,
+        receiptId: ids.length === 1 ? ids[0] : undefined,
+      });
     }
   };
 
@@ -2440,6 +2552,10 @@ export default function App() {
           setZoomImage(null);
           return;
         }
+        if (deleteDialog && !deleteDialog.isSubmitting) {
+          setDeleteDialog(null);
+          return;
+        }
         if (duplicatePrompt) {
           cancelDuplicateUpload();
           return;
@@ -2477,8 +2593,14 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [duplicatePrompt, handleExport, handleSyncSelectedReceipt, isNotificationCenterOpen, isSettingsOpen, selectedReceipt, zoomImage]);
+  }, [deleteDialog, duplicatePrompt, handleExport, handleSyncSelectedReceipt, isNotificationCenterOpen, isSettingsOpen, selectedReceipt, zoomImage]);
 
+  const deleteDialogReceipt = deleteDialog?.ids.length === 1
+    ? [...history, ...deletedReceipts].find((receipt) => receipt.id === deleteDialog.ids[0])
+    : null;
+  const deleteDialogReceiptName = deleteDialogReceipt
+    ? deleteDialogReceipt.merchant_name || deleteDialogReceipt.display_filename || deleteDialogReceipt.filename || null
+    : null;
   const activeRepairProgress = selectedReceipt && repairProgress?.receiptId === selectedReceipt.id ? repairProgress : null;
 
   return (
@@ -2495,6 +2617,22 @@ export default function App() {
            <Info className="w-5 h-5" />}
           <span className="text-sm font-black tracking-tight">{toast.message}</span>
         </div>
+      )}
+
+      {deleteDialog && (
+        <DeleteReceiptDialog
+          mode={deleteDialog.mode}
+          count={deleteDialog.ids.length}
+          receiptName={deleteDialogReceiptName}
+          defaultReason={deleteDialog.defaultReason}
+          isSubmitting={deleteDialog.isSubmitting}
+          labels={t}
+          colorMode={config.colorMode}
+          onCancel={() => {
+            if (!deleteDialog.isSubmitting) setDeleteDialog(null);
+          }}
+          onConfirm={handleConfirmDeleteDialog}
+        />
       )}
 
       {smartCropTarget && (

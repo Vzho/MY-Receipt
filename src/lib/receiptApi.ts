@@ -24,6 +24,7 @@ export interface CreateReceiptFromFileOptions {
   fileHash?: string | null
   autoParse?: boolean
   awaitParse?: boolean
+  onAsyncParseError?: (message: string, receiptId: string) => void
   parseMode?: ParseMode
   enabledFieldKeys?: string[]
   docType?: string | null
@@ -203,8 +204,11 @@ export async function createReceiptFromFile(file: File, options: CreateReceiptFr
       docType: options.docType,
       enabledFieldKeys: options.enabledFieldKeys,
       qrPayload: options.qrPayload,
+    }).then((parseError) => {
+      if (parseError) options.onAsyncParseError?.(parseError, receipt.id)
     }).catch((error) => {
       console.error('parse-receipt async invocation failed:', error)
+      options.onAsyncParseError?.(error instanceof Error ? error.message : 'parse-receipt async invocation failed', receipt.id)
     })
     return { receipt: updated as Receipt, parseError: null }
   }
