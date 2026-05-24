@@ -14,6 +14,7 @@ describe('calculateReceiptMath', () => {
 
     expect(result.discountAlreadyIncluded).toBe(true)
     expect(result.effectiveDiscount).toBe(0)
+    expect(result.effectiveRounding).toBe(0.02)
     expect(result.calculatedTotal).toBe(56.7)
   })
 
@@ -29,5 +30,20 @@ describe('calculateReceiptMath', () => {
     expect(result.discountAlreadyIncluded).toBe(false)
     expect(result.effectiveDiscount).toBe(10)
     expect(result.calculatedTotal).toBe(95)
+  })
+
+  it('treats positive wipe-off rounding as a deduction when that matches the printed total', () => {
+    const result = calculateReceiptMath({
+      itemTotal: 118.7,
+      subtotal: 118.7,
+      discount: 0,
+      serviceCharge: 11.87,
+      tax: 7.12,
+      rounding: 0.09,
+      grandTotal: 137.6,
+    })
+
+    expect(result.effectiveRounding).toBe(-0.09)
+    expect(result.calculatedTotal).toBe(137.6)
   })
 })

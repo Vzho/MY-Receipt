@@ -11,6 +11,7 @@ export interface ReceiptMathInput {
 export interface ReceiptMathResult {
   baseTotal: number
   effectiveDiscount: number
+  effectiveRounding: number
   discountAlreadyIncluded: boolean
   calculatedTotal: number
 }
@@ -21,47 +22,67 @@ export function calculateReceiptMath(input: ReceiptMathInput): ReceiptMathResult
   const discount = roundMoney(Math.abs(toNumber(input.discount)))
   const tax = toNumber(input.tax)
   const serviceCharge = toNumber(input.serviceCharge)
-  const rounding = toNumber(input.rounding)
+  const rounding = roundMoney(toNumber(input.rounding))
   const grandTotal = roundMoney(toNumber(input.grandTotal))
   const baseTotal = itemTotal > 0 ? itemTotal : subtotal
-  const charges = tax + serviceCharge + rounding
-  const withoutDiscount = roundMoney(baseTotal + charges)
-  const withDiscount = roundMoney(baseTotal - discount + charges)
-  const discountAlreadyIncluded = discount > 0 && shouldTreatDiscountAsIncluded({
-    itemTotal,
-    subtotal,
+  const mathCandidate = chooseMathCandidate({
+    baseTotal,
+    discount,
+    tax,
+    serviceCharge,
+    rounding,
     grandTotal,
-    withDiscount,
-    withoutDiscount,
   })
-  const effectiveDiscount = discountAlreadyIncluded ? 0 : discount
+  const discountAlreadyIncluded = discount > 0 && mathCandidate.effectiveDiscount === 0
 
   return {
     baseTotal,
-    effectiveDiscount,
+    effectiveDiscount: mathCandidate.effectiveDiscount,
+    effectiveRounding: mathCandidate.effectiveRounding,
     discountAlreadyIncluded,
-    calculatedTotal: roundMoney(baseTotal - effectiveDiscount + charges),
+    calculatedTotal: mathCandidate.calculatedTotal,
   }
 }
 
-function shouldTreatDiscountAsIncluded({
-  itemTotal,
-  subtotal,
+function chooseMathCandidate({
+  baseTotal,
+  discount,
+  tax,
+  serviceCharge,
+  rounding,
   grandTotal,
-  withDiscount,
-  withoutDiscount,
 }: {
-  itemTotal: number
-  subtotal: number
+  baseTotal: number
+  discount: number
+  tax: number
+  serviceCharge: number
+  rounding: number
   grandTotal: number
-  withDiscount: number
-  withoutDiscount: number
 }) {
-  if (grandTotal > 0) {
-    return Math.abs(withoutDiscount - grandTotal) <= Math.abs(withDiscount - grandTotal)
+  const discountCandidates = discount > 0 ? [0, discount] : [0]
+  const roundingCandidates = rounding === 0
+    ? [0]
+    : Array.from(new Set([rounding, -Math.abs(rounding)]))
+  const candidates = discountCandidates.flatMap((effectiveDiscount) => (
+    roundingCandidates.map((effectiveRounding) => ({
+      effectiveDiscount,
+      effectiveRounding,
+      calculatedTotal: roundMoney(baseTotal - effectiveDiscount + tax + serviceCharge + effectiveRounding),
+    }))
+  ))
+
+  if (grandTotal <= 0) {
+    const fallbackDiscount = discount > 0 && baseTotal > 0 ? 0 : discount
+    return {
+      effectiveDiscount: fallbackDiscount,
+      effectiveRounding: rounding,
+      calculatedTotal: roundMoney(baseTotal - fallbackDiscount + tax + serviceCharge + rounding),
+    }
   }
 
-  return itemTotal > 0 && subtotal > 0 && !differs(itemTotal, subtotal)
+  return candidates.sort((left, right) => (
+    Math.abs(left.calculatedTotal - grandTotal) - Math.abs(right.calculatedTotal - grandTotal)
+  ))[0]
 }
 
 export function roundMoney(value: number) {
