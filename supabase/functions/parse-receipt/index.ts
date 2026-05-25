@@ -1354,6 +1354,9 @@ function parseQrPayloadFields(payload: string): Record<string, unknown> {
     } else if (['tax_amount', 'taxamount', 'tax', 'sst_amount', 'sstamount', 'tax_total', 'taxtotal'].includes(key)) {
       const taxAmount = Number(value.replace(/[^\d.-]/g, ''))
       if (Number.isFinite(taxAmount)) fields.tax_amount = normalizeMoney(taxAmount)
+    } else if (['grand_total', 'grandtotal', 'total', 'total_amount', 'totalamount', 'amount_payable', 'amountpayable', 'payable_amount', 'payableamount'].includes(key)) {
+      const qrGrandTotal = Number(value.replace(/[^\d.-]/g, ''))
+      if (Number.isFinite(qrGrandTotal)) fields.qr_grand_total = normalizeMoney(qrGrandTotal)
     }
   })
 

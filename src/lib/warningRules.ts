@@ -16,6 +16,7 @@ export function evaluateReceiptWarnings(receipt: Receipt, items: ReceiptItem[] =
   addMissingFieldWarnings(warnings, receipt)
   addConfidenceWarnings(warnings, receipt)
   addAmountWarnings(warnings, receipt, items)
+  addQrPayloadWarnings(warnings, receipt)
   addImageWarnings(warnings, receipt)
 
   if (receipt.duplicate_of) {
@@ -108,6 +109,25 @@ function addAmountWarnings(warnings: ReceiptWarning[], receipt: Receipt, items: 
   }
 }
 
+function addQrPayloadWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
+  const extraFields = receipt.extra_fields ?? {}
+  const qrGrandTotal = numberFromUnknown(extraFields.qr_grand_total ?? extraFields.grand_total)
+  const grandTotal = roundMoney(Number(receipt.grand_total || 0))
+
+  if (qrGrandTotal > 0 && grandTotal > 0 && differs(qrGrandTotal, grandTotal)) {
+    warnings.push({
+      code: 'qr_amount_mismatch',
+      severity: 'warning',
+      message: 'QR total does not match OCR grand total',
+      field: 'grand_total',
+      details: {
+        qr_grand_total: qrGrandTotal,
+        grand_total: grandTotal,
+      },
+    })
+  }
+}
+
 function addImageWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
   const imageProcessing = receipt.image_processing ?? {}
   const parserMeta = (receipt.raw_ai?.parser_meta ?? {}) as Record<string, unknown>
@@ -130,6 +150,15 @@ function addImageWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
       details: { poor_ocr_text_score: parserMeta.poor_ocr_text_score },
     })
   }
+}
+
+function numberFromUnknown(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return roundMoney(value)
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value.replace(/[^\d.-]/g, ''))
+    return Number.isFinite(parsed) ? roundMoney(parsed) : 0
+  }
+  return 0
 }
 
 function dedupeWarnings(warnings: ReceiptWarning[]) {

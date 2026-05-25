@@ -21,6 +21,7 @@ export interface ReceiptWarning {
     | 'possible_duplicate'
     | 'not_receipt'
     | 'poor_ocr_text'
+    | 'qr_amount_mismatch'
   severity: 'info' | 'warning' | 'error'
   message: string
   field?: string
@@ -38,6 +39,7 @@ export interface EInvoiceExtraFields {
   qr_payload?: string | null
   invoice_type?: string | null
   tax_amount?: number | null
+  qr_grand_total?: number | null
 }
 
 export interface ReceiptItem {

@@ -17,6 +17,7 @@ import {
 import { calculateReceiptMath } from '../lib/receiptMath'
 import { getFieldConfidence, getFieldConfidenceTone } from '../lib/fieldConfidence'
 import { getEInvoiceCompliance } from '../lib/einvoiceCompliance'
+import { getNextLineItemFieldIndex, shouldMoveLineItemFieldOnEnter } from '../lib/lineItemKeyboard'
 import { parseLineItemsFromClipboard } from '../lib/lineItemPaste'
 import { isLikelyMalaysiaCompanyRegNo, isValidSstNo, normalizeSstNo } from '../lib/malaysiaTaxIds'
 import { findReceiptFieldDetections, toOverlayStyle } from '../lib/ocrDetections'
@@ -203,6 +204,18 @@ function ReceiptReviewDrawerComponent({
       ...item,
     }))
     updateReceipt({ items: [...(receipt.items || []), ...newItems] })
+  }
+
+  const handleLineItemKeyDown = (event: KeyboardEvent<HTMLInputElement>, itemIndex: number, field: string) => {
+    if (!shouldMoveLineItemFieldOnEnter(event.nativeEvent)) return
+    const nextIndex = getNextLineItemFieldIndex(itemIndex, (receipt.items || []).length, event.shiftKey ? -1 : 1)
+    if (nextIndex === null) return
+
+    event.preventDefault()
+    const container = event.currentTarget.closest('[data-line-items-table]')
+    const nextInput = container?.querySelector<HTMLInputElement>(`[data-line-item-field="${field}"][data-line-item-index="${nextIndex}"]`)
+    nextInput?.focus()
+    nextInput?.select()
   }
 
   const toggleTag = (tag: string) => {
@@ -621,7 +634,7 @@ function ReceiptReviewDrawerComponent({
               </div>
             )}
 
-            <div className={`border rounded-[20px] overflow-hidden shadow-sm flex-1 transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+            <div data-line-items-table className={`border rounded-[20px] overflow-hidden shadow-sm flex-1 transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               <table className="w-full text-left text-sm">
                 <thead className={`text-[9px] font-black uppercase border-b ${config.colorMode === 'Dark' ? 'bg-slate-800/50 text-slate-600 border-slate-800' : 'bg-slate-50/80 text-slate-500 border-slate-100'}`}>
                   <tr>
@@ -633,16 +646,16 @@ function ReceiptReviewDrawerComponent({
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${config.colorMode === 'Dark' ? 'divide-slate-800' : 'divide-slate-50'}`}>
-                  {(receipt.items || []).map((item: any) => (
+                  {(receipt.items || []).map((item: any, itemIndex: number) => (
                     <tr key={item.id} className="group transition-colors">
                       <td className="px-5 py-2">
-                        <input {...reviewFieldProps('items')} type="text" value={item.name || ''} onPaste={handleItemPaste} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder={labels.itemNamePlaceholder || labels.itemName} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'} ${confidenceInputClass('items')}`} />
+                        <input {...reviewFieldProps('items')} data-line-item-field="name" data-line-item-index={itemIndex} type="text" value={item.name || ''} onPaste={handleItemPaste} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'name')} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder={labels.itemNamePlaceholder || labels.itemName} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'} ${confidenceInputClass('items')}`} />
                       </td>
                       <td className="px-3 py-2">
-                        <input type="number" step="0.001" value={item.qty === 0 ? '' : item.qty} onChange={(event) => updateItem(item.id, 'qty', event.target.value)} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-center ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
+                        <input data-line-item-field="qty" data-line-item-index={itemIndex} type="number" step="0.001" value={item.qty === 0 ? '' : item.qty} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'qty')} onChange={(event) => updateItem(item.id, 'qty', event.target.value)} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-center ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
                       </td>
                       <td className="px-3 py-2">
-                        <input type="number" step="0.01" value={item.unit_price === 0 ? '' : item.unit_price} onChange={(event) => updateItem(item.id, 'unit_price', event.target.value)} onBlur={(event) => updateItem(item.id, 'unit_price', (parseFloat(event.target.value) || 0).toFixed(2))} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-right ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
+                        <input data-line-item-field="unit_price" data-line-item-index={itemIndex} type="number" step="0.01" value={item.unit_price === 0 ? '' : item.unit_price} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'unit_price')} onChange={(event) => updateItem(item.id, 'unit_price', event.target.value)} onBlur={(event) => updateItem(item.id, 'unit_price', (parseFloat(event.target.value) || 0).toFixed(2))} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-right ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
                       </td>
                       <td className={`px-5 py-2 text-right text-xs font-black ${config.colorMode === 'Dark' ? 'text-white' : 'text-slate-900'}`}>{(Number(item.line_total) || 0).toFixed(2)}</td>
                       <td className="px-3 py-2 text-center">

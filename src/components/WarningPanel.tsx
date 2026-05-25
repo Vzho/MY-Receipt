@@ -55,6 +55,7 @@ function formatWarningLabel(warning: ReceiptWarning, labels?: any) {
     possible_duplicate: '⚠ Possible duplicate',
     not_receipt: '⚠ Not a receipt',
     poor_ocr_text: '⚠ Poor OCR text',
+    qr_amount_mismatch: '⚠ QR amount mismatch',
   }
   return labels?.warningLabels?.[warning.code] ?? defaultLabels[warning.code] ?? `⚠ ${warning.code.replace(/_/g, ' ')}`
 }

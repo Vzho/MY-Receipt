@@ -63,9 +63,11 @@ export function mergeQrPayloadExtraFields(
 ) {
   const parsed = parseMyInvoisQrPayload(payload)
   const current = existing && typeof existing === 'object' ? existing : {}
+  const { grand_total: qrGrandTotal, ...parsedExtraFields } = parsed
 
   return {
-    ...parsed,
+    ...parsedExtraFields,
+    ...(qrGrandTotal !== undefined ? { qr_grand_total: qrGrandTotal } : {}),
     ...current,
     qr_payload: stringValue(current.qr_payload) || parsed.qr_payload || payload || null,
   }

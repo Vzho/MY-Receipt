@@ -25,9 +25,10 @@
 - OCR 乱码比例过高时可自动 fallback 到 Qwen VL，并生成 `poor_ocr_text` warning。
 - 上传队列增加“全部智能解析”，支持批量启动后台智能解析。
 - E-invoice 审核页增加 LHDN 必填字段进度条，缺失 supplier/buyer TIN、UUID、验证链接或税额时禁止同步。
-- QR payload 支持解析 MyInvois URL、JSON 和 key-value 格式，预填 `extra_fields` 中的 TIN/UUID/tax 等字段。
+- QR payload 支持解析 MyInvois URL、JSON 和 key-value 格式，预填 `extra_fields` 中的 TIN/UUID/tax 等字段，并对 QR 总额与 OCR 总额做交叉校验 warning。
 - 商品明细支持从 Excel 粘贴多行追加，降低大量明细人工补录成本。
 - Excel 导出增加预览确认弹窗，下载前展示 Receipts/Items 行数、列和样例数据。
+- 商品明细编辑时按 Enter/Shift+Enter 可在同一列上下移动，减少大量明细校对时的鼠标操作。
 
 仍需作为后续重点开发的能力：
 
@@ -51,7 +52,7 @@
 | 1.4 | 地址解析过于宽泛 | 存在 | 部分实现。当前只提取普通地址字符串。 | 增加 `address_structured`：street/city/state/postcode；UI 默认折叠；AI prompt 输出结构化地址。 |
 | 1.5 | 货币符号处理单一 | 存在 | 本轮已部分修复。Excel 导出显式带 Currency，前端按设置传入导出币种。 | 后续给 receipts 增加 `currency` 字段，由 OCR/AI 推断并可人工覆盖。 |
 | 2.1 | 原图与输入框缺乏高亮联动 | 存在 | 部分实现。Tencent OCR 坐标已保存到 `raw_ai.ocr_meta.ocr_detections`，Drawer 字段聚焦时可按文本匹配高亮图片区域。 | 后续升级为 Edge Function 明确输出 `field_sources`，减少同名文本匹配误差。 |
-| 2.2 | 缺少快捷键驱动校对模式 | 存在 | 部分实现。已支持 Tab/Shift+Tab、Space、左右键、S、E、Ctrl/Cmd+Enter，并显示快捷键提示。 | 下一阶段补 Enter 在商品行同列下移，以及可关闭/可配置的快捷键提示。 |
+| 2.2 | 缺少快捷键驱动校对模式 | 存在 | 部分实现。已支持 Tab/Shift+Tab、商品行 Enter/Shift+Enter 同列上下移动、Space、左右键、S、E、Ctrl/Cmd+Enter，并显示快捷键提示。 | 下一阶段补可关闭/可配置的快捷键提示。 |
 | 2.3 | 置信度缺乏字段级可视化 | 存在 | 部分实现。已支持 `field_confidence` 读取、字段级指示器、低置信字段输入框高亮和 warning。 | 后续提升 Edge Function 对每个字段 confidence 的真实性，并为 item 行做逐行 confidence。 |
 | 2.4 | 商品明细大量编辑疲劳 | 存在 | 部分实现。已有明细增删、逐行编辑，并支持从 Excel/表格多行粘贴追加明细。 | 后续加入批量删除/分类、快捷新增行、历史 item autocomplete；拖拽排序后置。 |
 | 2.5 | 上传链路过长，批量操作不足 | 存在 | 部分实现。已有批量上传、队列分页、PDF 分页和上传队列“全部智能解析”。 | 裁剪弹窗增加默认跳过选项；列表页增加批量摘要与批量确认入口。 |
@@ -64,7 +65,7 @@
 | 4.2 | 审计追踪与变更日志 | 存在 | 未实现。 | 新增 `receipt_field_changes` 表；所有 save/delete/restore/sync 写操作记录字段级 old/new value；Drawer 增加变更历史折叠区。 |
 | 4.3 | LHDN MyInvois 直接对账 | 存在但剔除 | 不做外部联网验证。 | 只保留 `validation_link`、QR payload 和内部字段完整性校验，不调用外部税局 API。 |
 | 4.4 | 数据仪表盘与 OCR 配额看板 | 部分存在 | 本轮实现 OCR 配额进度条；完整 Dashboard 暂不做。 | 后续如需要，再做独立 Dashboard；当前只显示配额使用率。 |
-| 4.5 | QR 码深度利用 | 存在 | 部分实现。保存 `qr_payload`，并可解析 MyInvois URL、JSON、key-value payload，预填 supplier/buyer TIN、UUID、validation link、tax amount 等 E-invoice 字段。 | 后续将 QR 金额与 OCR/AI 金额交叉校验，生成专门 warning。 |
+| 4.5 | QR 码深度利用 | 存在 | 部分实现。保存 `qr_payload`，并可解析 MyInvois URL、JSON、key-value payload，预填 supplier/buyer TIN、UUID、validation link、tax amount 等 E-invoice 字段；QR 总额与 OCR/AI 总额不一致时生成 `qr_amount_mismatch` warning。 | 后续继续补 QR 税额与 OCR 税额交叉校验，以及更多 MyInvois payload 样本。 |
 | 4.6 | 批量导入接口与 Webhook | 存在 | 未实现。 | 后置为集成阶段：REST import、Webhook、AutoCount/SQL Accounting 导出模板。 |
 
 ## 推荐实施顺序
@@ -74,12 +75,12 @@
 
 2. **P0：人工校对效率**
    - 已完成基础版：OCR bounding boxes 存储与图片高亮联动、字段级 confidence map、快捷键矩阵与提示面板、OCR 乱码自动 fallback。
-   - 待增强：精确 field source map、商品行 Enter 同列下移、PDF 跨页合并。
+   - 待增强：精确 field source map、可配置快捷键提示、PDF 跨页合并。
 
 3. **P1：数据结构与财务准确性**
    - `currency`、`tax_breakdown`、`field_confidence`、`receipt_field_changes` schema。
    - 已完成基础版：E-invoice 合规进度和 sync gate、QR payload 深度解析预填。
-   - 待完成：QR/OCR 交叉校验 warning、税率拆分、审计日志。
+   - 待完成：QR 税额交叉校验、税率拆分、审计日志。
 
 4. **P1/P2：批量与集成**
    - 已完成基础版：明细多行粘贴、上传队列一键智能解析、导出预览。

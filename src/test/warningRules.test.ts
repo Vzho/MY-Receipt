@@ -76,6 +76,26 @@ describe('evaluateReceiptWarnings', () => {
       details: { confidence_score: 0.52 },
     }))
   })
+
+  it('flags QR total mismatches against the OCR grand total', () => {
+    const warnings = evaluateReceiptWarnings(createReceipt({
+      doc_type: 'E-invoice',
+      grand_total: 137.78,
+      extra_fields: {
+        qr_payload: 'https://myinvois.hasil.gov.my/validate?uuid=UUID-1&total=137.60',
+        qr_grand_total: 137.6,
+      },
+    }))
+
+    expect(warnings).toContainEqual(expect.objectContaining({
+      code: 'qr_amount_mismatch',
+      message: 'QR total does not match OCR grand total',
+      details: {
+        qr_grand_total: 137.6,
+        grand_total: 137.78,
+      },
+    }))
+  })
 })
 
 function createReceipt(overrides: Partial<Receipt> = {}): Receipt {
