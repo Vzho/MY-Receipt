@@ -31,7 +31,7 @@ import { decodeQrPayloadFromImageFile, looksLikeEInvoiceQrPayload } from './lib/
 import { buildExportPreview, downloadReceiptsXlsx, type ExportPreview } from './lib/exportExcel';
 import { getEInvoiceCompliance } from './lib/einvoiceCompliance';
 import { formatSubsidyHeadline } from './lib/subsidyDetails';
-import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages } from './lib/pdfPreprocess';
+import { buildPdfPageFileHash, isPdfReceiptFile, mergePdfPagesToReceiptImage, renderPdfPagesToReceiptImages } from './lib/pdfPreprocess';
 import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/receiptDisplay';
 import { constrainSelectionToVisible, filterReceiptQueue, summarizeReceiptQueue } from './lib/receiptFilters';
 import { keepSyncedReceiptSelected } from './lib/syncSelection';
@@ -128,6 +128,12 @@ type PreflightPromptState = {
   resolve: (confirmed: boolean) => void;
 };
 
+type PdfMergePromptState = {
+  filename: string;
+  pageCount: number;
+  resolve: (mergePages: boolean) => void;
+};
+
 type DuplicatePromptState = {
   file: File;
   previewUrl: string;
@@ -135,6 +141,7 @@ type DuplicatePromptState = {
   perceptualHash: string | null;
   candidates: DuplicateCandidate[];
   renderedPdfPages?: ProcessedReceiptImage[];
+  mergePdfPages?: boolean;
 };
 
 type ExportPreviewState = {
@@ -334,6 +341,12 @@ const I18N: any = {
       poor_ocr_text: 'OCR 文本质量较差',
       qr_amount_mismatch: 'QR 金额不匹配',
       qr_tax_mismatch: 'QR 税额不匹配',
+      qr_supplier_tin_mismatch: 'QR Supplier TIN 不匹配',
+      qr_buyer_tin_mismatch: 'QR Buyer TIN 不匹配',
+      qr_invoice_uuid_mismatch: 'QR UUID 不匹配',
+      qr_supplier_mismatch: 'QR Supplier 不匹配',
+      qr_buyer_mismatch: 'QR Buyer 不匹配',
+      qr_tax_rate_mismatch: 'QR 税率不匹配',
     },
     warningMessages: {
       'OCR failed': 'OCR 失败',
@@ -617,6 +630,12 @@ const I18N: any = {
     duplicateDetectedMessage: (filename: string) => `${filename} 与已有收据相似。`,
     duplicatePrecheckFailedLabel: '重复检测失败。',
     pdfNoPagesLabel: 'PDF 收据没有可识别页面。',
+    pdfMergePromptTitle: '多页 PDF 处理方式',
+    pdfMergePromptDescription: (filename: string, count: number) => `${filename} 共 ${count} 页。大多数发票是一页一张；如果这是同一张发票跨多页，可以合并后统一识别。`,
+    pdfMergePromptSplitLabel: '按页分别识别',
+    pdfMergePromptMergeLabel: '合并为一张发票',
+    pdfMergedQueuedTitle: 'PDF 已合并识别',
+    pdfMergedQueuedMessage: (filename: string, count: number) => `${filename} 的 ${count} 页已合并为一张发票，OCR 已开始。`,
     pdfPageQueuedTitle: 'PDF 页面已加入队列',
     pdfPageQueuedMessage: (filename: string, pageNumber: number, totalPages: number) => `${filename} 第 ${pageNumber} / ${totalPages} 页已加入 OCR 队列。`,
     pdfUploadQueuedMessage: (filename: string, count: number) => `${filename}: ${count} 个 PDF 页面已上传，OCR 已开始。`,
@@ -830,6 +849,12 @@ const I18N: any = {
       poor_ocr_text: 'Poor OCR text quality',
       qr_amount_mismatch: 'QR amount mismatch',
       qr_tax_mismatch: 'QR tax mismatch',
+      qr_supplier_tin_mismatch: 'QR supplier TIN mismatch',
+      qr_buyer_tin_mismatch: 'QR buyer TIN mismatch',
+      qr_invoice_uuid_mismatch: 'QR invoice UUID mismatch',
+      qr_supplier_mismatch: 'QR supplier mismatch',
+      qr_buyer_mismatch: 'QR buyer mismatch',
+      qr_tax_rate_mismatch: 'QR tax rate mismatch',
     },
     warningMessages: {
       'QR total does not match OCR grand total': 'QR total does not match OCR grand total',
@@ -1095,6 +1120,12 @@ const I18N: any = {
     duplicateDetectedMessage: (filename: string) => `${filename} looks similar to an existing receipt.`,
     duplicatePrecheckFailedLabel: 'Duplicate precheck failed.',
     pdfNoPagesLabel: 'PDF receipt has no pages.',
+    pdfMergePromptTitle: 'Multi-page PDF handling',
+    pdfMergePromptDescription: (filename: string, count: number) => `${filename} has ${count} pages. Most receipts are one page each; merge only when the pages belong to the same invoice.`,
+    pdfMergePromptSplitLabel: 'Process as separate pages',
+    pdfMergePromptMergeLabel: 'Merge as one receipt',
+    pdfMergedQueuedTitle: 'Merged PDF queued',
+    pdfMergedQueuedMessage: (filename: string, count: number) => `${filename}: ${count} pages merged as one receipt. OCR started.`,
     pdfPageQueuedTitle: 'PDF page queued',
     pdfPageQueuedMessage: (filename: string, pageNumber: number, totalPages: number) => `${filename} page ${pageNumber} of ${totalPages} is queued for OCR.`,
     pdfUploadQueuedMessage: (filename: string, count: number) => `${filename}: ${count} PDF page${count > 1 ? 's' : ''} uploaded. OCR started.`,
@@ -1309,6 +1340,12 @@ const I18N: any = {
       poor_ocr_text: 'Kualiti teks OCR rendah',
       qr_amount_mismatch: 'Amaun QR tidak padan',
       qr_tax_mismatch: 'Cukai QR tidak padan',
+      qr_supplier_tin_mismatch: 'TIN pembekal QR tidak padan',
+      qr_buyer_tin_mismatch: 'TIN pembeli QR tidak padan',
+      qr_invoice_uuid_mismatch: 'UUID QR tidak padan',
+      qr_supplier_mismatch: 'Pembekal QR tidak padan',
+      qr_buyer_mismatch: 'Pembeli QR tidak padan',
+      qr_tax_rate_mismatch: 'Kadar cukai QR tidak padan',
     },
     warningMessages: {
       'QR total does not match OCR grand total': 'Jumlah QR tidak sepadan dengan jumlah OCR',
@@ -1574,6 +1611,12 @@ const I18N: any = {
     duplicateDetectedMessage: (filename: string) => `${filename} serupa dengan resit sedia ada.`,
     duplicatePrecheckFailedLabel: 'Semakan pendua gagal.',
     pdfNoPagesLabel: 'Resit PDF tiada halaman.',
+    pdfMergePromptTitle: 'Cara proses PDF berbilang halaman',
+    pdfMergePromptDescription: (filename: string, count: number) => `${filename} mempunyai ${count} halaman. Kebanyakan resit ialah satu halaman; gabungkan hanya jika semuanya invois yang sama.`,
+    pdfMergePromptSplitLabel: 'Proses mengikut halaman',
+    pdfMergePromptMergeLabel: 'Gabung sebagai satu resit',
+    pdfMergedQueuedTitle: 'PDF gabungan dimasukkan ke giliran',
+    pdfMergedQueuedMessage: (filename: string, count: number) => `${filename}: ${count} halaman digabungkan sebagai satu resit. OCR bermula.`,
     pdfPageQueuedTitle: 'Halaman PDF dimasukkan ke giliran',
     pdfPageQueuedMessage: (filename: string, pageNumber: number, totalPages: number) => `${filename} halaman ${pageNumber} / ${totalPages} dimasukkan ke giliran OCR.`,
     pdfUploadQueuedMessage: (filename: string, count: number) => `${filename}: ${count} halaman PDF dimuat naik. OCR bermula.`,
@@ -1684,6 +1727,7 @@ export default function App() {
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null);
   const [smartCropTarget, setSmartCropTarget] = useState<SmartCropTarget | null>(null);
   const [preflightPrompt, setPreflightPrompt] = useState<PreflightPromptState | null>(null);
+  const [pdfMergePrompt, setPdfMergePrompt] = useState<PdfMergePromptState | null>(null);
   const [isCropModalBusy, setIsCropModalBusy] = useState(false);
   const [smartParsingReceiptId, setSmartParsingReceiptId] = useState<string | null>(null);
   const [repairProgress, setRepairProgress] = useState<RepairProgress | null>(null);
@@ -2183,6 +2227,16 @@ export default function App() {
     })
   ), []);
 
+  const requestPdfMergeChoice = useCallback((file: File, pageCount: number) => (
+    new Promise<boolean>((resolve) => {
+      setPdfMergePrompt({
+        filename: file.name,
+        pageCount,
+        resolve,
+      });
+    })
+  ), []);
+
   const enqueueReceiptUpload = (file: File) => {
     const uploadId = Math.random().toString(36).slice(2, 11);
     const previewUrl = URL.createObjectURL(file);
@@ -2254,6 +2308,7 @@ export default function App() {
       reservedHash = fileHash;
 
       let renderedPdfPages: ProcessedReceiptImage[] | undefined;
+      let mergePdfPages = false;
       const duplicateFileHashes = [fileHash];
       if (isPdfReceiptFile(file)) {
         setUploadList((old: any[]) => old.map((item) => item.id === uploadId
@@ -2262,6 +2317,9 @@ export default function App() {
         renderedPdfPages = await renderPdfPagesToReceiptImages(file);
         if (renderedPdfPages.length === 0) {
           throw new Error(t.pdfNoPagesLabel)
+        }
+        if (renderedPdfPages.length > 1) {
+          mergePdfPages = await requestPdfMergeChoice(file, renderedPdfPages.length);
         }
         duplicateFileHashes.push(buildPdfPageFileHash(fileHash, renderedPdfPages[0].metadata.source_page || 1));
       }
@@ -2275,7 +2333,7 @@ export default function App() {
       ).sort((left, right) => right.score - left.score);
       if (candidates.length > 0) {
         setUploadList((old: any[]) => old.filter((item) => item.id !== uploadId));
-        setDuplicatePrompt({ file, previewUrl, fileHash, perceptualHash, candidates, renderedPdfPages });
+        setDuplicatePrompt({ file, previewUrl, fileHash, perceptualHash, candidates, renderedPdfPages, mergePdfPages });
         addNotification({
           type: 'warning',
           title: t.duplicateDetectedTitle,
@@ -2287,7 +2345,7 @@ export default function App() {
       setUploadList((old: any[]) => old.map((item) => item.id === uploadId
         ? { ...item, progress: 18, status: isPdfReceiptFile(file) ? 'Preparing PDF pages for OCR' : 'Reading QR and metadata' }
         : item));
-      await uploadOriginalReceipt(file, previewUrl, undefined, fileHash, perceptualHash, uploadId, renderedPdfPages);
+      await uploadOriginalReceipt(file, previewUrl, undefined, fileHash, perceptualHash, uploadId, renderedPdfPages, mergePdfPages);
     } catch (error) {
       if (reservedHash) pendingUploadHashesRef.current.delete(reservedHash);
       URL.revokeObjectURL(previewUrl);
@@ -2305,7 +2363,7 @@ export default function App() {
     if (!prompt) return;
     setDuplicatePrompt(null);
     try {
-      void uploadOriginalReceipt(prompt.file, prompt.previewUrl, undefined, prompt.fileHash, prompt.perceptualHash, undefined, prompt.renderedPdfPages);
+      void uploadOriginalReceipt(prompt.file, prompt.previewUrl, undefined, prompt.fileHash, prompt.perceptualHash, undefined, prompt.renderedPdfPages, prompt.mergePdfPages);
     } catch (error) {
       pendingUploadHashesRef.current.delete(prompt.fileHash);
       URL.revokeObjectURL(prompt.previewUrl);
@@ -2439,6 +2497,74 @@ export default function App() {
     });
   };
 
+  const uploadMergedPdfReceipt = async (
+    file: File,
+    uploadId: string,
+    baseFileHash: string | null | undefined,
+    renderedPdfPages?: ProcessedReceiptImage[],
+  ) => {
+    let renderedPages = renderedPdfPages;
+    if (!renderedPages) {
+      setUploadList((old: any[]) => old.map(u => u.id === uploadId ? { ...u, progress: 28, status: 'Rendering PDF pages' } : u));
+      renderedPages = await renderPdfPagesToReceiptImages(file);
+    }
+    if (renderedPages.length === 0) {
+      throw new Error(t.pdfNoPagesLabel);
+    }
+
+    setUploadList((old: any[]) => old.map(u => u.id === uploadId
+      ? { ...u, progress: 34, status: `Merging ${renderedPages.length} PDF pages for OCR` }
+      : u));
+
+    const merged = await mergePdfPagesToReceiptImage(file, renderedPages);
+    const [pagePerceptualHash, effectiveQrPayload] = await Promise.all([
+      computeImageAverageHash(merged.file).catch(() => null),
+      decodeQrPayloadFromImageFile(merged.file),
+    ]);
+    const imageProcessing = {
+      ...merged.metadata,
+      ...(baseFileHash ? { source_file_hash: baseFileHash } : {}),
+      ...(pagePerceptualHash ? { perceptual_hash: pagePerceptualHash } : {}),
+    };
+    const mergedHash = baseFileHash ? `${baseFileHash}:merged:${renderedPages.length}` : null;
+    setUploadList((old: any[]) => old.map(u => u.id === uploadId
+      ? { ...u, progress: 52, status: 'Uploading merged PDF receipt' }
+      : u));
+
+    const result = await createReceiptFromFile(file, {
+      processedFile: merged.file,
+      imageProcessing,
+      fileHash: mergedHash,
+      autoParse: true,
+      awaitParse: false,
+      onAsyncParseError: handleAsyncParseError,
+      parseMode: 'ocr',
+      enabledFieldKeys,
+      docType: looksLikeEInvoiceQrPayload(effectiveQrPayload) ? 'E-invoice' : null,
+      qrPayload: effectiveQrPayload,
+    });
+
+    const mergedPreviewUrl = URL.createObjectURL(merged.file);
+    const displayReceipt = await buildDisplayReceipt(result.receipt, mergedPreviewUrl);
+    upsertHistoryReceipt(displayReceipt);
+    addNotification({
+      type: 'info',
+      title: t.pdfMergedQueuedTitle || t.pdfUploadQueuedTitle,
+      message: typeof t.pdfMergedQueuedMessage === 'function'
+        ? t.pdfMergedQueuedMessage(file.name, renderedPages.length)
+        : `${file.name}: ${renderedPages.length} pages merged as one receipt. OCR started.`,
+      receipt_id: result.receipt.id,
+    });
+    showToast(typeof t.pdfMergedQueuedMessage === 'function'
+      ? t.pdfMergedQueuedMessage(file.name, renderedPages.length)
+      : `${file.name}: ${renderedPages.length} pages merged as one receipt. OCR started.`, 'success', {
+      persist: true,
+      title: t.pdfMergedQueuedTitle || t.pdfUploadQueuedTitle,
+      receiptId: result.receipt.id,
+    });
+    startReceiptResultPolling(result.receipt.id, mergedPreviewUrl, uploadId);
+  };
+
   const uploadOriginalReceipt = async (
     file: File,
     existingPreviewUrl?: string,
@@ -2447,6 +2573,7 @@ export default function App() {
     perceptualHash?: string | null,
     existingUploadId?: string,
     renderedPdfPages?: ProcessedReceiptImage[],
+    mergePdfPages = false,
   ) => {
     const uploadId = existingUploadId || Math.random().toString(36).slice(2, 11);
     const previewUrl = existingPreviewUrl || URL.createObjectURL(file);
@@ -2474,7 +2601,11 @@ export default function App() {
       let effectivePerceptualHash = perceptualHash;
       if (isPdfReceiptFile(file)) {
         if (previewUrl.startsWith('blob:')) originalPreviewUrlToRevoke = previewUrl;
-        await uploadPdfReceiptPages(file, uploadId, fileHash, renderedPdfPages);
+        if (mergePdfPages) {
+          await uploadMergedPdfReceipt(file, uploadId, fileHash, renderedPdfPages);
+        } else {
+          await uploadPdfReceiptPages(file, uploadId, fileHash, renderedPdfPages);
+        }
         return;
       } else {
         imageProcessing = effectivePerceptualHash ? { perceptual_hash: effectivePerceptualHash } : null;
@@ -2977,6 +3108,12 @@ export default function App() {
           setDeleteDialog(null);
           return;
         }
+        if (pdfMergePrompt) {
+          const resolver = pdfMergePrompt.resolve;
+          setPdfMergePrompt(null);
+          resolver(false);
+          return;
+        }
         if (duplicatePrompt) {
           cancelDuplicateUpload();
           return;
@@ -3035,7 +3172,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deleteDialog, duplicatePrompt, exportPreview, handleExport, handleSelectAdjacentReceipt, handleSyncSelectedReceipt, isExporting, isNotificationCenterOpen, isSettingsOpen, selectedReceipt, zoomImage]);
+  }, [deleteDialog, duplicatePrompt, exportPreview, handleExport, handleSelectAdjacentReceipt, handleSyncSelectedReceipt, isExporting, isNotificationCenterOpen, isSettingsOpen, pdfMergePrompt, selectedReceipt, zoomImage]);
 
   const deleteDialogReceipt = deleteDialog?.ids.length === 1
     ? [...history, ...deletedReceipts].find((receipt) => receipt.id === deleteDialog.ids[0])
@@ -3073,6 +3210,11 @@ export default function App() {
     const resolver = preflightPrompt?.resolve;
     setPreflightPrompt(null);
     resolver?.(confirmed);
+  };
+  const resolvePdfMergePrompt = (mergePages: boolean) => {
+    const resolver = pdfMergePrompt?.resolve;
+    setPdfMergePrompt(null);
+    resolver?.(mergePages);
   };
 
   return (
@@ -3133,6 +3275,42 @@ export default function App() {
           onContinue={continueDuplicateUpload}
           onOpenExisting={openDuplicateCandidate}
         />
+      )}
+
+      {pdfMergePrompt && (
+        <div className="fixed inset-0 z-[136] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-lg rounded-[28px] border p-6 shadow-2xl ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
+            <div className="flex items-start gap-4">
+              <div className={`${config.theme.light} rounded-2xl p-3 ${config.theme.text}`}>
+                <Upload className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-black">{t.pdfMergePromptTitle || 'Multi-page PDF handling'}</h3>
+                <p className={`mt-2 text-sm font-bold leading-6 ${config.colorMode === 'Dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {typeof t.pdfMergePromptDescription === 'function'
+                    ? t.pdfMergePromptDescription(pdfMergePrompt.filename, pdfMergePrompt.pageCount)
+                    : `${pdfMergePrompt.filename} has ${pdfMergePrompt.pageCount} pages.`}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => resolvePdfMergePrompt(false)}
+                className={`rounded-2xl px-5 py-3 text-xs font-black uppercase transition ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                {t.pdfMergePromptSplitLabel || 'Process as separate pages'}
+              </button>
+              <button
+                type="button"
+                onClick={() => resolvePdfMergePrompt(true)}
+                className={`${config.theme.color} rounded-2xl px-5 py-3 text-xs font-black uppercase text-white shadow-lg transition hover:brightness-110`}
+              >
+                {t.pdfMergePromptMergeLabel || 'Merge as one receipt'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {preflightPrompt && (

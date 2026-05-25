@@ -1,10 +1,13 @@
 export interface ParsedEInvoiceQrFields {
+  supplier_name?: string
+  buyer_name?: string
   supplier_tin?: string
   buyer_tin?: string
   invoice_uuid?: string
   validation_link?: string
   qr_payload?: string
   invoice_type?: string
+  tax_rate?: number
   tax_amount?: number
   grand_total?: number
 }
@@ -64,10 +67,20 @@ export function mergeQrPayloadExtraFields(
   const parsed = parseMyInvoisQrPayload(payload)
   const current = existing && typeof existing === 'object' ? existing : {}
   const { grand_total: qrGrandTotal, ...parsedExtraFields } = parsed
+  const qrSpecificFields = {
+    ...(parsed.supplier_name ? { qr_supplier_name: parsed.supplier_name } : {}),
+    ...(parsed.buyer_name ? { qr_buyer_name: parsed.buyer_name } : {}),
+    ...(parsed.supplier_tin ? { qr_supplier_tin: parsed.supplier_tin } : {}),
+    ...(parsed.buyer_tin ? { qr_buyer_tin: parsed.buyer_tin } : {}),
+    ...(parsed.invoice_uuid ? { qr_invoice_uuid: parsed.invoice_uuid } : {}),
+    ...(parsed.tax_rate !== undefined ? { qr_tax_rate: parsed.tax_rate } : {}),
+    ...(parsed.tax_amount !== undefined ? { qr_tax_amount: parsed.tax_amount } : {}),
+  }
 
   return {
     ...parsedExtraFields,
     ...(qrGrandTotal !== undefined ? { qr_grand_total: qrGrandTotal } : {}),
+    ...qrSpecificFields,
     ...current,
     qr_payload: stringValue(current.qr_payload) || parsed.qr_payload || payload || null,
   }
@@ -126,6 +139,10 @@ function mapRawFields(input: Record<string, unknown>): ParsedEInvoiceQrFields {
 
     if (['uuid', 'invoice_uuid', 'invoiceuuid', 'invoice_id', 'invoiceid', 'document_uuid', 'documentuuid', 'document_id', 'documentid'].includes(key)) {
       result.invoice_uuid = value
+    } else if (['supplier_name', 'suppliername', 'seller_name', 'sellername', 'issuer_name', 'issuername'].includes(key)) {
+      result.supplier_name = value
+    } else if (['buyer_name', 'buyername', 'customer_name', 'customername', 'recipient_name', 'recipientname'].includes(key)) {
+      result.buyer_name = value
     } else if (['suppliertin', 'supplier_tin', 'sellertin', 'issuertin', 'tin_supplier'].includes(key)) {
       result.supplier_tin = value
     } else if (['buyertin', 'buyer_tin', 'customertin', 'recipienttin', 'tin_buyer'].includes(key)) {
@@ -134,6 +151,8 @@ function mapRawFields(input: Record<string, unknown>): ParsedEInvoiceQrFields {
       result.validation_link = value
     } else if (['invoice_type', 'invoicetype', 'type', 'doc_type', 'doctype', 'document_type', 'documenttype'].includes(key)) {
       result.invoice_type = value
+    } else if (['tax_rate', 'taxrate', 'sst_rate', 'sstrate', 'service_tax_rate', 'servicetaxrate'].includes(key)) {
+      result.tax_rate = numberValue(value)
     } else if (['tax_amount', 'taxamount', 'tax', 'sst_amount', 'sstamount', 'tax_total', 'taxtotal'].includes(key)) {
       result.tax_amount = numberValue(value)
     } else if (['grand_total', 'grandtotal', 'total', 'total_amount', 'totalamount', 'amount_payable', 'amountpayable', 'payable_amount', 'payableamount'].includes(key)) {

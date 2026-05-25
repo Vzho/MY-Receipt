@@ -66,4 +66,51 @@ describe('renderPdfPagesToReceiptImages', () => {
     expect(buildPdfPageFileHash('abc123', 1)).toBe('abc123:page:1')
     expect(buildPdfPageFileHash('abc123', 2)).toBe('abc123:page:2')
   })
+
+  it('builds merged PDF page metadata for a single receipt review flow', async () => {
+    const { buildMergedPdfPageMetadata } = await import('../lib/pdfPreprocess')
+
+    const metadata = buildMergedPdfPageMetadata([
+      {
+        file: new File(['page-1'], 'page-1.jpg', { type: 'image/jpeg' }),
+        metadata: {
+          version: 1,
+          crop_percent: { x: 0, y: 0, width: 100, height: 100 },
+          rotation: 0,
+          original_width: 800,
+          original_height: 1200,
+          output_width: 1600,
+          output_height: 2200,
+          source_mime_type: 'application/pdf',
+          source_page: 1,
+          source_page_count: 2,
+        },
+      },
+      {
+        file: new File(['page-2'], 'page-2.jpg', { type: 'image/jpeg' }),
+        metadata: {
+          version: 1,
+          crop_percent: { x: 0, y: 0, width: 100, height: 100 },
+          rotation: 0,
+          original_width: 800,
+          original_height: 1200,
+          output_width: 1600,
+          output_height: 2200,
+          source_mime_type: 'application/pdf',
+          source_page: 2,
+          source_page_count: 2,
+        },
+      },
+    ], 1600, 4400)
+
+    expect(metadata).toMatchObject({
+      source_mime_type: 'application/pdf',
+      source_page: 1,
+      source_page_count: 2,
+      merged_pages: true,
+      source_pages: [1, 2],
+      output_width: 1600,
+      output_height: 4400,
+    })
+  })
 })

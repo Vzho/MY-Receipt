@@ -229,7 +229,7 @@ async function parseWithTencentOCR(client: any, receipt: any, options: ReceiptPr
     return parseManualDraftWithNote(receipt.filename, 'Tencent OCR mode currently accepts JPEG and PNG receipts only.')
   }
 
-  const ocrResult = await runTencentOCR(base64File)
+  const ocrResult = await runTencentOCR(base64File, receipt.filename)
   const rawOcr = ocrResult.text
   await updateReceipt(client, receipt.id, { processing_stage: 'ai_extracting' })
   const aiJson = inferReceiptFromOcrText(rawOcr, receipt.filename, {
@@ -239,6 +239,7 @@ async function parseWithTencentOCR(client: any, receipt: any, options: ReceiptPr
     request_id: ocrResult.requestId,
     angle: ocrResult.angle,
     language: ocrResult.language,
+    language_requested: ocrResult.languageRequested,
     line_count: ocrResult.lineCount,
     average_confidence: ocrResult.averageConfidence,
     ocr_detections: ocrResult.detections,
@@ -529,19 +530,21 @@ function parseManualDraftWithNote(filename: string | null, note: string): { aiJs
   }
 }
 
-async function runTencentOCR(base64File: string): Promise<{
+async function runTencentOCR(base64File: string, filename?: string | null): Promise<{
   text: string
   requestId: string | null
   angle: number | null
   language: string | null
+  languageRequested: string
   lineCount: number
   averageConfidence: number
   detections: Array<Record<string, unknown>>
 }> {
   const action = Deno.env.get('TENCENT_OCR_ACTION') || 'GeneralBasicOCR'
+  const languageType = selectTencentOcrLanguage(filename)
   const payload = JSON.stringify({
     ImageBase64: base64File,
-    LanguageType: Deno.env.get('TENCENT_OCR_LANGUAGE') || 'may',
+    LanguageType: languageType,
   })
   const response = await callTencentCloudApi(action, '2018-11-19', payload)
   const data = await response.json()
@@ -566,11 +569,23 @@ async function runTencentOCR(base64File: string): Promise<{
     text: lines.join('\n'),
     requestId: result?.RequestId ?? null,
     angle: typeof result?.Angle === 'number' ? result.Angle : null,
-    language: result?.Language ?? null,
+    language: result?.Language ?? languageType,
+    languageRequested: languageType,
     lineCount: lines.length,
     averageConfidence: clamp(averageConfidence, 0, 1),
     detections: normalizeTencentDetections(detections),
   }
+}
+
+function selectTencentOcrLanguage(filename?: string | null) {
+  const configured = Deno.env.get('TENCENT_OCR_LANGUAGE')?.trim()
+  if (configured && configured.toLowerCase() !== 'dynamic') return configured
+
+  const name = String(filename ?? '').toLowerCase()
+  if (/[\u3400-\u9fff]|中文|chinese|mandarin|cn/.test(name)) return 'auto'
+  if (/malay|melayu|bm|bahasa/.test(name)) return 'auto'
+  if (/english|eng/.test(name)) return 'auto'
+  return 'auto'
 }
 
 function normalizeTencentDetections(detections: Array<Record<string, unknown>>) {
@@ -1329,12 +1344,12 @@ function mergeQrPayload(normalizedReceipt: Record<string, any>, receipt: Record<
   if (!payload) return
   const parsedQrFields = parseQrPayloadFields(payload)
 
-  normalizedReceipt.extra_fields = {
-    ...parsedQrFields,
-    ...storedExtraFields,
-    ...normalizedExtraFields,
-    qr_payload: payload,
-  }
+  normalizedReceipt.extra_fields = mergeNonEmptyFields(
+    parsedQrFields,
+    storedExtraFields,
+    normalizedExtraFields,
+    { qr_payload: payload },
+  )
 
   if (looksLikeEInvoiceQrPayload(payload) || parsedQrFields.invoice_uuid || parsedQrFields.supplier_tin || parsedQrFields.buyer_tin) {
     normalizedReceipt.doc_type = 'E-invoice'
@@ -1392,17 +1407,35 @@ function parseQrPayloadFields(payload: string): Record<string, unknown> {
 
     if (['uuid', 'invoice_uuid', 'invoiceuuid', 'invoice_id', 'invoiceid', 'document_uuid', 'documentuuid', 'document_id', 'documentid'].includes(key)) {
       fields.invoice_uuid = value
+      fields.qr_invoice_uuid = value
+    } else if (['supplier_name', 'suppliername', 'seller_name', 'sellername', 'issuer_name', 'issuername'].includes(key)) {
+      fields.supplier_name = value
+      fields.qr_supplier_name = value
+    } else if (['buyer_name', 'buyername', 'customer_name', 'customername', 'recipient_name', 'recipientname'].includes(key)) {
+      fields.buyer_name = value
+      fields.qr_buyer_name = value
     } else if (['suppliertin', 'supplier_tin', 'sellertin', 'issuertin', 'tin_supplier'].includes(key)) {
       fields.supplier_tin = value
+      fields.qr_supplier_tin = value
     } else if (['buyertin', 'buyer_tin', 'customertin', 'recipienttin', 'tin_buyer'].includes(key)) {
       fields.buyer_tin = value
+      fields.qr_buyer_tin = value
     } else if (['validation_link', 'validationlink', 'validation_url', 'validationurl', 'verify_url', 'verifyurl', 'url'].includes(key)) {
       fields.validation_link = value
     } else if (['invoice_type', 'invoicetype', 'type', 'doc_type', 'doctype', 'document_type', 'documenttype'].includes(key)) {
       fields.invoice_type = value
+    } else if (['tax_rate', 'taxrate', 'sst_rate', 'sstrate', 'service_tax_rate', 'servicetaxrate'].includes(key)) {
+      const taxRate = Number(value.replace(/[^\d.-]/g, ''))
+      if (Number.isFinite(taxRate)) {
+        fields.tax_rate = normalizeMoney(taxRate)
+        fields.qr_tax_rate = normalizeMoney(taxRate)
+      }
     } else if (['tax_amount', 'taxamount', 'tax', 'sst_amount', 'sstamount', 'tax_total', 'taxtotal'].includes(key)) {
       const taxAmount = Number(value.replace(/[^\d.-]/g, ''))
-      if (Number.isFinite(taxAmount)) fields.tax_amount = normalizeMoney(taxAmount)
+      if (Number.isFinite(taxAmount)) {
+        fields.tax_amount = normalizeMoney(taxAmount)
+        fields.qr_tax_amount = normalizeMoney(taxAmount)
+      }
     } else if (['grand_total', 'grandtotal', 'total', 'total_amount', 'totalamount', 'amount_payable', 'amountpayable', 'payable_amount', 'payableamount'].includes(key)) {
       const qrGrandTotal = Number(value.replace(/[^\d.-]/g, ''))
       if (Number.isFinite(qrGrandTotal)) fields.qr_grand_total = normalizeMoney(qrGrandTotal)
@@ -1412,15 +1445,31 @@ function parseQrPayloadFields(payload: string): Record<string, unknown> {
   return fields
 }
 
+function mergeNonEmptyFields(...sources: Array<Record<string, unknown>>) {
+  const merged: Record<string, unknown> = {}
+  for (const source of sources) {
+    Object.entries(source).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === '') return
+      merged[key] = value
+    })
+  }
+  return merged
+}
+
 function normalizeExtraFields(input: Record<string, unknown>) {
   const extraFields: Record<string, unknown> = {}
   const stringKeys = [
     'supplier_name',
     'buyer_name',
+    'qr_supplier_name',
+    'qr_buyer_name',
     'supplier_tin',
     'buyer_tin',
+    'qr_supplier_tin',
+    'qr_buyer_tin',
     'sst_no',
     'invoice_uuid',
+    'qr_invoice_uuid',
     'validation_link',
     'qr_payload',
     'invoice_type',
@@ -1430,7 +1479,11 @@ function normalizeExtraFields(input: Record<string, unknown>) {
     extraFields[key] = stringOrNull(input[key])
   }
 
+  extraFields.tax_rate = normalizeMoney(input.tax_rate)
+  extraFields.qr_tax_rate = normalizeMoney(input.qr_tax_rate)
   extraFields.tax_amount = normalizeMoney(input.tax_amount)
+  extraFields.qr_tax_amount = normalizeMoney(input.qr_tax_amount)
+  extraFields.qr_grand_total = normalizeMoney(input.qr_grand_total)
   return extraFields
 }
 
@@ -1593,7 +1646,7 @@ function buildWarnings(
     })
   }
 
-  const qrTaxAmount = normalizeMoney(Number(extraFields.tax_amount || 0))
+  const qrTaxAmount = normalizeMoney(Number(extraFields.qr_tax_amount || extraFields.tax_amount || 0))
   const tax = roundMoney(Number(receipt.tax || 0))
   if (qrTaxAmount > 0 && tax > 0 && Math.abs(qrTaxAmount - tax) > 0.05) {
     warnings.push({
@@ -1602,6 +1655,24 @@ function buildWarnings(
       message: 'QR tax amount does not match OCR tax amount',
       field: 'tax',
       details: { qr_tax_amount: qrTaxAmount, tax },
+    })
+  }
+
+  addQrTextMismatch(warnings, extraFields.supplier_tin, extraFields.qr_supplier_tin, 'supplier_tin', 'qr_supplier_tin_mismatch', 'QR supplier TIN does not match OCR supplier TIN')
+  addQrTextMismatch(warnings, extraFields.buyer_tin, extraFields.qr_buyer_tin, 'buyer_tin', 'qr_buyer_tin_mismatch', 'QR buyer TIN does not match OCR buyer TIN')
+  addQrTextMismatch(warnings, extraFields.invoice_uuid, extraFields.qr_invoice_uuid, 'invoice_uuid', 'qr_invoice_uuid_mismatch', 'QR invoice UUID does not match OCR invoice UUID')
+  addQrTextMismatch(warnings, extraFields.supplier_name, extraFields.qr_supplier_name, 'supplier_name', 'qr_supplier_mismatch', 'QR supplier does not match OCR supplier')
+  addQrTextMismatch(warnings, extraFields.buyer_name, extraFields.qr_buyer_name, 'buyer_name', 'qr_buyer_mismatch', 'QR buyer does not match OCR buyer')
+
+  const taxRate = normalizeMoney(Number(extraFields.tax_rate || 0))
+  const qrTaxRate = normalizeMoney(Number(extraFields.qr_tax_rate || 0))
+  if (taxRate > 0 && qrTaxRate > 0 && Math.abs(taxRate - qrTaxRate) > 0.05) {
+    warnings.push({
+      code: 'qr_tax_rate_mismatch',
+      severity: 'warning',
+      message: 'QR tax rate does not match OCR tax rate',
+      field: 'tax_rate',
+      details: { qr_tax_rate: qrTaxRate, tax_rate: taxRate },
     })
   }
 
@@ -1643,6 +1714,33 @@ function buildWarnings(
   }
 
   return warnings
+}
+
+function addQrTextMismatch(
+  warnings: Array<Record<string, unknown>>,
+  ocrValue: unknown,
+  qrValue: unknown,
+  field: string,
+  code: string,
+  message: string,
+) {
+  const ocrText = normalizeQrComparableText(ocrValue)
+  const qrText = normalizeQrComparableText(qrValue)
+  if (!ocrText || !qrText || ocrText === qrText) return
+  warnings.push({
+    code,
+    severity: 'warning',
+    message,
+    field,
+    details: {
+      ocr_value: String(ocrValue ?? '').trim(),
+      qr_value: String(qrValue ?? '').trim(),
+    },
+  })
+}
+
+function normalizeQrComparableText(value: unknown) {
+  return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9\u3400-\u9fff]/g, '')
 }
 
 function rawFieldConfidenceMap(source: unknown): Record<string, number> {

@@ -23,6 +23,12 @@ export interface ReceiptWarning {
     | 'poor_ocr_text'
     | 'qr_amount_mismatch'
     | 'qr_tax_mismatch'
+    | 'qr_supplier_tin_mismatch'
+    | 'qr_buyer_tin_mismatch'
+    | 'qr_invoice_uuid_mismatch'
+    | 'qr_supplier_mismatch'
+    | 'qr_buyer_mismatch'
+    | 'qr_tax_rate_mismatch'
   severity: 'info' | 'warning' | 'error'
   message: string
   field?: string
@@ -34,12 +40,20 @@ export interface EInvoiceExtraFields {
   buyer_name?: string | null
   supplier_tin?: string | null
   buyer_tin?: string | null
+  qr_supplier_name?: string | null
+  qr_buyer_name?: string | null
+  qr_supplier_tin?: string | null
+  qr_buyer_tin?: string | null
   sst_no?: string | null
   invoice_uuid?: string | null
+  qr_invoice_uuid?: string | null
   validation_link?: string | null
   qr_payload?: string | null
   invoice_type?: string | null
+  tax_rate?: number | null
+  qr_tax_rate?: number | null
   tax_amount?: number | null
+  qr_tax_amount?: number | null
   qr_grand_total?: number | null
 }
 

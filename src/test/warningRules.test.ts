@@ -103,7 +103,7 @@ describe('evaluateReceiptWarnings', () => {
       tax: 7.12,
       extra_fields: {
         qr_payload: 'https://myinvois.hasil.gov.my/validate?uuid=UUID-1&taxAmount=6.90',
-        tax_amount: 6.9,
+        qr_tax_amount: 6.9,
       },
     }))
 
@@ -115,6 +115,35 @@ describe('evaluateReceiptWarnings', () => {
         tax: 7.12,
       },
     }))
+  })
+
+  it('flags QR identity mismatches against OCR e-invoice fields', () => {
+    const warnings = evaluateReceiptWarnings(createReceipt({
+      doc_type: 'E-invoice',
+      extra_fields: {
+        supplier_tin: 'C1234567890',
+        buyer_tin: 'B1234567890',
+        invoice_uuid: 'OCR-UUID',
+        supplier_name: 'OCR Supplier Sdn Bhd',
+        buyer_name: 'OCR Buyer Sdn Bhd',
+        tax_rate: 8,
+        qr_supplier_tin: 'C0000000000',
+        qr_buyer_tin: 'B0000000000',
+        qr_invoice_uuid: 'QR-UUID',
+        qr_supplier_name: 'QR Supplier Sdn Bhd',
+        qr_buyer_name: 'QR Buyer Sdn Bhd',
+        qr_tax_rate: 6,
+      },
+    }))
+
+    expect(warnings.map((warning) => warning.code)).toEqual(expect.arrayContaining([
+      'qr_supplier_tin_mismatch',
+      'qr_buyer_tin_mismatch',
+      'qr_invoice_uuid_mismatch',
+      'qr_supplier_mismatch',
+      'qr_buyer_mismatch',
+      'qr_tax_rate_mismatch',
+    ]))
   })
 })
 

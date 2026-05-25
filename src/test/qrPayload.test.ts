@@ -55,6 +55,10 @@ describe('qr payload helpers', () => {
 
     expect(mergeQrPayloadExtraFields({ supplier_tin: 'EXISTING' }, payload)).toMatchObject({
       supplier_tin: 'EXISTING',
+      qr_supplier_tin: 'C123',
+      qr_buyer_tin: 'B456',
+      qr_invoice_uuid: 'UUID-2',
+      qr_tax_amount: 3.21,
       buyer_tin: 'B456',
       invoice_uuid: 'UUID-2',
       qr_payload: payload,

@@ -57,6 +57,12 @@ function formatWarningLabel(warning: ReceiptWarning, labels?: any) {
     poor_ocr_text: '⚠ Poor OCR text',
     qr_amount_mismatch: '⚠ QR amount mismatch',
     qr_tax_mismatch: '⚠ QR tax mismatch',
+    qr_supplier_tin_mismatch: '⚠ QR supplier TIN mismatch',
+    qr_buyer_tin_mismatch: '⚠ QR buyer TIN mismatch',
+    qr_invoice_uuid_mismatch: '⚠ QR invoice UUID mismatch',
+    qr_supplier_mismatch: '⚠ QR supplier mismatch',
+    qr_buyer_mismatch: '⚠ QR buyer mismatch',
+    qr_tax_rate_mismatch: '⚠ QR tax rate mismatch',
   }
   return labels?.warningLabels?.[warning.code] ?? defaultLabels[warning.code] ?? `⚠ ${warning.code.replace(/_/g, ' ')}`
 }

@@ -127,7 +127,7 @@ function addQrPayloadWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
     })
   }
 
-  const qrTaxAmount = numberFromUnknown(extraFields.tax_amount)
+  const qrTaxAmount = numberFromUnknown(extraFields.qr_tax_amount ?? extraFields.tax_amount)
   const tax = roundMoney(Number(receipt.tax || 0))
   if (qrTaxAmount > 0 && tax > 0 && differs(qrTaxAmount, tax)) {
     warnings.push({
@@ -139,6 +139,24 @@ function addQrPayloadWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
         qr_tax_amount: qrTaxAmount,
         tax,
       },
+    })
+  }
+
+  addQrTextMismatch(warnings, extraFields.supplier_tin, extraFields.qr_supplier_tin, 'supplier_tin', 'qr_supplier_tin_mismatch', 'QR supplier TIN does not match OCR supplier TIN')
+  addQrTextMismatch(warnings, extraFields.buyer_tin, extraFields.qr_buyer_tin, 'buyer_tin', 'qr_buyer_tin_mismatch', 'QR buyer TIN does not match OCR buyer TIN')
+  addQrTextMismatch(warnings, extraFields.invoice_uuid, extraFields.qr_invoice_uuid, 'invoice_uuid', 'qr_invoice_uuid_mismatch', 'QR invoice UUID does not match OCR invoice UUID')
+  addQrTextMismatch(warnings, extraFields.supplier_name, extraFields.qr_supplier_name, 'supplier_name', 'qr_supplier_mismatch', 'QR supplier does not match OCR supplier')
+  addQrTextMismatch(warnings, extraFields.buyer_name, extraFields.qr_buyer_name, 'buyer_name', 'qr_buyer_mismatch', 'QR buyer does not match OCR buyer')
+
+  const taxRate = numberFromUnknown(extraFields.tax_rate)
+  const qrTaxRate = numberFromUnknown(extraFields.qr_tax_rate)
+  if (taxRate > 0 && qrTaxRate > 0 && differs(taxRate, qrTaxRate)) {
+    warnings.push({
+      code: 'qr_tax_rate_mismatch',
+      severity: 'warning',
+      message: 'QR tax rate does not match OCR tax rate',
+      field: 'tax_rate',
+      details: { qr_tax_rate: qrTaxRate, tax_rate: taxRate },
     })
   }
 }
@@ -174,6 +192,33 @@ function numberFromUnknown(value: unknown) {
     return Number.isFinite(parsed) ? roundMoney(parsed) : 0
   }
   return 0
+}
+
+function addQrTextMismatch(
+  warnings: ReceiptWarning[],
+  ocrValue: unknown,
+  qrValue: unknown,
+  field: string,
+  code: ReceiptWarning['code'],
+  message: string,
+) {
+  const ocrText = normalizeQrComparableText(ocrValue)
+  const qrText = normalizeQrComparableText(qrValue)
+  if (!ocrText || !qrText || ocrText === qrText) return
+  warnings.push({
+    code,
+    severity: 'warning',
+    message,
+    field,
+    details: {
+      ocr_value: String(ocrValue ?? '').trim(),
+      qr_value: String(qrValue ?? '').trim(),
+    },
+  })
+}
+
+function normalizeQrComparableText(value: unknown) {
+  return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9\u3400-\u9fff]/g, '')
 }
 
 function dedupeWarnings(warnings: ReceiptWarning[]) {
