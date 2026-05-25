@@ -15,6 +15,7 @@ describe('SettingsModal', () => {
           uploadQueueLimit: 10,
           receiptListPageSize: 10,
           fontScale: 1.08,
+          showShortcutHints: true,
           theme: { name: 'Indigo', color: 'bg-indigo-600' },
         }}
         labels={{
@@ -32,6 +33,8 @@ describe('SettingsModal', () => {
           fontScaleCompactLabel: '标准',
           fontScaleComfortableLabel: '较大',
           fontScaleLargeLabel: '特大',
+          shortcutHintsSettingLabel: '快捷键提示',
+          shortcutHintsSettingDescription: '在审核页显示快捷键提示。',
           uploadQueueLimitLabel: '上传队列显示数量',
           uploadQueueLimitDescription: '批量上传时首页默认展示的处理任务数量。',
           receiptListPageSizeLabel: '发票列表每页数量',
@@ -59,6 +62,8 @@ describe('SettingsModal', () => {
     expect(html).toContain('界面字号')
     expect(html).toContain('较大')
     expect(html).toContain('特大')
+    expect(html).toContain('快捷键提示')
+    expect(html).toContain('在审核页显示快捷键提示。')
     expect(html).toContain('上传队列显示数量')
     expect(html).toContain('发票列表每页数量')
     expect(html).toContain('字段提取与导出')

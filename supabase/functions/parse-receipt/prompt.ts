@@ -87,6 +87,8 @@ Special rules for Malaysian e-invoices:
   "tags": string[],
   "confidence_score": number,
   "field_confidence": Record<string, number>,
+  "field_sources": Record<string, Array<{ "text": string, "box": { "x": number, "y": number, "width": number, "height": number } | null, "confidence": number | null }>>,
+  "item_confidence": Array<{ "index": number, "confidence": number, "reason": string | null }>,
   "items": [
     {
       "name": string,
@@ -150,6 +152,8 @@ Special rules for Malaysian e-invoices:
   "tags": string[],
   "confidence_score": number,
   "field_confidence": Record<string, number>,
+  "field_sources": Record<string, Array<{ "text": string, "box": { "x": number, "y": number, "width": number, "height": number } | null, "confidence": number | null }>>,
+  "item_confidence": Array<{ "index": number, "confidence": number, "reason": string | null }>,
   "items": [
     {
       "name": string,

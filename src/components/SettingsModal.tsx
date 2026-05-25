@@ -1,4 +1,4 @@
-import { Banknote, BellRing, CheckCircle, Languages, ListOrdered, Moon, Settings, Sun, Type, X } from 'lucide-react'
+import { Banknote, BellRing, CheckCircle, Keyboard, Languages, ListOrdered, Moon, Settings, Sun, Type, X } from 'lucide-react'
 import { playNotificationSoundPreview, shouldPreviewNotificationSoundOnToggle } from '../lib/notificationSound'
 import { FieldConfigPanel } from './FieldConfigPanel'
 import type { FieldPreference } from '../types/fieldConfig'
@@ -176,6 +176,23 @@ export function SettingsModal({
               aria-pressed={Boolean(config.notificationSound)}
             >
               <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${config.notificationSound ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+
+          <div className={`flex items-center justify-between gap-4 rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
+            <div>
+              <label className={`text-[10px] font-black uppercase tracking-[2px] flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                <Keyboard className="w-3.5 h-3.5" /> {labels.shortcutHintsSettingLabel || '快捷键提示'}
+              </label>
+              <p className={`mt-1 text-[11px] font-semibold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.shortcutHintsSettingDescription || '在审核页右下角显示可关闭的快捷键提示。'}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onConfigChange({ ...config, showShortcutHints: !config.showShortcutHints })}
+              className={`relative h-7 w-12 rounded-full transition ${config.showShortcutHints ? config.theme.color : config.colorMode === 'Dark' ? 'bg-slate-700' : 'bg-slate-300'}`}
+              aria-pressed={Boolean(config.showShortcutHints)}
+            >
+              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${config.showShortcutHints ? 'left-6' : 'left-1'}`} />
             </button>
           </div>
 

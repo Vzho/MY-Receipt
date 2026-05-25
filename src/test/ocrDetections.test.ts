@@ -21,6 +21,28 @@ describe('ocr detections', () => {
     ])
   })
 
+  it('prefers explicit field_sources from the parser when available', () => {
+    const receipt = createReceipt({
+      merchant_name: 'CRUMBS BAKERY',
+      raw_ai: {
+        field_sources: {
+          merchant_name: [
+            { text: 'CRUMBS', confidence: 0.88, box: { x: 10, y: 20, width: 80, height: 18 } },
+          ],
+        },
+        ocr_meta: {
+          ocr_detections: [
+            { text: 'CRUMBS BAKERY', confidence: 0.96, box: { x: 20, y: 40, width: 260, height: 32 } },
+          ],
+        },
+      },
+    })
+
+    expect(findReceiptFieldDetections(receipt, 'merchant_name')).toEqual([
+      expect.objectContaining({ text: 'CRUMBS', box: { x: 10, y: 20, width: 80, height: 18 } }),
+    ])
+  })
+
   it('converts OCR boxes into percentage overlay coordinates', () => {
     expect(toOverlayStyle({ x: 20, y: 40, width: 260, height: 32 }, { width: 400, height: 800 })).toMatchObject({
       left: '5%',

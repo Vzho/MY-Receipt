@@ -100,6 +100,8 @@ serve(async (req) => {
     const normalizedReceipt = normalizeReceipt(aiJson)
     mergeQrPayload(normalizedReceipt, receipt, effectiveQrPayload)
     const normalizedItems = normalizeItems(aiJson.items)
+    aiJson.field_sources = normalizeFieldSources(aiJson.field_sources) ?? buildFieldSources(aiJson, getRawOcrDetections(aiJson))
+    aiJson.item_confidence = normalizeItemConfidence(aiJson.item_confidence, normalizedItems, aiJson)
     const duplicatePatch = await findDuplicatePatch(serviceClient, receipt, normalizedReceipt)
     const warnings = buildWarnings(normalizedReceipt, normalizedItems, {
       duplicateOf: duplicatePatch.duplicate_of,
@@ -1650,6 +1652,125 @@ function rawFieldConfidenceMap(source: unknown): Record<string, number> {
     if (Number.isFinite(confidence)) result[field] = clamp(confidence, 0, 1)
     return result
   }, {})
+}
+
+function getRawOcrDetections(aiJson: Record<string, any>) {
+  const parserMeta = aiJson.parser_meta && typeof aiJson.parser_meta === 'object' ? aiJson.parser_meta : {}
+  const ocrMeta = aiJson.ocr_meta && typeof aiJson.ocr_meta === 'object' ? aiJson.ocr_meta : {}
+  const source = Array.isArray(aiJson.ocr_detections)
+    ? aiJson.ocr_detections
+    : Array.isArray(ocrMeta.ocr_detections)
+      ? ocrMeta.ocr_detections
+      : Array.isArray(parserMeta.ocr_detections)
+        ? parserMeta.ocr_detections
+        : []
+  return source.map(normalizeOcrDetection).filter(Boolean)
+}
+
+function normalizeFieldSources(source: unknown) {
+  if (!source || typeof source !== 'object') return null
+  const entries = Object.entries(source as Record<string, unknown>).reduce<Record<string, unknown[]>>((result, [field, value]) => {
+    if (!Array.isArray(value)) return result
+    const detections = value.map(normalizeOcrDetection).filter(Boolean)
+    if (detections.length > 0) result[field] = detections
+    return result
+  }, {})
+  return Object.keys(entries).length > 0 ? entries : null
+}
+
+function buildFieldSources(aiJson: Record<string, any>, detections: Array<Record<string, unknown>>) {
+  if (detections.length === 0) return {}
+  const result: Record<string, Array<Record<string, unknown>>> = {}
+  for (const key of [
+    'merchant_name',
+    'company_reg_no',
+    'invoice_no',
+    'date',
+    'time',
+    'phone',
+    'payment_method',
+    'subtotal',
+    'tax',
+    'service_charge',
+    'rounding',
+    'grand_total',
+  ]) {
+    const value = fieldSourceValue(aiJson, key)
+    const comparableValue = normalizeComparableText(value)
+    if (comparableValue.length < 3) continue
+    const matches = detections.filter((detection) => {
+      const comparableDetection = normalizeComparableText(String(detection.text ?? ''))
+      return comparableDetection.length >= 3 && (
+        comparableDetection.includes(comparableValue) ||
+        comparableValue.includes(comparableDetection)
+      )
+    }).slice(0, 3)
+    if (matches.length > 0) result[key] = matches
+  }
+  return result
+}
+
+function fieldSourceValue(aiJson: Record<string, any>, key: string) {
+  const direct = aiJson[key]
+  if (direct !== null && direct !== undefined && direct !== '') return String(direct)
+  const extra = aiJson.extra_fields && typeof aiJson.extra_fields === 'object' ? aiJson.extra_fields[key] : null
+  return extra === null || extra === undefined ? '' : String(extra)
+}
+
+function normalizeOcrDetection(value: unknown) {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  const text = String(record.text ?? record.DetectedText ?? '').trim()
+  const box = normalizeOcrBox(record.box)
+  const confidence = Number(record.confidence ?? record.Confidence)
+  if (!text && !box) return null
+  return {
+    text,
+    box,
+    confidence: Number.isFinite(confidence) ? clamp(confidence > 1 ? confidence / 100 : confidence, 0, 1) : null,
+  }
+}
+
+function normalizeOcrBox(value: unknown) {
+  if (!value || typeof value !== 'object') return null
+  const box = value as Record<string, unknown>
+  const x = Number(box.x)
+  const y = Number(box.y)
+  const width = Number(box.width)
+  const height = Number(box.height)
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null
+  return { x, y, width, height }
+}
+
+function normalizeItemConfidence(source: unknown, items: Array<Record<string, any>>, aiJson: Record<string, any>) {
+  if (Array.isArray(source)) {
+    const normalized = source.map((entry, fallbackIndex) => normalizeItemConfidenceEntry(entry, fallbackIndex)).filter(Boolean)
+    if (normalized.length > 0) return normalized
+  }
+
+  const fieldConfidence = rawFieldConfidenceMap(aiJson.field_confidence ?? aiJson.parser_meta?.field_confidence)
+  const baseConfidence = clamp(Number(fieldConfidence.items || aiJson.confidence_score || 0.72), 0, 1)
+  return items.map((item, index) => {
+    const hasUsefulValues = Boolean(String(item.name || '').trim()) && Number(item.line_total || 0) > 0
+    return {
+      index,
+      confidence: hasUsefulValues ? baseConfidence : Math.min(baseConfidence, 0.45),
+      reason: hasUsefulValues ? null : 'Missing item name or amount',
+    }
+  })
+}
+
+function normalizeItemConfidenceEntry(value: unknown, fallbackIndex: number) {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  const index = Number(record.index ?? fallbackIndex)
+  const confidence = Number(record.confidence)
+  if (!Number.isInteger(index) || !Number.isFinite(confidence)) return null
+  return {
+    index,
+    confidence: clamp(confidence, 0, 1),
+    reason: record.reason === undefined || record.reason === null ? null : String(record.reason),
+  }
 }
 
 function poorOcrTextScore(text: string) {

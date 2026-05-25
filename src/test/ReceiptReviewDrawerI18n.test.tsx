@@ -75,6 +75,14 @@ const labels: Record<string, any> = {
   fieldConfidenceHint: '低置信度字段请核对。',
   shortcutHintTitle: '快捷校对',
   shortcutHintBody: 'Tab 切字段 / S 同步',
+  hideShortcutHintsLabel: '隐藏快捷键提示',
+  selectedLineItemsLabel: (count: number) => `已选择 ${count} 条明细`,
+  bulkDeleteItemsLabel: '批量删除',
+  selectAllLineItemsLabel: '选择全部明细',
+  selectLineItemLabel: '选择明细',
+  quickAddItemPlaceholder: '输入名称和金额',
+  quickAddItemLabel: '添加明细',
+  lineItemConfidenceHint: '建议核对原图',
   warningCountLabel: (count: number) => `${count} 条提醒`,
   lineItemCountLabel: (count: number) => `${count} 条明细`,
   customDocTypePlaceholder: '自定义单据类型',
@@ -177,5 +185,66 @@ describe('ReceiptReviewDrawer i18n labels', () => {
     expect(html).toContain('快捷校对')
     expect(html).not.toContain('TIN No')
     expect(html).not.toContain('Line item names look unreliable')
+  })
+
+  it('renders line item confidence, quick add, and autocomplete hooks', () => {
+    const html = renderToStaticMarkup(
+      <ReceiptReviewDrawer
+        receipt={{
+          id: 'receipt-2',
+          status: 'Pending',
+          merchant_name: '咖啡店',
+          invoice_no: 'INV-002',
+          date: '2026-05-18',
+          time: '10:20',
+          company_reg_no: null,
+          phone: '',
+          payment_method: '',
+          doc_type: 'Receipt',
+          industry: 'F&B',
+          tags: ['Business'],
+          items: [{ id: 'item-1', name: 'Nasi Lemak', qty: 1, unit_price: 5, line_total: 5 }],
+          subtotal: 5,
+          discount: 0,
+          service_charge: 0,
+          tax_sst: 0,
+          rounding: 0,
+          change: 0,
+          grand_total: 5,
+          confidence_score: 0.9,
+          raw_ai: {
+            item_confidence: [{ index: 0, confidence: 0.42, reason: '文本较淡' }],
+          },
+        }}
+        config={baseConfig}
+        labels={labels}
+        documentTypeOptions={['Receipt']}
+        industries={['F&B']}
+        tagOptions={['Business', 'Personal']}
+        activeRepairProgress={null}
+        isExporting={false}
+        isSmartParsing={false}
+        isFieldVisible={() => true}
+        onReceiptChange={vi.fn()}
+        onClose={vi.fn()}
+        onSmartParse={vi.fn()}
+        onExport={vi.fn()}
+        onRestore={vi.fn()}
+        onPermanentDelete={vi.fn()}
+        onSync={vi.fn()}
+        onSaveCustomDocType={vi.fn()}
+        onZoomImage={vi.fn()}
+        autocompleteOptions={{ merchants: ['咖啡店'], items: ['Nasi Lemak'] }}
+        showShortcutHints
+        onToggleShortcutHints={vi.fn()}
+      />,
+    )
+
+    expect(html).toContain('42%')
+    expect(html).toContain('输入名称和金额')
+    expect(html).toContain('添加明细')
+    expect(html).toContain('Nasi Lemak')
+    expect(html).toContain('选择全部明细')
+    expect(html).toContain('隐藏快捷键提示')
   })
 })

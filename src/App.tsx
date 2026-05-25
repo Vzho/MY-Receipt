@@ -415,6 +415,16 @@ const I18N: any = {
     fieldConfidenceHint: 'AI 对该字段的把握程度。低置信度字段请对照左侧原图核对。',
     shortcutHintTitle: '快捷校对',
     shortcutHintBody: 'Tab 切字段 / 明细 Enter 下移 / 空格切图 / ← → 切单据 / S 同步 / E 导出 / Ctrl+Enter 同步并下一张',
+    shortcutHintsSettingLabel: '快捷键提示',
+    shortcutHintsSettingDescription: '在审核页右下角显示可关闭的快捷键提示。',
+    hideShortcutHintsLabel: '隐藏快捷键提示',
+    selectedLineItemsLabel: (count: number) => `已选择 ${count} 条明细`,
+    bulkDeleteItemsLabel: '批量删除',
+    selectAllLineItemsLabel: '选择全部明细',
+    selectLineItemLabel: '选择明细',
+    quickAddItemPlaceholder: '输入“名称 金额”或“名称 数量 单价 金额”后回车',
+    quickAddItemLabel: '添加明细',
+    lineItemConfidenceHint: '建议核对原图',
     fontScaleLabel: '界面字号',
     fontScaleDescription: '调整页面文字、表格和按钮的显示大小。',
     fontScaleCompactLabel: '标准',
@@ -883,6 +893,16 @@ const I18N: any = {
     fieldConfidenceHint: 'AI confidence for this field. Low confidence fields should be checked against the receipt image.',
     shortcutHintTitle: 'Review shortcuts',
     shortcutHintBody: 'Tab fields / Enter moves line item rows / Space image / ← → receipts / S sync / E export / Ctrl+Enter sync and next',
+    shortcutHintsSettingLabel: 'Shortcut hints',
+    shortcutHintsSettingDescription: 'Show the dismissible shortcut hint in the review drawer.',
+    hideShortcutHintsLabel: 'Hide shortcut hints',
+    selectedLineItemsLabel: (count: number) => `${count} line item${count > 1 ? 's' : ''} selected`,
+    bulkDeleteItemsLabel: 'Delete rows',
+    selectAllLineItemsLabel: 'Select all line items',
+    selectLineItemLabel: 'Select line item',
+    quickAddItemPlaceholder: 'Type "name amount" or "name qty unit price amount", then press Enter',
+    quickAddItemLabel: 'Add row',
+    lineItemConfidenceHint: 'Review against original image',
     fontScaleLabel: 'Interface text size',
     fontScaleDescription: 'Adjust the display size for page text, tables, and buttons.',
     fontScaleCompactLabel: 'Standard',
@@ -1352,6 +1372,16 @@ const I18N: any = {
     fieldConfidenceHint: 'Tahap keyakinan AI untuk medan ini. Semak medan rendah dengan imej resit.',
     shortcutHintTitle: 'Pintasan semakan',
     shortcutHintBody: 'Tab medan / Enter turun baris item / Space imej / ← → resit / S segerak / E eksport / Ctrl+Enter segerak dan seterusnya',
+    shortcutHintsSettingLabel: 'Petunjuk pintasan',
+    shortcutHintsSettingDescription: 'Paparkan petunjuk pintasan yang boleh ditutup di editor semakan.',
+    hideShortcutHintsLabel: 'Sembunyikan pintasan',
+    selectedLineItemsLabel: (count: number) => `${count} item dipilih`,
+    bulkDeleteItemsLabel: 'Padam baris',
+    selectAllLineItemsLabel: 'Pilih semua item',
+    selectLineItemLabel: 'Pilih item',
+    quickAddItemPlaceholder: 'Taip "nama amaun" atau "nama kuantiti harga jumlah", kemudian Enter',
+    quickAddItemLabel: 'Tambah baris',
+    lineItemConfidenceHint: 'Semak dengan imej asal',
     fontScaleLabel: 'Saiz teks antara muka',
     fontScaleDescription: 'Laraskan saiz paparan teks halaman, jadual, dan butang.',
     fontScaleCompactLabel: 'Standard',
@@ -1678,6 +1708,7 @@ export default function App() {
       uploadQueueLimit: 10,
       receiptListPageSize: 10,
       fontScale: DEFAULT_FONT_SCALE,
+      showShortcutHints: true,
     };
     const saved = localStorage.getItem('my_receipt_config');
     if (!saved) return defaultConfig;
@@ -3013,6 +3044,22 @@ export default function App() {
     ? deleteDialogReceipt.merchant_name || deleteDialogReceipt.display_filename || deleteDialogReceipt.filename || null
     : null;
   const activeRepairProgress = selectedReceipt && repairProgress?.receiptId === selectedReceipt.id ? repairProgress : null;
+  const autocompleteOptions = useMemo(() => {
+    const merchantSet = new Set<string>();
+    const itemSet = new Set<string>();
+    history
+      .filter((receipt) => !receipt.deleted_at && ['Synced', 'Pending'].includes(receipt.status))
+      .forEach((receipt) => {
+        if (receipt.merchant_name) merchantSet.add(String(receipt.merchant_name));
+        (receipt.items || receipt.receipt_items || []).forEach((item: any) => {
+          if (item?.name) itemSet.add(String(item.name));
+        });
+      });
+    return {
+      merchants: Array.from(merchantSet).sort((left, right) => left.localeCompare(right)).slice(0, 120),
+      items: Array.from(itemSet).sort((left, right) => left.localeCompare(right)).slice(0, 240),
+    };
+  }, [history]);
   const smartCropQualityWarning = smartCropTarget?.receipt?.warnings?.some((warning: any) => warning?.code === 'blurry_image')
     ? {
         title: t.blurryImageBannerTitle || t.warningLabels?.blurry_image || 'Image may be blurry',
@@ -3453,6 +3500,9 @@ export default function App() {
           onSelectAdjacent={handleSelectAdjacentReceipt}
           onSaveCustomDocType={handleSaveCustomDocType}
           onZoomImage={setZoomImage}
+          autocompleteOptions={autocompleteOptions}
+          showShortcutHints={Boolean(config.showShortcutHints)}
+          onToggleShortcutHints={(show) => setConfig((current: any) => ({ ...current, showShortcutHints: show }))}
         />
       )}
       {/* Settings Modal - Safety Preserved */}

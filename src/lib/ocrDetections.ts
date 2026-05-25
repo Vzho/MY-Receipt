@@ -15,6 +15,9 @@ export interface OcrDetection {
 }
 
 export function findReceiptFieldDetections(receipt: Receipt | any, fieldKey: string): OcrDetection[] {
+  const explicitSources = getReceiptFieldSources(receipt, fieldKey)
+  if (explicitSources.length > 0) return explicitSources
+
   const value = getReceiptFieldText(receipt, fieldKey)
   if (!value) return []
   const comparableValue = normalizeComparableText(value)
@@ -29,6 +32,24 @@ export function findReceiptFieldDetections(receipt: Receipt | any, fieldKey: str
       )
     })
     .slice(0, 4)
+}
+
+export function getReceiptFieldSources(receipt: Pick<Receipt, 'raw_ai'> | any, fieldKey: string): OcrDetection[] {
+  const rawAi = receipt?.raw_ai && typeof receipt.raw_ai === 'object' ? receipt.raw_ai as Record<string, unknown> : {}
+  const parserMeta = rawAi.parser_meta && typeof rawAi.parser_meta === 'object' ? rawAi.parser_meta as Record<string, unknown> : {}
+  const sourceMaps = [rawAi.field_sources, parserMeta.field_sources]
+
+  for (const sourceMap of sourceMaps) {
+    if (!sourceMap || typeof sourceMap !== 'object') continue
+    const sources = (sourceMap as Record<string, unknown>)[fieldKey]
+    if (!Array.isArray(sources)) continue
+    const normalized = sources
+      .map(normalizeDetection)
+      .filter((detection): detection is OcrDetection => Boolean(detection?.text || detection?.box))
+    if (normalized.length > 0) return normalized
+  }
+
+  return []
 }
 
 export function getReceiptOcrDetections(receipt: Pick<Receipt, 'raw_ai'> | any): OcrDetection[] {

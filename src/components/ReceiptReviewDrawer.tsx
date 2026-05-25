@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
+import { memo, useEffect, useId, useMemo, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import {
   AlertTriangle,
   Building2,
@@ -19,6 +19,7 @@ import { getFieldConfidence, getFieldConfidenceTone } from '../lib/fieldConfiden
 import { getEInvoiceCompliance } from '../lib/einvoiceCompliance'
 import { getNextLineItemFieldIndex, shouldMoveLineItemFieldOnEnter } from '../lib/lineItemKeyboard'
 import { parseLineItemsFromClipboard } from '../lib/lineItemPaste'
+import { getLineItemConfidence, isLowLineItemConfidence } from '../lib/itemConfidence'
 import { isLikelyMalaysiaCompanyRegNo, isValidSstNo, normalizeSstNo } from '../lib/malaysiaTaxIds'
 import { findReceiptFieldDetections, toOverlayStyle } from '../lib/ocrDetections'
 import { getReviewShortcutAction } from '../lib/reviewNavigation'
@@ -70,6 +71,12 @@ interface ReceiptReviewDrawerProps {
   onSelectAdjacent?: (direction: 1 | -1) => void
   onSaveCustomDocType: (value: string) => void | Promise<void>
   onZoomImage: (url: string) => void
+  autocompleteOptions?: {
+    merchants: string[]
+    items: string[]
+  }
+  showShortcutHints?: boolean
+  onToggleShortcutHints?: (show: boolean) => void
 }
 
 function ReceiptReviewDrawerComponent({
@@ -94,12 +101,19 @@ function ReceiptReviewDrawerComponent({
   onSelectAdjacent,
   onSaveCustomDocType,
   onZoomImage,
+  autocompleteOptions = { merchants: [], items: [] },
+  showShortcutHints = true,
+  onToggleShortcutHints,
 }: ReceiptReviewDrawerProps) {
   const [imagePreviewMode, setImagePreviewMode] = useState<'processed' | 'original'>(receipt.processed_image_url ? 'processed' : 'original')
   const [customDocTypeInput, setCustomDocTypeInput] = useState(receipt.custom_doc_type || '')
   const [newTagInput, setNewTagInput] = useState('')
   const [focusedFieldKey, setFocusedFieldKey] = useState<string | null>(null)
   const [imageNaturalSize, setImageNaturalSize] = useState<{ width: number; height: number } | null>(null)
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
+  const [quickItemInput, setQuickItemInput] = useState('')
+  const merchantAutocompleteId = useId()
+  const itemAutocompleteId = useId()
 
   useEffect(() => {
     setImagePreviewMode(receipt.processed_image_url ? 'processed' : 'original')
@@ -112,6 +126,8 @@ function ReceiptReviewDrawerComponent({
   useEffect(() => {
     setFocusedFieldKey(null)
     setImageNaturalSize(null)
+    setSelectedItemIds([])
+    setQuickItemInput('')
   }, [receipt.id, imagePreviewMode])
 
   const selectedReceiptImageUrl = useMemo(() => {
@@ -191,6 +207,53 @@ function ReceiptReviewDrawerComponent({
 
   const removeItem = (itemId: string) => {
     updateReceipt({ items: (receipt.items || []).filter((item: any) => item.id !== itemId) })
+  }
+
+  const currentItemIds = (receipt.items || []).map((item: any) => String(item.id || '')).filter(Boolean)
+  const selectedLineItemCount = selectedItemIds.filter((id) => currentItemIds.includes(id)).length
+  const allLineItemsSelected = currentItemIds.length > 0 && selectedLineItemCount === currentItemIds.length
+
+  const toggleLineItemSelection = (itemId: string) => {
+    setSelectedItemIds((current) => current.includes(itemId)
+      ? current.filter((id) => id !== itemId)
+      : [...current, itemId])
+  }
+
+  const toggleAllLineItems = () => {
+    setSelectedItemIds(allLineItemsSelected ? [] : currentItemIds)
+  }
+
+  const removeSelectedItems = () => {
+    if (selectedLineItemCount === 0) return
+    updateReceipt({ items: (receipt.items || []).filter((item: any) => !selectedItemIds.includes(String(item.id || ''))) })
+    setSelectedItemIds([])
+  }
+
+  const applyTagToReceiptFromSelection = (tag: string) => {
+    if (selectedLineItemCount === 0) return
+    const currentTags = receipt.tags || []
+    updateReceipt({ tags: currentTags.includes(tag) ? currentTags : [...currentTags, tag] })
+  }
+
+  const appendParsedItems = (text: string) => {
+    const parsed = parseLineItemsFromClipboard(text)
+    if (parsed.length === 0) return false
+    const timestamp = Date.now()
+    updateReceipt({
+      items: [
+        ...(receipt.items || []),
+        ...parsed.map((item, index) => ({ id: `quick-${timestamp}-${index}`, ...item })),
+      ],
+    })
+    return true
+  }
+
+  const handleQuickAddItem = () => {
+    const value = quickItemInput.trim()
+    if (!value) return
+    if (appendParsedItems(value)) {
+      setQuickItemInput('')
+    }
   }
 
   const handleItemPaste = (event: ClipboardEvent<HTMLInputElement>) => {
@@ -313,6 +376,12 @@ function ReceiptReviewDrawerComponent({
 
   return (
     <ReceiptDetailPanel colorMode={config.colorMode} onKeyDown={handlePanelKeyDown}>
+      <datalist id={merchantAutocompleteId}>
+        {autocompleteOptions.merchants.slice(0, 80).map((merchant) => <option key={merchant} value={merchant} />)}
+      </datalist>
+      <datalist id={itemAutocompleteId}>
+        {autocompleteOptions.items.slice(0, 160).map((item) => <option key={item} value={item} />)}
+      </datalist>
       <div className={`px-8 py-4 border-b flex items-center justify-between shrink-0 transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-800/20 border-slate-800' : 'bg-slate-50/50 border-slate-100'}`}>
         <div className="flex items-center gap-4">
           <div className={`w-10 h-10 ${receipt.status === 'Failed' ? 'bg-rose-600' : config.theme.color} rounded-xl flex items-center justify-center text-white shadow-md`}>
@@ -540,7 +609,7 @@ function ReceiptReviewDrawerComponent({
                 <div className="col-span-4 lg:col-span-3 grid grid-cols-6 gap-4">
                   <div className={`${isFieldVisible('merchant_name') ? '' : 'hidden'} col-span-6 xl:col-span-4 space-y-1.5`}>
                     {fieldLabel(labels.merchantLabel, 'merchant_name', `text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`)}
-                    <input {...reviewFieldProps('merchant_name')} type="text" value={receipt.merchant_name || ''} onChange={(event) => updateReceipt({ merchant_name: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'} ${confidenceInputClass('merchant_name')}`} />
+                    <input {...reviewFieldProps('merchant_name')} list={merchantAutocompleteId} type="text" value={receipt.merchant_name || ''} onChange={(event) => updateReceipt({ merchant_name: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'} ${confidenceInputClass('merchant_name')}`} />
                   </div>
                   <div className={`${isFieldVisible('date') ? '' : 'hidden'} col-span-6 sm:col-span-2 xl:col-span-2 space-y-1.5`}>
                     {fieldLabel(labels.dateLabel, 'date', `text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`)}
@@ -638,6 +707,28 @@ function ReceiptReviewDrawerComponent({
                 <Plus className="w-3.5 h-3.5" /> SKU
               </button>
             </div>
+            {selectedLineItemCount > 0 && (
+              <div className={`mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'}`}>
+                <span className={`text-[10px] font-black uppercase tracking-wide ${config.colorMode === 'Dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {typeof labels.selectedLineItemsLabel === 'function' ? labels.selectedLineItemsLabel(selectedLineItemCount) : `${selectedLineItemCount} selected`}
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {tagOptions.slice(0, 4).map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => applyTagToReceiptFromSelection(tag)}
+                      className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase transition ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-500 hover:bg-slate-100'}`}
+                    >
+                      {labels.optionLabels?.[tag] || tag}
+                    </button>
+                  ))}
+                  <button type="button" onClick={removeSelectedItems} className="rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-black uppercase text-rose-600 transition hover:bg-rose-100">
+                    {labels.bulkDeleteItemsLabel || 'Delete rows'}
+                  </button>
+                </div>
+              </div>
+            )}
             {hasItemQualityWarning && (
               <div className={`mb-4 rounded-xl border px-4 py-3 text-[10px] font-bold leading-5 ${config.colorMode === 'Dark' ? 'border-amber-800 bg-amber-950/30 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
                 <div className="flex items-start gap-2">
@@ -651,6 +742,9 @@ function ReceiptReviewDrawerComponent({
               <table className="w-full text-left text-sm">
                 <thead className={`text-[9px] font-black uppercase border-b ${config.colorMode === 'Dark' ? 'bg-slate-800/50 text-slate-600 border-slate-800' : 'bg-slate-50/80 text-slate-500 border-slate-100'}`}>
                   <tr>
+                    <th className="px-3 py-3 w-10 text-center">
+                      <input type="checkbox" checked={allLineItemsSelected} onChange={toggleAllLineItems} aria-label={labels.selectAllLineItemsLabel || 'Select all line items'} />
+                    </th>
                     <th className="px-5 py-3">{labels.itemName}</th>
                     <th className="px-3 py-3 w-20 text-center">{labels.qty}</th>
                     <th className="px-3 py-3 w-28 text-right">{labels.unitLabel || 'Unit'} {config.currency}</th>
@@ -659,28 +753,61 @@ function ReceiptReviewDrawerComponent({
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${config.colorMode === 'Dark' ? 'divide-slate-800' : 'divide-slate-50'}`}>
-                  {(receipt.items || []).map((item: any, itemIndex: number) => (
-                    <tr key={item.id} className="group transition-colors">
-                      <td className="px-5 py-2">
-                        <input {...reviewFieldProps('items')} data-line-item-field="name" data-line-item-index={itemIndex} type="text" value={item.name || ''} onPaste={handleItemPaste} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'name')} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder={labels.itemNamePlaceholder || labels.itemName} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'} ${confidenceInputClass('items')}`} />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input data-line-item-field="qty" data-line-item-index={itemIndex} type="number" step="0.001" value={item.qty === 0 ? '' : item.qty} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'qty')} onChange={(event) => updateItem(item.id, 'qty', event.target.value)} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-center ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input data-line-item-field="unit_price" data-line-item-index={itemIndex} type="number" step="0.01" value={item.unit_price === 0 ? '' : item.unit_price} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'unit_price')} onChange={(event) => updateItem(item.id, 'unit_price', event.target.value)} onBlur={(event) => updateItem(item.id, 'unit_price', (parseFloat(event.target.value) || 0).toFixed(2))} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-right ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
-                      </td>
-                      <td className={`px-5 py-2 text-right text-xs font-black ${config.colorMode === 'Dark' ? 'text-white' : 'text-slate-900'}`}>{(Number(item.line_total) || 0).toFixed(2)}</td>
-                      <td className="px-3 py-2 text-center">
-                        <button type="button" onClick={() => removeItem(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title={labels.deleteLabel || 'Delete'}><Trash2 className="w-3.5 h-3.5" /></button>
-                      </td>
-                    </tr>
-                  ))}
+                  {(receipt.items || []).map((item: any, itemIndex: number) => {
+                    const itemId = String(item.id || '')
+                    const lineConfidence = getLineItemConfidence(receipt, itemIndex)
+                    const lowLineConfidence = isLowLineItemConfidence(lineConfidence?.confidence)
+                    return (
+                      <tr key={item.id} className={`group transition-colors ${lowLineConfidence ? config.colorMode === 'Dark' ? 'bg-amber-950/20' : 'bg-amber-50/70' : ''}`}>
+                        <td className="px-3 py-2 text-center">
+                          <input type="checkbox" checked={selectedItemIds.includes(itemId)} onChange={() => toggleLineItemSelection(itemId)} aria-label={`${labels.selectLineItemLabel || 'Select line item'} ${itemIndex + 1}`} />
+                        </td>
+                        <td className="px-5 py-2">
+                          <div className="flex items-center gap-2">
+                            <input {...reviewFieldProps('items')} list={itemAutocompleteId} data-line-item-field="name" data-line-item-index={itemIndex} type="text" value={item.name || ''} onPaste={handleItemPaste} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'name')} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder={labels.itemNamePlaceholder || labels.itemName} className={`min-w-0 flex-1 bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'} ${confidenceInputClass('items')}`} />
+                            {lineConfidence && (
+                              <span title={lineConfidence.reason || labels.lineItemConfidenceHint || 'Review against original image'} className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-black ${lowLineConfidence ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                {Math.round(lineConfidence.confidence * 100)}%
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input data-line-item-field="qty" data-line-item-index={itemIndex} type="number" step="0.001" value={item.qty === 0 ? '' : item.qty} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'qty')} onChange={(event) => updateItem(item.id, 'qty', event.target.value)} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-center ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input data-line-item-field="unit_price" data-line-item-index={itemIndex} type="number" step="0.01" value={item.unit_price === 0 ? '' : item.unit_price} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'unit_price')} onChange={(event) => updateItem(item.id, 'unit_price', event.target.value)} onBlur={(event) => updateItem(item.id, 'unit_price', (parseFloat(event.target.value) || 0).toFixed(2))} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-right ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
+                        </td>
+                        <td className={`px-5 py-2 text-right text-xs font-black ${config.colorMode === 'Dark' ? 'text-white' : 'text-slate-900'}`}>{(Number(item.line_total) || 0).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-center">
+                          <button type="button" onClick={() => removeItem(item.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title={labels.deleteLabel || 'Delete'}><Trash2 className="w-3.5 h-3.5" /></button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                   {(!receipt.items || receipt.items.length === 0) && (
-                    <tr><td colSpan={5} className="px-5 py-8 text-center text-[10px] font-bold text-slate-400">{labels.noLineItemsLabel || 'No line items. Add one manually.'}</td></tr>
+                    <tr><td colSpan={6} className="px-5 py-8 text-center text-[10px] font-bold text-slate-400">{labels.noLineItemsLabel || 'No line items. Add one manually.'}</td></tr>
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className={`mt-3 flex items-center gap-2 rounded-2xl border p-2 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-white'}`}>
+              <input
+                type="text"
+                value={quickItemInput}
+                onChange={(event) => setQuickItemInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    handleQuickAddItem()
+                  }
+                }}
+                placeholder={labels.quickAddItemPlaceholder || 'Item name amount, or item qty unit price amount'}
+                className={`min-w-0 flex-1 rounded-xl border px-3 py-2 text-xs font-black outline-none focus:ring-2 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900 text-white focus:ring-indigo-500/20' : 'border-slate-100 bg-slate-50 text-slate-700 focus:ring-indigo-500/10'}`}
+              />
+              <button type="button" onClick={handleQuickAddItem} className={`rounded-xl px-4 py-2 text-[10px] font-black uppercase text-white ${config.theme.color}`}>
+                {labels.quickAddItemLabel || 'Add row'}
+              </button>
             </div>
           </div>
 
@@ -830,14 +957,28 @@ function ReceiptReviewDrawerComponent({
           </div>
         </div>
       </div>
-      <div className={`pointer-events-none absolute bottom-8 right-10 max-w-xs rounded-2xl border px-4 py-3 shadow-xl backdrop-blur-md ${
-        config.colorMode === 'Dark'
-          ? 'border-slate-800 bg-slate-950/70 text-slate-300'
-          : 'border-slate-200 bg-white/80 text-slate-500'
-      }`}>
-        <p className="text-[9px] font-black uppercase tracking-[1.5px]">{labels.shortcutHintTitle || 'Review shortcuts'}</p>
-        <p className="mt-1 text-[10px] font-bold leading-4">{labels.shortcutHintBody || 'Tab fields / Space image / arrows receipts / S sync / E export / Ctrl+Enter sync and next'}</p>
-      </div>
+      {showShortcutHints && (
+        <div className={`absolute bottom-8 right-10 max-w-xs rounded-2xl border px-4 py-3 shadow-xl backdrop-blur-md ${
+          config.colorMode === 'Dark'
+            ? 'border-slate-800 bg-slate-950/80 text-slate-300'
+            : 'border-slate-200 bg-white/90 text-slate-500'
+        }`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[1.5px]">{labels.shortcutHintTitle || 'Review shortcuts'}</p>
+              <p className="mt-1 text-[10px] font-bold leading-4">{labels.shortcutHintBody || 'Tab fields / Space image / arrows receipts / S sync / E export / Ctrl+Enter sync and next'}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onToggleShortcutHints?.(false)}
+              className={`rounded-lg p-1 transition ${config.colorMode === 'Dark' ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
+              title={labels.hideShortcutHintsLabel || 'Hide shortcuts'}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </ReceiptDetailPanel>
   )
 }
