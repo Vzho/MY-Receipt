@@ -53,6 +53,8 @@ function formatWarningLabel(warning: ReceiptWarning, labels?: any) {
     ocr_failed: '⚠ OCR failed',
     missing_required_field: '⚠ Missing required field',
     possible_duplicate: '⚠ Possible duplicate',
+    not_receipt: '⚠ Not a receipt',
+    poor_ocr_text: '⚠ Poor OCR text',
   }
   return labels?.warningLabels?.[warning.code] ?? defaultLabels[warning.code] ?? `⚠ ${warning.code.replace(/_/g, ' ')}`
 }

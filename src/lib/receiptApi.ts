@@ -5,6 +5,7 @@ import { defaultFieldPreferences, mergeFieldPreferences } from './fieldConfig'
 import type { CustomDocumentType } from '../types/documentType'
 import type { DuplicateCandidate } from '../types/duplicate'
 import type { FieldPreference } from '../types/fieldConfig'
+import type { OcrUsageMonthly } from '../types/ocrUsage'
 import type { Receipt, ReceiptFilters, ReceiptItem } from '../types/receipt'
 import type { ImageProcessingMetadata } from './imagePreprocess'
 
@@ -627,6 +628,22 @@ export async function saveFieldPreferences(preferences: Partial<FieldPreference>
   if (error && isMissingSchemaError(error)) return merged
   if (error) throw error
   return mergeFieldPreferences((data ?? []) as FieldPreference[])
+}
+
+export async function listOcrUsageMonthly(period = new Date().toISOString().slice(0, 7)): Promise<OcrUsageMonthly[]> {
+  const client = requireSupabase()
+  const { data, error } = await client
+    .from('ocr_usage_monthly')
+    .select('user_id,period,provider,units,updated_at')
+    .eq('period', period)
+    .order('provider', { ascending: true })
+
+  if (error && isMissingSchemaError(error)) return []
+  if (error) {
+    console.warn('OCR usage is not available yet:', error)
+    return []
+  }
+  return (data ?? []) as OcrUsageMonthly[]
 }
 
 export async function createReceiptFileSignedUrl(filePath: string | null, expiresInSeconds = 60 * 60): Promise<string | null> {

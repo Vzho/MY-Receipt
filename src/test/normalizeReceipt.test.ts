@@ -27,6 +27,15 @@ describe('normalizeReceiptPatch', () => {
     expect(result.tags).toEqual(['Business'])
     expect(result.confidence_score).toBe(1)
   })
+
+  it('persists top-level tax identifiers through extra_fields', () => {
+    const result = normalizeReceiptPatch({ tin_no: 'TIN-1', sst_no: 'A00-1234-00000000' })
+
+    expect(result.extra_fields).toMatchObject({
+      tin_no: 'TIN-1',
+      sst_no: 'A00-1234-00000000',
+    })
+  })
 })
 
 describe('normalizeReceiptItem', () => {

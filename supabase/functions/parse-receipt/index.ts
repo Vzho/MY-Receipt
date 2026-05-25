@@ -7,6 +7,7 @@ import type { ReceiptPromptOptions } from './prompt.ts'
 const validCategories = ['Grocery', 'Fuel', 'F&B', 'Retail', 'Service', 'Other']
 const validDocTypes = ['Receipt', 'Invoice', 'Credit Note', 'Expense', 'E-invoice']
 const validTags = ['Business', 'Personal', 'Tax Deductible', 'Pending']
+const DEFAULT_EXTERNAL_FETCH_TIMEOUT_MS = 30000
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -106,6 +107,35 @@ serve(async (req) => {
       imageProcessing: receipt.image_processing,
       rawAi: aiJson,
     })
+    const notReceiptMessage = detectInvalidReceipt(normalizedReceipt, normalizedItems, aiJson)
+    if (notReceiptMessage) {
+      const failedWarnings = [
+        ...warnings,
+        {
+          code: 'not_receipt',
+          severity: 'error',
+          message: notReceiptMessage,
+        },
+      ]
+      const { data: failedReceipt, error: failedUpdateError } = await serviceClient
+        .from('receipts')
+        .update({
+          ...normalizedReceipt,
+          raw_ocr: rawOcr,
+          raw_ai: aiJson,
+          warnings: failedWarnings,
+          ...duplicatePatch,
+          status: 'failed',
+          processing_stage: 'ocr_failed',
+          error_message: notReceiptMessage,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('id', receiptId)
+        .select('*, receipt_items(*)')
+        .single()
+      if (failedUpdateError) throw failedUpdateError
+      return json({ receipt: failedReceipt, parseError: notReceiptMessage })
+    }
 
     await serviceClient.from('receipt_items').delete().eq('receipt_id', receiptId)
 
@@ -549,7 +579,7 @@ async function callTencentCloudApi(action: string, version: string, payload: str
   const signature = bytesToHex(await hmacSha256(secretSigning, stringToSign))
   const authorization = `${algorithm} Credential=${secretId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
 
-  return fetch(`https://${host}`, {
+  return fetchWithTimeout(`https://${host}`, {
     method: 'POST',
     headers: {
       Authorization: authorization,
@@ -564,12 +594,32 @@ async function callTencentCloudApi(action: string, version: string, payload: str
   })
 }
 
+async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = externalFetchTimeoutMs()): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(`External OCR/AI request timed out after ${Math.round(timeoutMs / 1000)} seconds.`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function externalFetchTimeoutMs() {
+  const configured = Number(Deno.env.get('AI_FETCH_TIMEOUT_MS') || Deno.env.get('OCR_FETCH_TIMEOUT_MS'))
+  return Number.isFinite(configured) && configured >= 5000 ? configured : DEFAULT_EXTERNAL_FETCH_TIMEOUT_MS
+}
+
 async function runOpenAIVision(base64File: string, mimeType: string, options: ReceiptPromptOptions = {}): Promise<Record<string, any>> {
   if (!['image/jpeg', 'image/png'].includes(mimeType)) {
     throw new Error('OpenAI vision fallback currently supports JPEG and PNG receipts only.')
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${Deno.env.get('OPENAI_API_KEY')!}`,
@@ -614,7 +664,7 @@ async function runQwenVision(base64File: string, mimeType: string, options: Rece
   }
 
   const endpoint = Deno.env.get('QWEN_BASE_URL') || 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${Deno.env.get('DASHSCOPE_API_KEY')!}`,
@@ -669,7 +719,7 @@ function extractQwenTextContent(payload: Record<string, any>): string | null {
 async function runDeepSeekTextRepair(rawOcr: string, initialAiJson: Record<string, any>, options: ReceiptPromptOptions = {}): Promise<Record<string, any>> {
   const baseUrl = Deno.env.get('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com'
   const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${Deno.env.get('DEEPSEEK_API_KEY')!}`,
@@ -702,7 +752,7 @@ async function runDeepSeekTextRepair(rawOcr: string, initialAiJson: Record<strin
 async function runDeepSeekVisionPolish(visionJson: Record<string, any>, options: ReceiptPromptOptions = {}): Promise<Record<string, any>> {
   const baseUrl = Deno.env.get('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com'
   const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`
-  const response = await fetch(endpoint, {
+  const response = await fetchWithTimeout(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${Deno.env.get('DEEPSEEK_API_KEY')!}`,
@@ -745,6 +795,7 @@ function inferReceiptFromOcrText(text: string, filename: string | null, meta: Re
   const time = inferTime(lines)
   const invoiceNo = inferInvoiceNo(lines)
   const phone = inferPhone(lines)
+  const sstNo = inferSstNo(lines)
 
   return {
     merchant_name: merchantName,
@@ -765,6 +816,7 @@ function inferReceiptFromOcrText(text: string, filename: string | null, meta: Re
     payment_method: inferPaymentMethod(lines),
     change: inferChange(lines),
     subsidy_details: null,
+    extra_fields: sstNo ? { sst_no: sstNo } : null,
     tags: ['Pending'],
     confidence_score: typeof meta.average_confidence === 'number' ? meta.average_confidence : 0.5,
     items,
@@ -775,7 +827,7 @@ function inferReceiptFromOcrText(text: string, filename: string | null, meta: Re
 }
 
 function inferMerchantName(lines: string[], filename: string | null): string | null {
-  const ignored = /^(receipt|invoice|tax invoice|cash bill|official receipt|welcome|tel|phone|date|time|gst|sst|total|amount|qty|description)\b/i
+  const ignored = /^(receipt|invoice|tax invoice|cash bill|official receipt|welcome|tel|phone|alamat|no\.?\s*telefon|tarikh|masa|jumlah|bayaran|baki|tunai|date|time|gst|sst|total|amount|qty|description)\b/i
   const candidate = lines.find((line) =>
     line.length >= 3 &&
     !ignored.test(line) &&
@@ -872,7 +924,7 @@ function inferInvoiceNo(lines: string[]): string | null {
 }
 
 function inferPhone(lines: string[]): string | null {
-  const phoneLine = lines.find((line) => /\b(?:tel|phone|contact|hp|mobile)\b/i.test(line))
+  const phoneLine = lines.find((line) => /\b(?:tel|phone|contact|hp|mobile|telefon|no\.?\s*telefon)\b/i.test(line))
   if (!phoneLine) return null
   const match = phoneLine.match(/(?:\+?60|0)\s?\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}/)
   return match ? match[0] : null
@@ -882,9 +934,21 @@ function inferCompanyRegNo(lines: string[]): string | null {
   const text = lines.join('\n')
   const match = text.match(/(?:reg(?:istration)?\s*no|company\s*no|co\.?\s*no|ssm)\s*[:#-]?\s*([A-Z0-9-]{5,})/i)
   if (match) return match[1].slice(0, 80)
+  const newFormat = text.match(/\b(?:19|20)\d{10,11}\b/)
+  if (newFormat) return newFormat[0]
   const standalone = lines.find((line) => /^\d{8,14}\s*\([A-Z0-9-]{4,}\)$/i.test(line))
   if (standalone) return standalone.slice(0, 80)
   return null
+}
+
+function inferSstNo(lines: string[]): string | null {
+  const text = lines.join('\n').toUpperCase()
+  const explicit = text.match(/\b(?:SST|SALES\s+TAX|SERVICE\s+TAX)\s*(?:NO|ID|REG(?:ISTRATION)?\s*NO)?\s*[:#-]?\s*([A-Z]\d{2}[-\s]?\d{4}[-\s]?\d{8})\b/i)
+  const candidate = explicit?.[1] ?? text.match(/\b([A-Z]\d{2}[-\s]?\d{4}[-\s]?\d{8})\b/)?.[1]
+  if (!candidate) return null
+  const compact = candidate.replace(/[^A-Z0-9]/g, '')
+  if (!/^[A-Z]\d{14}$/.test(compact)) return null
+  return `${compact.slice(0, 3)}-${compact.slice(3, 7)}-${compact.slice(7)}`
 }
 
 function inferAddress(lines: string[], merchantName: string | null): string | null {
@@ -910,7 +974,7 @@ function inferChange(lines: string[]): number {
 
 function inferItems(lines: string[]) {
   const items: Array<{ name: string; qty: number; unit: string | null; unit_price: number; line_total: number }> = []
-  const stopLine = /(?:sub\s*total|sut\s*total|subtotal|rounding|net\s+total|grand\s+total|change|mykasih|hykasih|cash|visa|mastercard|visit\s+below)/i
+  const stopLine = /(?:sub\s*total|sut\s*total|subtotal|rounding|net\s+total|grand\s+total|jumlah|bayaran|baki|tunai|change|mykasih|hykasih|cash|visa|mastercard|visit\s+below)/i
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
@@ -950,7 +1014,7 @@ function isLikelyItemName(line: string): boolean {
   const normalized = line.trim()
   if (normalized.length < 4) return false
   if (/^\d{1,2}[:.]\d{2}/.test(normalized)) return false
-  if (/(invoice|receipt|date|time|total|rounding|change|visit|http|www)/i.test(normalized)) return false
+  if (/(invoice|receipt|date|time|total|jumlah|bayaran|baki|tarikh|masa|rounding|change|visit|http|www)/i.test(normalized)) return false
   if (/^\W*\d+([.,]\d{2})?\W*$/.test(normalized)) return false
   return /^[0-9A-Z]/i.test(normalized)
 }
@@ -1329,6 +1393,25 @@ function buildWarnings(
   }
 
   return warnings
+}
+
+function detectInvalidReceipt(receipt: Record<string, any>, items: Array<Record<string, any>>, rawAi: Record<string, any>) {
+  if (rawAi.parser === 'manual_fallback') return null
+
+  const confidence = Number(receipt.confidence_score || 0)
+  const keyFieldCount = [
+    receipt.merchant_name,
+    receipt.invoice_no,
+    receipt.date,
+    Number(receipt.grand_total || 0) > 0 ? receipt.grand_total : null,
+  ].filter(Boolean).length
+  const hasUsefulItems = items.length > 0 && items.some((item) => Number(item.line_total || 0) > 0)
+
+  if (confidence < 0.3 && keyFieldCount < 2 && !hasUsefulItems) {
+    return 'No valid receipt fields were detected. Please confirm the uploaded file is a receipt or invoice.'
+  }
+
+  return null
 }
 
 function sameText(left: string | null | undefined, right: string | null | undefined) {

@@ -10,6 +10,7 @@ describe('flattenReceipts', () => {
     expect(rows[0]).toMatchObject({
       receipt_id: 'receipt-1',
       filename: 'receipt.jpg',
+      currency: 'RM',
       merchant_name: 'Test Merchant',
       invoice_no: 'INV-1',
       item_count: 2,
@@ -137,6 +138,16 @@ describe('flattenReceipts', () => {
 
     expect(columns).toEqual(expect.arrayContaining([
       expect.objectContaining({ header: 'TIN No', key: 'tin_no' }),
+    ]))
+  })
+
+  it('exports configured currency as an explicit receipt column', () => {
+    const rows = flattenReceipts([createReceipt()], { currency: 'USD' })
+    const columns = buildReceiptColumns([])
+
+    expect(rows[0].currency).toBe('USD')
+    expect(columns).toEqual(expect.arrayContaining([
+      expect.objectContaining({ header: 'Currency', key: 'currency' }),
     ]))
   })
 })

@@ -19,6 +19,16 @@ export function normalizeReceiptPatch(input: Record<string, unknown>) {
   const tags = Array.isArray(input.tags)
     ? input.tags.filter((tag): tag is ReceiptTag => validTags.includes(tag as ReceiptTag))
     : []
+  const extraFields = input.extra_fields && typeof input.extra_fields === 'object'
+    ? { ...(input.extra_fields as Record<string, unknown>) }
+    : {}
+
+  if (typeof input.tin_no === 'string' && input.tin_no.trim()) {
+    extraFields.tin_no = input.tin_no.trim()
+  }
+  if (typeof input.sst_no === 'string' && input.sst_no.trim()) {
+    extraFields.sst_no = input.sst_no.trim()
+  }
 
   return {
     ...input,
@@ -34,6 +44,7 @@ export function normalizeReceiptPatch(input: Record<string, unknown>) {
     grand_total: normalizeMoney(input.grand_total),
     change: normalizeMoney(input.change),
     confidence_score: Math.max(0, Math.min(1, Number(input.confidence_score) || 0)),
+    extra_fields: Object.keys(extraFields).length > 0 ? extraFields : null,
   }
 }
 

@@ -5,6 +5,7 @@ import type { Receipt, ReceiptItem } from '../types/receipt'
 export interface ReceiptSummaryExportRow {
   receipt_id: string
   filename: string
+  currency: string
   merchant_name: string
   company_reg_no: string
   tin_no: string
@@ -59,6 +60,7 @@ export interface ReceiptItemExportRow {
 export interface DownloadReceiptsOptions {
   fieldPreferences?: Partial<FieldPreference>[]
   includeDeleted?: boolean
+  currency?: string
 }
 
 function getSubsidyNumber(details: Record<string, unknown> | null, keys: string[]) {
@@ -92,6 +94,7 @@ export function flattenReceipts(receipts: Receipt[], options: DownloadReceiptsOp
     return {
       receipt_id: receipt.id,
       filename: receipt.filename || '',
+      currency: options.currency || (receipt as Receipt & { currency?: string }).currency || 'RM',
       merchant_name: receipt.merchant_name || '',
       company_reg_no: receipt.company_reg_no || '',
       tin_no: stringValue((receipt as Receipt & { tin_no?: unknown }).tin_no) || stringValue(extraFields.tin_no),
@@ -215,12 +218,33 @@ function formatWorksheet(worksheet: import('exceljs').Worksheet) {
     from: { row: 1, column: 1 },
     to: { row: 1, column: worksheet.columnCount },
   }
+
+  const moneyColumns = new Set([
+    'subtotal',
+    'discount',
+    'tax',
+    'service_charge',
+    'rounding',
+    'grand_total',
+    'change',
+    'government_subsidy',
+    'payable_total',
+    'tax_amount',
+    'item_unit_price',
+    'item_line_total',
+  ])
+  worksheet.columns.forEach((column) => {
+    if (column.key && moneyColumns.has(String(column.key))) {
+      column.numFmt = '#,##0.00'
+    }
+  })
 }
 
 export function buildReceiptColumns(exportFieldKeys: FieldKey[]) {
   const columns = [
     { header: 'Receipt ID', key: 'receipt_id', width: 38 },
     { header: 'Filename', key: 'filename', width: 32 },
+    { header: 'Currency', key: 'currency', width: 10 },
     { header: 'Category', key: 'category', width: 14 },
     { header: 'Doc Type', key: 'doc_type', width: 14 },
     { header: 'Custom Doc Type', key: 'custom_doc_type', width: 20 },

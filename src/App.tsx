@@ -11,6 +11,7 @@ import {
   listCustomDocumentTypes,
   listDeletedReceipts,
   listFieldPreferences,
+  listOcrUsageMonthly,
   listReceipts,
   permanentlyDeleteReceipt,
   pollReceiptUntilParsed,
@@ -47,6 +48,7 @@ import { DeletedReceiptList } from './components/DeletedReceiptList';
 import { DeleteReceiptDialog, type DeleteDialogSubmitPayload } from './components/DeleteReceiptDialog';
 import { DuplicateDialog } from './components/DuplicateDialog';
 import { NotificationCenter } from './components/NotificationCenter';
+import { OcrQuotaProgress } from './components/OcrQuotaProgress';
 import { ReceiptCropModal } from './components/ReceiptCropModal';
 import { ReceiptTable } from './components/ReceiptTable';
 import { UploadQueue } from './components/UploadQueue';
@@ -57,6 +59,7 @@ import { ReceiptReviewDrawer } from './components/ReceiptReviewDrawer';
 import type { ImageProcessingMetadata, ProcessedReceiptImage } from './lib/imagePreprocess';
 import type { DuplicateCandidate } from './types/duplicate';
 import type { FieldKey, FieldPreference } from './types/fieldConfig';
+import type { OcrUsageMonthly } from './types/ocrUsage';
 import { supabase } from './lib/supabaseClient';
 
 const INDUSTRIES = ['Grocery', 'Fuel', 'F&B', 'Retail', 'Service', 'Other', 'Custom (自定义)'];
@@ -135,6 +138,8 @@ function toDisplayReceipt(receipt: any) {
     status: DISPLAY_STATUS_BY_DB_STATUS[receipt.status] || receipt.status || 'Pending',
     category,
     industry: category,
+    tin_no: receipt.tin_no ?? receipt.extra_fields?.tin_no ?? receipt.extra_fields?.supplier_tin ?? null,
+    sst_no: receipt.sst_no ?? receipt.extra_fields?.sst_no ?? null,
     display_filename: formatReceiptDisplayFilename(receipt),
     source_page_label: getReceiptSourcePageLabel(receipt),
     tax,
@@ -217,6 +222,8 @@ const I18N: any = {
     regNoLabel: '注册号',
     tinLabel: 'TIN 号',
     sstIdLabel: 'SST 编号',
+    companyRegInvalidLabel: 'SSM 注册号格式可能不正确。',
+    sstInvalidLabel: 'SST 编号格式应类似 A00-0000-00000000。',
     phonePaymentLabel: '电话与支付',
     docTypeIndLabel: '单据类型 & 行业',
     quickTagsLabel: '快捷标签',
@@ -308,6 +315,8 @@ const I18N: any = {
       ocr_failed: 'OCR 失败',
       missing_required_field: '缺少必填字段',
       possible_duplicate: '可能重复',
+      not_receipt: '未检测到有效发票字段',
+      poor_ocr_text: 'OCR 文本质量较差',
     },
     warningMessages: {
       'OCR failed': 'OCR 失败',
@@ -382,6 +391,7 @@ const I18N: any = {
     attentionNotificationsLabel: '需处理',
     notificationSoundLabel: '消息音效',
     notificationSoundDescription: '仅在失败、重复检测和批量完成等关键消息时播放。',
+    ocrQuotaLabel: 'OCR 配额进度',
     fontScaleLabel: '界面字号',
     fontScaleDescription: '调整页面文字、表格和按钮的显示大小。',
     fontScaleCompactLabel: '标准',
@@ -653,6 +663,8 @@ const I18N: any = {
     regNoLabel: 'Registration No',
     tinLabel: 'TIN No',
     sstIdLabel: 'SST ID',
+    companyRegInvalidLabel: 'SSM registration format looks invalid.',
+    sstInvalidLabel: 'SST format should look like A00-0000-00000000.',
     phonePaymentLabel: 'Phone & Payment',
     docTypeIndLabel: 'Doc Type & Industry',
     quickTagsLabel: 'Quick Tags',
@@ -744,6 +756,8 @@ const I18N: any = {
       ocr_failed: 'OCR failed',
       missing_required_field: 'Missing required field',
       possible_duplicate: 'Possible duplicate',
+      not_receipt: 'No valid receipt fields detected',
+      poor_ocr_text: 'Poor OCR text quality',
     },
     warningMessages: {},
     noWarningsLabel: 'No warnings',
@@ -799,6 +813,7 @@ const I18N: any = {
     attentionNotificationsLabel: 'Attention',
     notificationSoundLabel: 'Notification sound',
     notificationSoundDescription: 'Play sound only for key messages such as failures, duplicate checks, and batch completion.',
+    ocrQuotaLabel: 'OCR quota progress',
     fontScaleLabel: 'Interface text size',
     fontScaleDescription: 'Adjust the display size for page text, tables, and buttons.',
     fontScaleCompactLabel: 'Standard',
@@ -1071,6 +1086,8 @@ const I18N: any = {
     regNoLabel: 'No Pendaftaran',
     tinLabel: 'No TIN',
     sstIdLabel: 'ID SST',
+    companyRegInvalidLabel: 'Format pendaftaran SSM nampak tidak sah.',
+    sstInvalidLabel: 'Format SST sepatutnya seperti A00-0000-00000000.',
     phonePaymentLabel: 'Telefon & Pembayaran',
     docTypeIndLabel: 'Jenis Dok. & Industri',
     quickTagsLabel: 'Tag Pantas',
@@ -1162,6 +1179,8 @@ const I18N: any = {
       ocr_failed: 'OCR gagal',
       missing_required_field: 'Medan wajib tiada',
       possible_duplicate: 'Mungkin pendua',
+      not_receipt: 'Tiada medan resit yang sah dikesan',
+      poor_ocr_text: 'Kualiti teks OCR rendah',
     },
     warningMessages: {},
     noWarningsLabel: 'Tiada amaran',
@@ -1217,6 +1236,7 @@ const I18N: any = {
     attentionNotificationsLabel: 'Perlu tindakan',
     notificationSoundLabel: 'Bunyi notifikasi',
     notificationSoundDescription: 'Mainkan bunyi hanya untuk mesej penting seperti kegagalan, pendua, dan siap kelompok.',
+    ocrQuotaLabel: 'Kemajuan kuota OCR',
     fontScaleLabel: 'Saiz teks antara muka',
     fontScaleDescription: 'Laraskan saiz paparan teks halaman, jadual, dan butang.',
     fontScaleCompactLabel: 'Standard',
@@ -1468,6 +1488,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [deletedReceipts, setDeletedReceipts] = useState<any[]>([]);
+  const [ocrUsage, setOcrUsage] = useState<OcrUsageMonthly[]>([]);
   const [fieldPreferences, setFieldPreferences] = useState<FieldPreference[]>(() => defaultFieldPreferences());
   const [customDocumentTypes, setCustomDocumentTypes] = useState<string[]>([]);
   const [duplicatePrompt, setDuplicatePrompt] = useState<DuplicatePromptState | null>(null);
@@ -1760,11 +1781,12 @@ export default function App() {
 
     const loadData = async () => {
       try {
-        const [data, deletedData, preferences, documentTypes] = await Promise.all([
+        const [data, deletedData, preferences, documentTypes, usage] = await Promise.all([
           listReceipts(),
           listDeletedReceipts(),
           listFieldPreferences().catch(() => defaultFieldPreferences()),
           listCustomDocumentTypes().catch(() => []),
+          listOcrUsageMonthly().catch(() => []),
         ]);
         const displayData = await Promise.all(data.map((receipt) => buildDisplayReceipt(receipt)));
         const deletedDisplayData = await Promise.all(deletedData.map((receipt) => buildDisplayReceipt(receipt)));
@@ -1772,6 +1794,7 @@ export default function App() {
         setDeletedReceipts(deletedDisplayData);
         setFieldPreferences(mergeFieldPreferences(preferences));
         setCustomDocumentTypes(documentTypes.map((item: any) => item.name));
+        setOcrUsage(usage);
         data
           .filter((receipt) => receipt.status === 'processing')
           .forEach((receipt) => startReceiptResultPolling(receipt.id));
@@ -1892,7 +1915,7 @@ export default function App() {
 
     setIsExporting(true);
     try {
-      await downloadReceiptsXlsx(dataToExport.map(toApiReceipt), undefined, { fieldPreferences });
+      await downloadReceiptsXlsx(dataToExport.map(toApiReceipt), undefined, { fieldPreferences, currency: config.currency });
       showToast(`Successfully Exported ${dataToExport.length} Records!`, 'success', {
         persist: true,
         title: 'Excel export finished',
@@ -2807,6 +2830,8 @@ export default function App() {
                 </label>
 
                 <UploadQueue items={uploadList} visibleLimit={config.uploadQueueLimit || 10} processingLabel={t.processing} labels={t} config={config} />
+
+                <OcrQuotaProgress usage={ocrUsage} colorMode={config.colorMode} labels={t} />
 
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 px-2 md:grid-cols-5">

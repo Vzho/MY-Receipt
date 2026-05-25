@@ -19,6 +19,8 @@ export interface ReceiptWarning {
     | 'ocr_failed'
     | 'missing_required_field'
     | 'possible_duplicate'
+    | 'not_receipt'
+    | 'poor_ocr_text'
   severity: 'info' | 'warning' | 'error'
   message: string
   field?: string
@@ -65,6 +67,8 @@ export interface Receipt {
   processing_stage?: ReceiptProcessingStage | null
   merchant_name: string | null
   company_reg_no: string | null
+  tin_no?: string | null
+  sst_no?: string | null
   address: string | null
   phone: string | null
   invoice_no: string | null

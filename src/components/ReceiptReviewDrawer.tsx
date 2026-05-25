@@ -15,6 +15,7 @@ import {
   ZoomIn,
 } from 'lucide-react'
 import { calculateReceiptMath } from '../lib/receiptMath'
+import { isLikelyMalaysiaCompanyRegNo, isValidSstNo, normalizeSstNo } from '../lib/malaysiaTaxIds'
 import { buildSubsidyRows, formatSubsidyHeadline, getSubsidyPayable, hasSubsidyDetails } from '../lib/subsidyDetails'
 import type { FieldKey } from '../types/fieldConfig'
 import { CustomDocTypeInput } from './CustomDocTypeInput'
@@ -190,6 +191,13 @@ function ReceiptReviewDrawerComponent({
   const warningCount = Array.isArray(receipt.warnings) ? receipt.warnings.length : 0
   const itemCount = Array.isArray(receipt.items) ? receipt.items.length : 0
   const statusLabel = labels.optionLabels?.[receipt.status] || labels.statusLabels?.[receipt.status] || receipt.status
+  const companyRegInvalid = Boolean(receipt.company_reg_no) && !isLikelyMalaysiaCompanyRegNo(receipt.company_reg_no)
+  const sstNoInvalid = Boolean(receipt.sst_no) && !isValidSstNo(receipt.sst_no)
+  const taxIdInputClass = (invalid: boolean) => invalid
+    ? 'border-amber-300 bg-amber-50 text-amber-900 focus:ring-amber-400/30'
+    : config.colorMode === 'Dark'
+      ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20'
+      : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'
 
   return (
     <ReceiptDetailPanel colorMode={config.colorMode}>
@@ -403,7 +411,8 @@ function ReceiptReviewDrawerComponent({
                   </div>
                   <div className={`${isFieldVisible('company_reg_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
                     <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.regNoLabel}</label>
-                    <input type="text" value={receipt.company_reg_no || ''} onChange={(event) => updateReceipt({ company_reg_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
+                    <input type="text" value={receipt.company_reg_no || ''} onChange={(event) => updateReceipt({ company_reg_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${taxIdInputClass(companyRegInvalid)}`} />
+                    {companyRegInvalid && <p className="text-[9px] font-bold text-amber-600">{labels.companyRegInvalidLabel || 'SSM format looks invalid.'}</p>}
                   </div>
                   <div className={`${isFieldVisible('tin_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
                     <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.tinLabel || 'TIN 号'}</label>
@@ -411,7 +420,8 @@ function ReceiptReviewDrawerComponent({
                   </div>
                   <div className={`${isFieldVisible('sst_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
                     <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.sstIdLabel || 'SST 编号'}</label>
-                    <input type="text" value={receipt.sst_no || ''} onChange={(event) => updateReceipt({ sst_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
+                    <input type="text" value={receipt.sst_no || ''} onChange={(event) => updateReceipt({ sst_no: event.target.value })} onBlur={() => updateReceipt({ sst_no: normalizeSstNo(receipt.sst_no) })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${taxIdInputClass(sstNoInvalid)}`} />
+                    {sstNoInvalid && <p className="text-[9px] font-bold text-amber-600">{labels.sstInvalidLabel || 'SST format should look like A00-0000-00000000.'}</p>}
                   </div>
                   <div className="col-span-6 xl:col-span-4 space-y-1.5">
                     <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.phonePaymentLabel}</label>

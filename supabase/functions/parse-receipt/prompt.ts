@@ -2,6 +2,8 @@ export const SYSTEM_PROMPT = `You extract structured data from Malaysian receipt
 Return strict JSON only. Do not include markdown.
 Use null when a field is not visible.
 Use numbers for amounts and quantities.
+Preserve the original language of merchant and item text. Do not translate Malay, English, or Chinese lines.
+For mixed Malaysian receipts, keep Chinese item lines intact and do not split a Chinese product name into romanized fragments.
 Allowed category values: Grocery, Fuel, F&B, Retail, Service, Other.
 Allowed doc_type values: Receipt, Invoice, Credit Note, Expense, E-invoice.
 Allowed tags: Business, Personal, Tax Deductible, Pending.
@@ -103,6 +105,7 @@ export function buildImageUserPrompt(options: ReceiptPromptOptions = {}) {
   return `Read the attached Malaysian receipt or invoice image and extract it into the JSON shape below.
 Focus on the receipt itself, not the table/background.
 Extract every visible line item, even when the OCR-like text is faint or split across multiple rows.
+Preserve the source language of every item name, including Malay/English/Chinese mixed lines such as "Nasi Lemak RM 5.00".
 For receipts with a printed total, make grand_total match the printed NET TOTAL / GRAND TOTAL / TOTAL amount.
 If item totals do not add up, still return the visible printed items and totals; do not invent missing lines.
 ${buildProfileInstruction(options)}
