@@ -31,8 +31,8 @@
 - 商品明细编辑时按 Enter/Shift+Enter 可在同一列上下移动，减少大量明细校对时的鼠标操作。
 - 明细行低置信度高亮、批量选择/删除、快捷新增行、merchant/item 历史 autocomplete。
 - PDF 多页可选择按页分别识别或合并为一张发票统一 OCR。
-- `currency`、`tax_breakdown`、`address_structured`、`receipt_field_changes`、`auto_synced` 和 webhook 配置已进入 schema/API。
-- 自动确认规则、字段级审计日志、批量导入 Edge Function、Webhook dispatch、Webhook 投递日志/重放、AutoCount/SQL Accounting 导出模板已完成基础版。
+- `currency`、`tax_breakdown`、`address_structured`、`receipt_field_changes` 和 `auto_synced` 已进入 schema/API。
+- 自动确认规则和字段级审计日志已完成基础版。
 - Supabase RLS 已补充匿名登录用户隔离，advisors 当前无 ERROR；唯一剩余 WARN 为 Pro 计划才可开启的 leaked password protection。
 
 仍需作为后续增强的能力：
@@ -71,7 +71,7 @@
 | 4.3 | LHDN MyInvois 直接对账 | 存在但剔除 | 不做外部联网验证。 | 只保留 `validation_link`、QR payload 和内部字段完整性校验，不调用外部税局 API。 |
 | 4.4 | 数据仪表盘与 OCR 配额看板 | 部分存在 | 已按范围实现 OCR 配额进度条；完整 Dashboard 暂不做。 | 后续如需要，再做独立 Dashboard。 |
 | 4.5 | QR 码深度利用 | 存在 | 已实现基础版。保存并解析 MyInvois URL、JSON、key-value payload，预填 TIN/UUID/validation/tax/total 等字段，并生成 QR 总额/税额 mismatch warning。 | 后续继续补更多 MyInvois payload 样本。 |
-| 4.6 | 批量导入接口与 Webhook | 存在 | 已实现基础版。新增 `import-receipts`、`dispatch-webhook` Edge Functions、Webhook 超时与 retry、`webhook_delivery_logs` 投递日志/失败重放，以及 AutoCount / SQL Accounting 导出模板。 | 后续根据客户系统补字段映射预设。 |
+| 4.6 | 批量导入接口与 Webhook | 暂时剔除 | 已按当前验收范围移除 `dispatch-webhook`、`import-receipts` 和 webhook 投递日志/重放表。 | 后续客户明确需要系统对接时，再单独立项恢复。 |
 
 ## 推荐实施顺序
 
@@ -87,5 +87,5 @@
    - 待增强：更多 QR 字段交叉校验样本、审计日志筛选导出。
 
 4. **P1/P2：批量与集成**
-   - 已完成基础版：明细多行粘贴、批量删除、上传队列一键智能解析、导出预览、自动确认规则、批量导入、Webhook、投递日志/重放、财务软件导出模板。
-   - 待增强：客户系统专属字段映射。
+   - 已完成基础版：明细多行粘贴、批量删除、上传队列一键智能解析、导出预览、自动确认规则。
+   - 暂时剔除：批量导入 API、Webhook、失败重放、客户系统专属字段映射。

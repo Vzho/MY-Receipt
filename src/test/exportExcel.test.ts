@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAccountingTemplateRows, buildExportPreview, buildReceiptColumns, flattenReceiptItems, flattenReceipts } from '../lib/exportExcel'
+import { buildExportPreview, buildReceiptColumns, flattenReceiptItems, flattenReceipts } from '../lib/exportExcel'
 import type { Receipt } from '../types/receipt'
 
 describe('flattenReceipts', () => {
@@ -196,21 +196,6 @@ describe('flattenReceipts', () => {
     expect(preview.sampleReceipts[0]).toMatchObject({ merchant_name: 'Test Merchant' })
   })
 
-  it('builds accounting software template rows without changing default Excel sheets', () => {
-    const rows = buildAccountingTemplateRows([createReceipt({ currency: 'CNY', tax: 2 })], 'autocount')
-
-    expect(rows).toEqual([
-      expect.objectContaining({
-        template: 'autocount',
-        document_no: 'INV-1',
-        customer_or_supplier: 'Test Merchant',
-        currency: 'CNY',
-        tax_code: 'SST',
-        tax_amount: 2,
-        total_amount: 30,
-      }),
-    ])
-  })
 })
 
 function createReceipt(overrides: Partial<Receipt> = {}): Receipt {

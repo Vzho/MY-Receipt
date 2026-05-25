@@ -74,20 +74,6 @@ export interface ExportPreview {
   sampleItems: ReceiptItemExportRow[]
 }
 
-export type AccountingTemplate = 'autocount' | 'sql_accounting'
-
-export interface AccountingTemplateRow {
-  template: AccountingTemplate
-  document_no: string
-  document_date: string
-  customer_or_supplier: string
-  currency: string
-  tax_code: string
-  tax_amount: number
-  total_amount: number
-  description: string
-}
-
 function getSubsidyNumber(details: Record<string, unknown> | null, keys: string[]) {
   if (!details) return 0
   for (const key of keys) {
@@ -280,27 +266,6 @@ export function buildExportPreview(receipts: Receipt[], options: DownloadReceipt
     sampleReceipts: receiptRows.slice(0, 3),
     sampleItems: itemRows.slice(0, 3),
   }
-}
-
-export function buildAccountingTemplateRows(
-  receipts: Receipt[],
-  template: AccountingTemplate,
-  options: DownloadReceiptsOptions = {},
-): AccountingTemplateRow[] {
-  return filterExportReceipts(receipts, options).map((receipt) => {
-    const extraFields = receipt.extra_fields ?? {}
-    return {
-      template,
-      document_no: receipt.invoice_no || receipt.id,
-      document_date: receipt.date || '',
-      customer_or_supplier: receipt.merchant_name || stringValue(extraFields.supplier_name) || '',
-      currency: receipt.currency || options.currency || 'RM',
-      tax_code: template === 'autocount' ? 'SST' : 'SR',
-      tax_amount: Number(receipt.tax || numberValue(extraFields.tax_amount) || 0),
-      total_amount: Number(receipt.grand_total || 0),
-      description: summarizeItems(getReceiptItems(receipt)) || receipt.filename || '',
-    }
-  })
 }
 
 export function buildReceiptColumns(exportFieldKeys: FieldKey[]) {

@@ -169,35 +169,11 @@ v0.3 新增字段：
 
 `receipt_field_changes` 只允许用户读取和插入自己的记录；审计写入失败不会阻断单据保存。
 
-### user_webhook_configs
-
-| 方法 | 描述 |
-|------|------|
-| `supabase.from('user_webhook_configs').select('*')` | 查询当前用户 webhook 配置 |
-| `supabase.from('user_webhook_configs').upsert({...})` | 保存回调 URL、secret、启用事件 |
-
-### webhook_delivery_logs
-
-| 方法 | 描述 |
-|------|------|
-| `supabase.from('webhook_delivery_logs').select('*')` | 查询当前用户 webhook 投递记录，包含成功、失败、跳过和可重放记录 |
-
-关键字段：
-
-| 字段 | 说明 |
-| --- | --- |
-| `status` | `pending` / `delivered` / `failed` / `skipped` |
-| `attempt_count` | 本次投递尝试次数 |
-| `http_status` | 客户系统返回的 HTTP 状态码 |
-| `error_message` | 投递失败或跳过原因 |
-| `next_retry_at` | 建议人工重放时间；系统当前不自动后台重放 |
-
 ### Edge Functions
 
 | Function | 描述 |
 | --- | --- |
-| `POST /functions/v1/import-receipts` | 批量导入 JSON/CSV 收据数据，写入 `receipts`，状态为 `pending_review` |
-| `POST /functions/v1/dispatch-webhook` | 手动触发或重放单据 webhook；请求可传 `receipt_id` 或失败记录的 `delivery_id`。解析自动同步时也会按 `user_webhook_configs` 自动回调并写入 `webhook_delivery_logs`。默认 10 秒超时，最多重试 2 次，可用 `WEBHOOK_TIMEOUT_MS`、`WEBHOOK_RETRIES`、`WEBHOOK_RETRY_BASE_DELAY_MS` 调整。 |
+| `POST /functions/v1/parse-receipt` | OCR / AI 解析单据并回写 `receipts` / `receipt_items` |
 
 ### custom_document_types
 

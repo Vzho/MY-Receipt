@@ -8,8 +8,6 @@ const validCategories = ['Grocery', 'Fuel', 'F&B', 'Retail', 'Service', 'Other']
 const validDocTypes = ['Receipt', 'Invoice', 'Credit Note', 'Expense', 'E-invoice']
 const validTags = ['Business', 'Personal', 'Tax Deductible', 'Pending']
 const DEFAULT_EXTERNAL_FETCH_TIMEOUT_MS = 30000
-const DEFAULT_WEBHOOK_TIMEOUT_MS = 10000
-const WEBHOOK_REPLAY_DELAY_MS = 5 * 60 * 1000
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -176,11 +174,6 @@ serve(async (req) => {
       .single()
 
     if (updateError) throw updateError
-    if (autoSyncDecision.shouldSync) {
-      await maybeDispatchReceiptWebhook(serviceClient, updated).catch((webhookError) => {
-        console.warn('Receipt webhook dispatch skipped or failed:', webhookError)
-      })
-    }
 
     return json({ receipt: updated })
   } catch (error) {
@@ -1974,152 +1967,12 @@ function evaluateAutoSync(receipt: Record<string, any>, items: Array<Record<stri
   }
 }
 
-async function maybeDispatchReceiptWebhook(client: any, receipt: Record<string, any>) {
-  const { data: config, error } = await client
-    .from('user_webhook_configs')
-    .select('url,secret,enabled,events')
-    .eq('user_id', receipt.user_id)
-    .eq('enabled', true)
-    .single()
-  if (error) {
-    if (isMissingSchemaError(error) || error.code === 'PGRST116') return
-    throw error
-  }
-  if (!config?.url || (Array.isArray(config.events) && !config.events.includes('receipt.synced'))) return
-
-  const payload = {
-    event: 'receipt.synced',
-    receipt_id: receipt.id,
-    user_id: receipt.user_id,
-    auto_synced: receipt.auto_synced === true,
-    auto_sync_rule_name: receipt.auto_sync_rule_name ?? null,
-    receipt,
-  }
-  const body = JSON.stringify(payload)
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-    'x-resitai-event': 'receipt.synced',
-  }
-  if (config.secret) {
-    headers['x-resitai-signature'] = await hmacHex(String(config.secret), body)
-  }
-
-  const deliveryId = await createWebhookDeliveryLog(client, {
-    receipt,
-    endpoint: String(config.url),
-    payload,
-  })
-
-  try {
-    const response = await fetchWithTimeout(String(config.url), {
-      method: 'POST',
-      headers,
-      body,
-    }, webhookTimeoutMs())
-    const responseBody = await safeResponseText(response)
-    if (!response.ok) {
-      const message = `Webhook failed with HTTP ${response.status}`
-      await updateWebhookDeliveryLog(client, deliveryId, {
-        status: 'failed',
-        http_status: response.status,
-        attempt_count: externalFetchRetryCount() + 1,
-        response_body: responseBody,
-        error_message: message,
-        next_retry_at: new Date(Date.now() + WEBHOOK_REPLAY_DELAY_MS).toISOString(),
-        delivered_at: null,
-      })
-      failureLogged = true
-      throw new Error(message)
-    }
-
-    await updateWebhookDeliveryLog(client, deliveryId, {
-      status: 'delivered',
-      http_status: response.status,
-      attempt_count: 1,
-      response_body: responseBody,
-      error_message: null,
-      next_retry_at: null,
-      delivered_at: new Date().toISOString(),
-    })
-  } catch (error) {
-    if (!failureLogged) {
-      await updateWebhookDeliveryLog(client, deliveryId, {
-        status: 'failed',
-        http_status: null,
-        attempt_count: externalFetchRetryCount() + 1,
-        response_body: null,
-        error_message: error instanceof Error ? error.message : 'Webhook dispatch failed.',
-        next_retry_at: new Date(Date.now() + WEBHOOK_REPLAY_DELAY_MS).toISOString(),
-        delivered_at: null,
-      })
-    }
-    throw error
-  }
-}
-
-async function createWebhookDeliveryLog(client: any, input: {
-  receipt: Record<string, any>
-  endpoint: string
-  payload: Record<string, unknown>
-}) {
-  const { data, error } = await client
-    .from('webhook_delivery_logs')
-    .insert({
-      user_id: input.receipt.user_id,
-      receipt_id: input.receipt.id,
-      event: 'receipt.synced',
-      endpoint: input.endpoint,
-      status: 'pending',
-      http_status: null,
-      attempt_count: 0,
-      error_message: null,
-      request_payload: input.payload,
-      response_body: null,
-      next_retry_at: null,
-      delivered_at: null,
-    })
-    .select('id')
-    .single()
-  if (error) {
-    if (isMissingSchemaError(error)) return null
-    throw error
-  }
-  return data?.id ?? null
-}
-
-async function updateWebhookDeliveryLog(client: any, deliveryId: string | null, patch: Record<string, unknown>) {
-  if (!deliveryId) return
-  const { error } = await client
-    .from('webhook_delivery_logs')
-    .update(patch)
-    .eq('id', deliveryId)
-  if (error && !isMissingSchemaError(error)) throw error
-}
-
-function webhookTimeoutMs() {
-  const configured = Number(Deno.env.get('WEBHOOK_TIMEOUT_MS'))
-  return Number.isFinite(configured) && configured >= 1000 ? configured : DEFAULT_WEBHOOK_TIMEOUT_MS
-}
-
-async function safeResponseText(response: Response) {
-  try {
-    return truncateText(await response.text(), 2000)
-  } catch {
-    return null
-  }
-}
-
-function truncateText(value: string | null, maxLength: number) {
-  if (!value) return null
-  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value
-}
-
 function isMissingSchemaError(error: unknown): boolean {
   const record = error as { code?: string; message?: string; details?: string; hint?: string }
   const code = record?.code ?? ''
   const text = `${record?.message ?? ''} ${record?.details ?? ''} ${record?.hint ?? ''}`
   return ['PGRST204', 'PGRST205', '42703', '42P01'].includes(code)
-    || /schema cache|column|relation .* does not exist|user_webhook_configs|webhook_delivery_logs|auto_synced|auto_sync_rule_name/i.test(text)
+    || /schema cache|column|relation .* does not exist|auto_synced|auto_sync_rule_name/i.test(text)
 }
 
 function sameText(left: string | null | undefined, right: string | null | undefined) {
