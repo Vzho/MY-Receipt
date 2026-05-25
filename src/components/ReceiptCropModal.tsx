@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent } from 'react'
-import { Crop, Move, RotateCcw, RotateCw, Scissors, X } from 'lucide-react'
+import { AlertTriangle, Crop, Move, RotateCcw, RotateCw, Scissors, X } from 'lucide-react'
 import {
   clampCrop,
   defaultReceiptCrop,
@@ -17,6 +17,10 @@ interface ReceiptCropModalProps {
   description?: string
   skipLabel?: string
   confirmLabel?: string
+  qualityWarning?: {
+    title: string
+    body: string
+  } | null
   labels?: any
   onCancel: () => void
   onConfirm: (result: { processedFile: File | null; imageProcessing: ImageProcessingMetadata | null }) => void
@@ -52,6 +56,7 @@ export function ReceiptCropModal({
   description = '让票据主体尽量占满识别图，减少桌面、信封、背景纸张进入解析输入。',
   skipLabel = '跳过裁剪',
   confirmLabel = '应用裁剪并上传',
+  qualityWarning = null,
   labels,
   onCancel,
   onConfirm,
@@ -246,6 +251,18 @@ export function ReceiptCropModal({
               </p>
               <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-indigo-600">{formatRotation(rotation)}</p>
             </div>
+
+            {qualityWarning && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest">{qualityWarning.title}</p>
+                    <p className="mt-1 text-xs font-bold leading-5">{qualityWarning.body}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <button

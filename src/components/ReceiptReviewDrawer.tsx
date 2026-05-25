@@ -141,6 +141,8 @@ function ReceiptReviewDrawerComponent({
   const subsidyPayable = useMemo(() => getSubsidyPayable(receipt.subsidy_details), [receipt.subsidy_details])
   const hasItemQualityWarning = receipt?.raw_ai?.parser_meta?.item_quality === 'low'
     || /line item names look unreliable/i.test(receipt?.raw_ai?.parser_note || '')
+  const hasBlurryImageWarning = Array.isArray(receipt?.warnings)
+    && receipt.warnings.some((warning: any) => warning?.code === 'blurry_image')
   const highlightDetections = useMemo(() => (
     focusedFieldKey ? findReceiptFieldDetections(receipt, focusedFieldKey).filter((detection) => detection.box) : []
   ), [focusedFieldKey, receipt])
@@ -448,6 +450,17 @@ function ReceiptReviewDrawerComponent({
               >
                 {labels.originalImg}
               </button>
+            </div>
+          )}
+          {hasBlurryImageWarning && (
+            <div className={`mb-4 rounded-2xl border p-3 text-xs font-bold leading-5 ${config.colorMode === 'Dark' ? 'border-amber-900/60 bg-amber-950/20 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest">{labels.blurryImageBannerTitle || labels.warningLabels?.blurry_image || 'Image may be blurry'}</p>
+                  <p className="mt-1">{labels.blurryImageBannerBody || 'Ask for a clearer photo, or continue with manual review.'}</p>
+                </div>
+              </div>
             </div>
           )}
           <div className={`flex-1 rounded-[24px] overflow-hidden border shadow-sm flex items-center justify-center relative group ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>

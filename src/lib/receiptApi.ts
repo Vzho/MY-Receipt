@@ -1,4 +1,5 @@
 import { normalizeReceiptItem, normalizeReceiptPatch } from './normalizeReceipt'
+import { isRetryableSupabaseError, retryAsync } from './apiRetry'
 import { requireSupabase } from './supabaseClient'
 import { computeFileSha256, scoreDuplicateCandidate } from './duplicateDetection'
 import { defaultFieldPreferences, mergeFieldPreferences } from './fieldConfig'
@@ -665,21 +666,53 @@ async function invokeReceiptParser(id: string, options: ParseMode | ParseReceipt
   const client = requireSupabase()
   const normalizedOptions: ParseReceiptOptions = typeof options === 'string' ? { mode: options } : options
   const mode = normalizedOptions.mode
-  const { error } = await client.functions.invoke('parse-receipt', {
-    body: {
-      receipt_id: id,
-      ...(mode ? { mode } : {}),
-      ...(normalizedOptions.docType ? { doc_type: normalizedOptions.docType } : {}),
-      ...(normalizedOptions.enabledFieldKeys?.length ? { enabled_fields: normalizedOptions.enabledFieldKeys } : {}),
-      ...(normalizedOptions.qrPayload ? { qr_payload: normalizedOptions.qrPayload } : {}),
-    },
-  })
+  let invocationResult: { error?: { message?: string } | null }
+  try {
+    invocationResult = await retryAsync(async () => {
+      const result = await client.functions.invoke('parse-receipt', {
+        body: {
+          receipt_id: id,
+          ...(mode ? { mode } : {}),
+          ...(normalizedOptions.docType ? { doc_type: normalizedOptions.docType } : {}),
+          ...(normalizedOptions.enabledFieldKeys?.length ? { enabled_fields: normalizedOptions.enabledFieldKeys } : {}),
+          ...(normalizedOptions.qrPayload ? { qr_payload: normalizedOptions.qrPayload } : {}),
+        },
+      })
 
+      if (result.error && isRetryableSupabaseError(result.error)) {
+        throw result.error
+      }
+      return result
+    }, {
+      maxRetries: 2,
+      baseDelayMs: getParserRetryBaseDelayMs(),
+      shouldRetry: isRetryableSupabaseError,
+      onRetry: (error, attempt, delayMs) => {
+        console.warn(`parse-receipt invocation failed; retrying attempt ${attempt + 2} after ${delayMs}ms.`, error)
+      },
+    })
+  } catch (error) {
+    const message = error instanceof Error
+      ? error.message
+      : error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: unknown }).message || '')
+      : mode === 'repair'
+        ? 'DeepSeek text repair failed'
+        : 'parse-receipt invocation failed'
+    await markReceiptFailed(id, message)
+    return message
+  }
+
+  const { error } = invocationResult
   if (!error) return null
 
   const message = error.message || (mode === 'repair' ? 'DeepSeek text repair failed' : 'parse-receipt invocation failed')
   await markReceiptFailed(id, message)
   return message
+}
+
+function getParserRetryBaseDelayMs() {
+  return import.meta.env.MODE === 'test' ? 0 : 750
 }
 
 async function markReceiptFailed(id: string, message: string): Promise<Receipt | null> {

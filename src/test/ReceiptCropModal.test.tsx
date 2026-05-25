@@ -67,4 +67,23 @@ describe('ReceiptCropModal', () => {
     expect(html).not.toContain('张待处理')
     expect(html).not.toContain('拖动票据区域')
   })
+
+  it('shows a quality warning banner when the receipt is blurry', () => {
+    const html = renderToStaticMarkup(
+      <ReceiptCropModal
+        file={new File(['test'], 'receipt.jpg', { type: 'image/jpeg' })}
+        queueCount={1}
+        qualityWarning={{
+          title: 'Image may be blurry',
+          body: 'Ask for a clearer photo.',
+        }}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        onError={vi.fn()}
+      />,
+    )
+
+    expect(html).toContain('Image may be blurry')
+    expect(html).toContain('Ask for a clearer photo.')
+  })
 })

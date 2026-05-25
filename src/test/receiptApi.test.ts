@@ -66,6 +66,21 @@ describe('createReceiptFromFile', () => {
     await new Promise((resolve) => globalThis.setTimeout(resolve, 0))
 
     expect(onAsyncParseError).toHaveBeenCalledWith('Edge function unavailable', 'receipt-1')
+    expect(mocks.invoke).toHaveBeenCalledTimes(3)
+  })
+
+  it('retries transient parser invocation failures before reporting success', async () => {
+    mocks.invoke
+      .mockResolvedValueOnce({ error: { message: 'fetch failed' } })
+      .mockResolvedValueOnce({ error: null })
+
+    const onAsyncParseError = vi.fn()
+    const file = new File(['receipt image'], 'receipt.jpg', { type: 'image/jpeg' })
+    await createReceiptFromFile(file, { awaitParse: false, onAsyncParseError })
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 0))
+
+    expect(mocks.invoke).toHaveBeenCalledTimes(2)
+    expect(onAsyncParseError).not.toHaveBeenCalled()
   })
 })
 

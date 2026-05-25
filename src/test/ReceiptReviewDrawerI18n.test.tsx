@@ -43,6 +43,8 @@ const labels: Record<string, any> = {
   noImgLabel: '暂无原图记录',
   skuItems: '明细列表',
   itemQualityWarningLabel: '商品明细名称质量偏低。请对照左侧图片人工补全，或重新智能解析。',
+  blurryImageBannerTitle: '图片可能模糊',
+  blurryImageBannerBody: '建议重新拍摄清晰照片。',
   itemName: '商品描述',
   qty: '数量',
   unitLabel: '单价',
@@ -123,6 +125,7 @@ describe('ReceiptReviewDrawer i18n labels', () => {
           change: 0,
           grand_total: 0,
           confidence_score: 0.9,
+          warnings: [{ code: 'blurry_image', severity: 'warning', message: 'Image or item OCR quality is low' }],
           raw_ai: {
             field_confidence: { merchant_name: 0.58 },
             parser_meta: { item_quality: 'low' },
@@ -165,8 +168,10 @@ describe('ReceiptReviewDrawer i18n labels', () => {
     expect(html).toContain('SST 编号')
     expect(html).toContain('电子发票信息')
     expect(html).toContain('商品明细名称质量偏低')
+    expect(html).toContain('图片可能模糊')
+    expect(html).toContain('建议重新拍摄清晰照片')
     expect(html).toContain('状态')
-    expect(html).toContain('0 条提醒')
+    expect(html).toContain('1 条提醒')
     expect(html).toContain('0 条明细')
     expect(html).toContain('58%')
     expect(html).toContain('快捷校对')

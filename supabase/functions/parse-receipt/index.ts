@@ -653,23 +653,70 @@ async function callTencentCloudApi(action: string, version: string, payload: str
 }
 
 async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = externalFetchTimeoutMs()): Promise<Response> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    return await fetch(input, { ...init, signal: controller.signal })
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(`External OCR/AI request timed out after ${Math.round(timeoutMs / 1000)} seconds.`)
+  const maxRetries = externalFetchRetryCount()
+  let lastError: unknown = null
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const response = await fetch(input, { ...init, signal: controller.signal })
+      if (attempt < maxRetries && isRetryableExternalResponse(response)) {
+        console.warn(`External OCR/AI request returned HTTP ${response.status}; retrying attempt ${attempt + 2}.`)
+        await delay(externalFetchRetryDelayMs(attempt))
+        continue
+      }
+      return response
+    } catch (error) {
+      lastError = error
+      if (attempt >= maxRetries || !isRetryableExternalError(error)) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          throw new Error(`External OCR/AI request timed out after ${Math.round(timeoutMs / 1000)} seconds.`)
+        }
+        throw error
+      }
+      console.warn(`External OCR/AI request failed; retrying attempt ${attempt + 2}.`, error)
+      await delay(externalFetchRetryDelayMs(attempt))
+    } finally {
+      clearTimeout(timer)
     }
-    throw error
-  } finally {
-    clearTimeout(timer)
   }
+
+  if (lastError instanceof DOMException && lastError.name === 'AbortError') {
+    throw new Error(`External OCR/AI request timed out after ${Math.round(timeoutMs / 1000)} seconds.`)
+  }
+  throw lastError instanceof Error ? lastError : new Error('External OCR/AI request failed.')
 }
 
 function externalFetchTimeoutMs() {
   const configured = Number(Deno.env.get('AI_FETCH_TIMEOUT_MS') || Deno.env.get('OCR_FETCH_TIMEOUT_MS'))
   return Number.isFinite(configured) && configured >= 5000 ? configured : DEFAULT_EXTERNAL_FETCH_TIMEOUT_MS
+}
+
+function externalFetchRetryCount() {
+  const configured = Number(Deno.env.get('OCR_AI_FETCH_RETRIES'))
+  return Number.isFinite(configured) && configured >= 0 ? Math.min(5, Math.floor(configured)) : 2
+}
+
+function externalFetchRetryDelayMs(attempt: number) {
+  const baseDelayMs = Number(Deno.env.get('OCR_AI_RETRY_BASE_DELAY_MS'))
+  const normalizedBase = Number.isFinite(baseDelayMs) && baseDelayMs >= 0 ? baseDelayMs : 600
+  return normalizedBase * (2 ** Math.max(0, attempt))
+}
+
+function isRetryableExternalResponse(response: Response) {
+  return response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500
+}
+
+function isRetryableExternalError(error: unknown) {
+  if (error instanceof DOMException && error.name === 'AbortError') return true
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error ?? '').toLowerCase()
+  return /timeout|timed out|network|fetch|failed|econnreset|temporarily|unavailable/.test(message)
+}
+
+function delay(delayMs: number) {
+  if (delayMs <= 0) return Promise.resolve()
+  return new Promise<void>((resolve) => setTimeout(resolve, delayMs))
 }
 
 async function runOpenAIVision(base64File: string, mimeType: string, options: ReceiptPromptOptions = {}): Promise<Record<string, any>> {

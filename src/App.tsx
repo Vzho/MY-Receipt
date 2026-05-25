@@ -38,6 +38,8 @@ import { keepSyncedReceiptSelected } from './lib/syncSelection';
 import { getAdjacentReviewReceipt, getReviewShortcutAction } from './lib/reviewNavigation';
 import { playNotificationSound } from './lib/notificationSound';
 import { applyReceiptDraftToCollection, applyReceiptDraftToSelection } from './lib/receiptState';
+import { getProcessingStageTimeoutHint } from './lib/processingTimeout';
+import { analyzeReceiptPreflight, type ReceiptPreflightReason, type ReceiptPreflightResult } from './lib/receiptPreflight';
 import {
   createAppNotification,
   loadAppNotifications,
@@ -118,6 +120,12 @@ type DeleteDialogState = {
 type SmartCropTarget = {
   receipt: any;
   file: File;
+};
+
+type PreflightPromptState = {
+  filename: string;
+  reasons: ReceiptPreflightReason[];
+  resolve: (confirmed: boolean) => void;
 };
 
 type DuplicatePromptState = {
@@ -534,6 +542,8 @@ const I18N: any = {
     cropFailedLabel: '图片裁剪失败',
     cropPreviewAlt: '发票裁剪预览',
     resizeCropLabel: (mode: string) => `调整裁剪框 ${mode}`,
+    blurryImageBannerTitle: '图片可能模糊',
+    blurryImageBannerBody: '建议让客户重新拍摄清晰、完整、无反光的照片；也可以继续人工核对。',
     duplicateTitle: '可能重复',
     duplicateDescription: (filename: string, score: number) => `${filename} 与已有收据相似。相似度：${(score * 100).toFixed(0)}%。`,
     cancelUploadLabel: '取消上传',
@@ -577,6 +587,21 @@ const I18N: any = {
     uploadQueuedTitle: '收据已加入 OCR 队列',
     uploadFailedLabel: '上传失败。',
     uploadFailedTitle: '收据上传失败',
+    uploadPreflightTitle: '确认是否继续解析',
+    uploadPreflightDescription: (filename: string) => `${filename} 看起来可能不是清晰的发票图片。继续会消耗 OCR/AI 配额。`,
+    uploadPreflightContinueLabel: '继续解析',
+    uploadPreflightCancelLabel: '取消本张',
+    uploadPreflightCancelledLabel: (filename: string) => `已取消 ${filename} 的解析。`,
+    uploadPreflightReasons: {
+      filename_non_receipt: '文件名像照片、商品图或截图',
+      file_too_small: '文件体积过小，可能无法 OCR',
+      image_too_small: '图片分辨率过低',
+    },
+    processingTimeoutLabels: {
+      ocr_scanning_timeout: 'OCR 等待时间偏长，可先继续处理其他单据，失败后可在详情页重试。',
+      ai_extracting_timeout: 'AI 抽取等待时间偏长，单据会保留在队列中，失败后可重试。',
+      generating_preview_timeout: '预览生成等待时间偏长，完成后会自动刷新。',
+    },
     duplicateAlreadyUploadingLabel: (filename: string) => `${filename} 正在上传中。`,
     duplicateDetectedTitle: '可能重复',
     duplicateDetectedMessage: (filename: string) => `${filename} 与已有收据相似。`,
@@ -589,6 +614,7 @@ const I18N: any = {
     receiptNotFoundLabel: '收据已不存在。',
     openNotificationReceiptFailedLabel: '无法从消息打开收据。',
     retryingLabel: (id: string) => `正在重试 API：${id}`,
+    retryOpenDetailLabel: '已打开单据详情，可点击“智能解析”重新处理。',
     deletePromptLabel: '删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）',
     batchDeletePromptLabel: '批量删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）',
     deleteDialogTitle: '移入已删除库',
@@ -984,6 +1010,8 @@ const I18N: any = {
     cropFailedLabel: 'Image crop failed',
     cropPreviewAlt: 'Receipt crop preview',
     resizeCropLabel: (mode: string) => `Resize crop ${mode}`,
+    blurryImageBannerTitle: 'Image may be blurry',
+    blurryImageBannerBody: 'Ask the customer for a clearer, complete photo without glare, or continue with manual review.',
     duplicateTitle: 'Possible duplicate',
     duplicateDescription: (filename: string, score: number) => `${filename} looks similar to an existing receipt. Score: ${(score * 100).toFixed(0)}%.`,
     cancelUploadLabel: 'Cancel upload',
@@ -1027,6 +1055,21 @@ const I18N: any = {
     uploadQueuedTitle: 'Receipt upload queued',
     uploadFailedLabel: 'Upload failed.',
     uploadFailedTitle: 'Receipt upload failed',
+    uploadPreflightTitle: 'Confirm parsing',
+    uploadPreflightDescription: (filename: string) => `${filename} may not be a clear receipt image. Continuing will use OCR/AI quota.`,
+    uploadPreflightContinueLabel: 'Continue parsing',
+    uploadPreflightCancelLabel: 'Cancel this file',
+    uploadPreflightCancelledLabel: (filename: string) => `Cancelled parsing for ${filename}.`,
+    uploadPreflightReasons: {
+      filename_non_receipt: 'Filename looks like a photo, product image, or screenshot',
+      file_too_small: 'File is very small and may not OCR well',
+      image_too_small: 'Image resolution is low',
+    },
+    processingTimeoutLabels: {
+      ocr_scanning_timeout: 'OCR is taking longer than usual. You can keep working and retry from the receipt detail if it fails.',
+      ai_extracting_timeout: 'AI extraction is taking longer than usual. The receipt remains in the queue and can be retried later.',
+      generating_preview_timeout: 'Preview generation is taking longer than usual. The page will refresh when it finishes.',
+    },
     duplicateAlreadyUploadingLabel: (filename: string) => `${filename} is already uploading.`,
     duplicateDetectedTitle: 'Possible duplicate detected',
     duplicateDetectedMessage: (filename: string) => `${filename} looks similar to an existing receipt.`,
@@ -1039,6 +1082,7 @@ const I18N: any = {
     receiptNotFoundLabel: 'Receipt no longer exists.',
     openNotificationReceiptFailedLabel: 'Failed to open receipt from message.',
     retryingLabel: (id: string) => `Retrying API for ID: ${id}`,
+    retryOpenDetailLabel: 'Receipt detail opened. Use Smart parse to retry processing.',
     deletePromptLabel: 'Delete reason (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
     batchDeletePromptLabel: 'Batch delete reason (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
     deleteDialogTitle: 'Move to Deleted',
@@ -1435,6 +1479,8 @@ const I18N: any = {
     cropFailedLabel: 'Gagal memotong imej',
     cropPreviewAlt: 'Pratonton potong resit',
     resizeCropLabel: (mode: string) => `Ubah saiz potong ${mode}`,
+    blurryImageBannerTitle: 'Imej mungkin kabur',
+    blurryImageBannerBody: 'Minta pelanggan ambil semula foto yang jelas, lengkap, dan tanpa silau, atau teruskan semakan manual.',
     duplicateTitle: 'Mungkin pendua',
     duplicateDescription: (filename: string, score: number) => `${filename} serupa dengan resit sedia ada. Skor: ${(score * 100).toFixed(0)}%.`,
     cancelUploadLabel: 'Batal muat naik',
@@ -1478,6 +1524,21 @@ const I18N: any = {
     uploadQueuedTitle: 'Resit dimasukkan ke giliran OCR',
     uploadFailedLabel: 'Muat naik gagal.',
     uploadFailedTitle: 'Muat naik resit gagal',
+    uploadPreflightTitle: 'Sahkan huraian',
+    uploadPreflightDescription: (filename: string) => `${filename} mungkin bukan imej resit yang jelas. Teruskan akan menggunakan kuota OCR/AI.`,
+    uploadPreflightContinueLabel: 'Terus huraikan',
+    uploadPreflightCancelLabel: 'Batal fail ini',
+    uploadPreflightCancelledLabel: (filename: string) => `Huraian ${filename} dibatalkan.`,
+    uploadPreflightReasons: {
+      filename_non_receipt: 'Nama fail kelihatan seperti foto, imej produk, atau tangkapan skrin',
+      file_too_small: 'Fail terlalu kecil dan mungkin sukar di-OCR',
+      image_too_small: 'Resolusi imej rendah',
+    },
+    processingTimeoutLabels: {
+      ocr_scanning_timeout: 'OCR mengambil masa lebih lama. Anda boleh terus bekerja dan cuba semula dari butiran resit jika gagal.',
+      ai_extracting_timeout: 'Ekstraksi AI mengambil masa lebih lama. Resit kekal dalam giliran dan boleh dicuba semula nanti.',
+      generating_preview_timeout: 'Pratonton mengambil masa lebih lama. Halaman akan segar semula apabila selesai.',
+    },
     duplicateAlreadyUploadingLabel: (filename: string) => `${filename} sedang dimuat naik.`,
     duplicateDetectedTitle: 'Mungkin pendua dikesan',
     duplicateDetectedMessage: (filename: string) => `${filename} serupa dengan resit sedia ada.`,
@@ -1490,6 +1551,7 @@ const I18N: any = {
     receiptNotFoundLabel: 'Resit tidak lagi wujud.',
     openNotificationReceiptFailedLabel: 'Gagal membuka resit daripada mesej.',
     retryingLabel: (id: string) => `Mencuba semula API untuk ID: ${id}`,
+    retryOpenDetailLabel: 'Butiran resit dibuka. Gunakan huraian pintar untuk cuba semula.',
     deletePromptLabel: 'Sebab padam (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
     batchDeletePromptLabel: 'Sebab padam kelompok (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
     deleteDialogTitle: 'Pindah ke senarai dipadam',
@@ -1591,6 +1653,7 @@ export default function App() {
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null);
   const [smartCropTarget, setSmartCropTarget] = useState<SmartCropTarget | null>(null);
+  const [preflightPrompt, setPreflightPrompt] = useState<PreflightPromptState | null>(null);
   const [isCropModalBusy, setIsCropModalBusy] = useState(false);
   const [smartParsingReceiptId, setSmartParsingReceiptId] = useState<string | null>(null);
   const [repairProgress, setRepairProgress] = useState<RepairProgress | null>(null);
@@ -1806,6 +1869,9 @@ export default function App() {
   const startReceiptResultPolling = (receiptId: string, fallbackImageUrl?: string | null, uploadId?: string) => {
     if (pollingReceiptIdsRef.current.has(receiptId)) return;
     pollingReceiptIdsRef.current.add(receiptId);
+    let activeStageKey = '';
+    let activeStageStartedAt = Date.now();
+    const notifiedTimeouts = new Set<string>();
 
     void (async () => {
       try {
@@ -1813,10 +1879,32 @@ export default function App() {
           intervalMs: 1800,
           timeoutMs: 90000,
           onPoll: (receipt) => {
+            const stageKey = receipt.processing_stage || (receipt.status === 'processing' ? 'ocr_scanning' : 'uploaded');
+            if (stageKey !== activeStageKey) {
+              activeStageKey = stageKey;
+              activeStageStartedAt = Date.now();
+            }
+            const timeoutHint = getProcessingStageTimeoutHint(receipt.processing_stage, Date.now() - activeStageStartedAt);
+            const timeoutMessage = timeoutHint
+              ? t.processingTimeoutLabels?.[timeoutHint.messageKey] || timeoutHint.defaultMessage
+              : null;
+            if (timeoutHint && !notifiedTimeouts.has(timeoutHint.messageKey)) {
+              notifiedTimeouts.add(timeoutHint.messageKey);
+              addNotification({
+                type: 'warning',
+                title: t.processingStageLabels?.[timeoutHint.stage] || 'Processing delay',
+                message: timeoutMessage || timeoutHint.defaultMessage,
+                receipt_id: receipt.id,
+              });
+            }
             if (receipt.status === 'processing' || receipt.status === 'uploaded') {
               if (uploadId) {
                 setUploadList((old: any[]) => old.map((item) => item.id === uploadId
-                  ? { ...item, progress: Math.min(88, Math.max(item.progress || 0, 68)), status: 'OCR parsing in background' }
+                  ? {
+                      ...item,
+                      progress: Math.min(88, Math.max(item.progress || 0, 68)),
+                      status: timeoutMessage || (t.processingStageLabels?.[receipt.processing_stage || 'ocr_scanning'] || 'OCR parsing in background'),
+                    }
                   : item));
               }
             }
@@ -2054,6 +2142,30 @@ export default function App() {
     await supabase?.auth.signOut();
   };
 
+  const requestPreflightConfirmation = useCallback((file: File, result: ReceiptPreflightResult) => (
+    new Promise<boolean>((resolve) => {
+      setPreflightPrompt({
+        filename: file.name,
+        reasons: result.reasons,
+        resolve,
+      });
+    })
+  ), []);
+
+  const enqueueReceiptUpload = (file: File) => {
+    const uploadId = Math.random().toString(36).slice(2, 11);
+    const previewUrl = URL.createObjectURL(file);
+    setUploadList((prev) => [{
+      id: uploadId,
+      name: file.name,
+      status: 'Preparing upload',
+      progress: 8,
+      image_url: previewUrl,
+      file,
+    }, ...prev]);
+    void prepareReceiptUpload(file, uploadId, previewUrl);
+  };
+
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files).slice(0, 20) as File[];
@@ -2065,19 +2177,27 @@ export default function App() {
       return;
     }
 
-    files.forEach((file) => {
-      const uploadId = Math.random().toString(36).slice(2, 11);
-      const previewUrl = URL.createObjectURL(file);
-      setUploadList((prev) => [{
-        id: uploadId,
-        name: file.name,
-        status: 'Preparing upload',
-        progress: 8,
-        image_url: previewUrl,
-        file,
-      }, ...prev]);
-      void prepareReceiptUpload(file, uploadId, previewUrl);
-    });
+    void (async () => {
+      for (const file of files) {
+        try {
+          const preflight = await analyzeReceiptPreflight(file);
+          if (preflight.shouldConfirm) {
+            const confirmed = await requestPreflightConfirmation(file, preflight);
+            if (!confirmed) {
+              const message = typeof t.uploadPreflightCancelledLabel === 'function'
+                ? t.uploadPreflightCancelledLabel(file.name)
+                : `${file.name} cancelled.`;
+              showToast(message, 'info');
+              continue;
+            }
+          }
+          enqueueReceiptUpload(file);
+        } catch (error) {
+          console.warn('Receipt upload preflight failed; continuing with upload.', error);
+          enqueueReceiptUpload(file);
+        }
+      }
+    })();
   };
 
   const prepareReceiptUpload = async (file: File, uploadId: string, previewUrl: string) => {
@@ -2372,8 +2492,13 @@ export default function App() {
   };
 
   const handleRetry = useCallback((id: string) => {
-    showToast(typeof t.retryingLabel === 'function' ? t.retryingLabel(id) : `Retrying API for ID: ${id}`, 'info');
-    setHistory(history.filter(h => h.id !== id));
+    const receipt = history.find((item) => item.id === id);
+    if (!receipt) {
+      showToast(t.receiptNotFoundLabel || 'Receipt not found.', 'info');
+      return;
+    }
+    setSelectedReceipt(receipt);
+    showToast(t.retryOpenDetailLabel || 'Receipt detail opened. Use Smart parse to retry processing.', 'info');
   }, [history, showToast, t]);
 
   const clearRepairProgressTimer = () => {
@@ -2888,6 +3013,20 @@ export default function App() {
     ? deleteDialogReceipt.merchant_name || deleteDialogReceipt.display_filename || deleteDialogReceipt.filename || null
     : null;
   const activeRepairProgress = selectedReceipt && repairProgress?.receiptId === selectedReceipt.id ? repairProgress : null;
+  const smartCropQualityWarning = smartCropTarget?.receipt?.warnings?.some((warning: any) => warning?.code === 'blurry_image')
+    ? {
+        title: t.blurryImageBannerTitle || t.warningLabels?.blurry_image || 'Image may be blurry',
+        body: t.blurryImageBannerBody || 'Ask for a clearer photo or continue manual review.',
+      }
+    : null;
+  const preflightReasonLabels = preflightPrompt?.reasons.map((reason) => (
+    t.uploadPreflightReasons?.[reason] || reason
+  )) || [];
+  const resolvePreflightPrompt = (confirmed: boolean) => {
+    const resolver = preflightPrompt?.resolve;
+    setPreflightPrompt(null);
+    resolver?.(confirmed);
+  };
 
   return (
     <AppShell colorMode={config.colorMode}>
@@ -2930,6 +3069,7 @@ export default function App() {
           description={t.cropDescription}
           skipLabel={t.cropSkipLabel}
           confirmLabel={t.cropConfirmLabel}
+          qualityWarning={smartCropQualityWarning}
           labels={t}
           onCancel={() => setSmartCropTarget(null)}
           onConfirm={handleSmartCropConfirm}
@@ -2946,6 +3086,51 @@ export default function App() {
           onContinue={continueDuplicateUpload}
           onOpenExisting={openDuplicateCandidate}
         />
+      )}
+
+      {preflightPrompt && (
+        <div className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-lg rounded-[28px] border p-6 shadow-2xl ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
+            <div className="flex items-start gap-4">
+              <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-black">{t.uploadPreflightTitle || 'Confirm parsing'}</h3>
+                <p className={`mt-2 text-sm font-bold leading-6 ${config.colorMode === 'Dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                  {typeof t.uploadPreflightDescription === 'function'
+                    ? t.uploadPreflightDescription(preflightPrompt.filename)
+                    : `${preflightPrompt.filename} may not be a clear receipt image.`}
+                </p>
+                {preflightReasonLabels.length > 0 && (
+                  <ul className="mt-4 space-y-2">
+                    {preflightReasonLabels.map((reason) => (
+                      <li key={reason} className={`rounded-xl px-3 py-2 text-xs font-black ${config.colorMode === 'Dark' ? 'bg-slate-800 text-amber-200' : 'bg-amber-50 text-amber-800'}`}>
+                        {reason}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => resolvePreflightPrompt(false)}
+                className={`rounded-2xl px-5 py-3 text-xs font-black uppercase transition ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              >
+                {t.uploadPreflightCancelLabel || 'Cancel'}
+              </button>
+              <button
+                type="button"
+                onClick={() => resolvePreflightPrompt(true)}
+                className={`${config.theme.color} rounded-2xl px-5 py-3 text-xs font-black uppercase text-white shadow-lg transition hover:brightness-110`}
+              >
+                {t.uploadPreflightContinueLabel || 'Continue parsing'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {exportPreview && (
