@@ -83,107 +83,170 @@ drop policy if exists "Users can read own custom document types" on public.custo
 create policy "Users can read own custom document types"
   on public.custom_document_types for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can insert own custom document types" on public.custom_document_types;
 create policy "Users can insert own custom document types"
   on public.custom_document_types for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can update own custom document types" on public.custom_document_types;
 create policy "Users can update own custom document types"
   on public.custom_document_types for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can delete own custom document types" on public.custom_document_types;
 create policy "Users can delete own custom document types"
   on public.custom_document_types for delete
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can read own field preferences" on public.user_field_preferences;
 create policy "Users can read own field preferences"
   on public.user_field_preferences for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can insert own field preferences" on public.user_field_preferences;
 create policy "Users can insert own field preferences"
   on public.user_field_preferences for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can update own field preferences" on public.user_field_preferences;
 create policy "Users can update own field preferences"
   on public.user_field_preferences for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can delete own field preferences" on public.user_field_preferences;
 create policy "Users can delete own field preferences"
   on public.user_field_preferences for delete
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can read own receipts" on public.receipts;
 create policy "Users can read own receipts"
   on public.receipts for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can insert own receipts" on public.receipts;
 create policy "Users can insert own receipts"
   on public.receipts for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can update own receipts" on public.receipts;
 create policy "Users can update own receipts"
   on public.receipts for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can delete own receipts" on public.receipts;
 create policy "Users can delete own receipts"
   on public.receipts for delete
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can read own receipt items" on public.receipt_items;
 create policy "Users can read own receipt items"
   on public.receipt_items for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can insert own receipt items" on public.receipt_items;
 create policy "Users can insert own receipt items"
   on public.receipt_items for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can update own receipt items" on public.receipt_items;
 create policy "Users can update own receipt items"
   on public.receipt_items for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can delete own receipt items" on public.receipt_items;
 create policy "Users can delete own receipt items"
   on public.receipt_items for delete
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can read own OCR usage" on public.ocr_usage_monthly;
 create policy "Users can read own OCR usage"
   on public.ocr_usage_monthly for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 drop policy if exists "Users can read own receipt files" on storage.objects;
 create policy "Users can read own receipt files"
@@ -192,6 +255,7 @@ create policy "Users can read own receipt files"
   using (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 drop policy if exists "Users can upload own receipt files" on storage.objects;
@@ -201,6 +265,7 @@ create policy "Users can upload own receipt files"
   with check (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 drop policy if exists "Users can update own receipt files" on storage.objects;
@@ -210,10 +275,12 @@ create policy "Users can update own receipt files"
   using (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   )
   with check (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 drop policy if exists "Users can delete own receipt files" on storage.objects;
@@ -223,6 +290,7 @@ create policy "Users can delete own receipt files"
   using (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 drop trigger if exists user_field_preferences_set_updated_at on public.user_field_preferences;

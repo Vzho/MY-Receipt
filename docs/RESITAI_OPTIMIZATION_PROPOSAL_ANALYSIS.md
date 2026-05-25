@@ -17,7 +17,7 @@
 - Excel 导出显式增加 Currency 列，并给金额列设置 Excel 数值格式。
 - 首页增加 OCR 配额进度条，先替代完整 Dashboard。
 
-继续补齐的 P0/P1 基础能力：
+后续计划已继续推进并补齐的 P0/P1/P2 基础能力：
 
 - Edge Function 保存 Tencent OCR 文本块坐标到 `raw_ai.ocr_meta.ocr_detections`，前端字段聚焦时可在原图上高亮匹配区域。
 - Edge Function prompt 支持 `field_confidence`，前端输入框显示字段级置信度，低置信字段生成 `low_confidence_field` warning。
@@ -29,12 +29,17 @@
 - 商品明细支持从 Excel 粘贴多行追加，降低大量明细人工补录成本。
 - Excel 导出增加预览确认弹窗，下载前展示 Receipts/Items 行数、列和样例数据。
 - 商品明细编辑时按 Enter/Shift+Enter 可在同一列上下移动，减少大量明细校对时的鼠标操作。
+- 明细行低置信度高亮、批量选择/删除、快捷新增行、merchant/item 历史 autocomplete。
+- PDF 多页可选择按页分别识别或合并为一张发票统一 OCR。
+- `currency`、`tax_breakdown`、`address_structured`、`receipt_field_changes`、`auto_synced` 和 webhook 配置已进入 schema/API。
+- 自动确认规则、字段级审计日志、批量导入 Edge Function、Webhook dispatch、AutoCount/SQL Accounting 导出模板已完成基础版。
+- Supabase RLS 已补充匿名登录用户隔离，advisors 当前无 ERROR；唯一剩余 WARN 为 Pro 计划才可开启的 leaked password protection。
 
-仍需作为后续重点开发的能力：
+仍需作为后续增强的能力：
 
-- 字段高亮目前是基于 OCR 文本匹配和现有图片尺寸，后续可升级为模型返回的精确 field source map。
-- PDF 跨页同一发票合并仍未完成。
-- 审计日志、自动确认规则、税率拆分和正式 `currency` schema 仍未完成。
+- 使用更多真实 MyInvois QR / 多语言 / 多页 PDF 样本扩充回归测试。
+- 明细拖拽排序、字段列顺序拖拽、异常导出行日志仍可后续增强。
+- 外部 LHDN/MyInvois 联网验证继续剔除；完整 Dashboard 暂不做。
 
 ## 范围边界
 
@@ -46,27 +51,27 @@
 
 | 编号 | 提案项 | 问题是否存在 | 当前状态 | 解决方案 |
 | --- | --- | --- | --- | --- |
-| 1.1 | SST 税率字段过于粗糙 | 存在 | 部分实现。当前仍以 `tax` 为主，E-invoice 可在 `extra_fields.tax_amount` 保存专属税额。 | 下一阶段增加 `tax_breakdown`/`tax_rate`/`tax_amount` 结构，先存 `extra_fields`，稳定后再迁移为结构化列；计算引擎区分 service charge taxable base。 |
-| 1.2 | SSM 注册号和 SST No 无格式校验 | 存在 | 本轮已部分修复。新增 SSM/SST 校验工具、SST 格式化、前端输入提示和 Edge Function 提取。 | 继续补数据库字段约束或保存前校验策略；为不同 SSM 老/新格式补更多样本测试。 |
-| 1.3 | 多语言混排覆盖不足 | 存在 | 本轮已部分修复。补充 Malay 过滤词，prompt 要求保留原文语言和中文行。 | 后续用真实中文/马来文/英文混排样本扩充 OCR 与 parser regression。 |
-| 1.4 | 地址解析过于宽泛 | 存在 | 部分实现。当前只提取普通地址字符串。 | 增加 `address_structured`：street/city/state/postcode；UI 默认折叠；AI prompt 输出结构化地址。 |
-| 1.5 | 货币符号处理单一 | 存在 | 本轮已部分修复。Excel 导出显式带 Currency，前端按设置传入导出币种。 | 后续给 receipts 增加 `currency` 字段，由 OCR/AI 推断并可人工覆盖。 |
-| 2.1 | 原图与输入框缺乏高亮联动 | 存在 | 部分实现。Tencent OCR 坐标已保存到 `raw_ai.ocr_meta.ocr_detections`，Drawer 字段聚焦时可按文本匹配高亮图片区域。 | 后续升级为 Edge Function 明确输出 `field_sources`，减少同名文本匹配误差。 |
-| 2.2 | 缺少快捷键驱动校对模式 | 存在 | 部分实现。已支持 Tab/Shift+Tab、商品行 Enter/Shift+Enter 同列上下移动、Space、左右键、S、E、Ctrl/Cmd+Enter，并显示快捷键提示。 | 下一阶段补可关闭/可配置的快捷键提示。 |
-| 2.3 | 置信度缺乏字段级可视化 | 存在 | 部分实现。已支持 `field_confidence` 读取、字段级指示器、低置信字段输入框高亮和 warning。 | 后续提升 Edge Function 对每个字段 confidence 的真实性，并为 item 行做逐行 confidence。 |
-| 2.4 | 商品明细大量编辑疲劳 | 存在 | 部分实现。已有明细增删、逐行编辑，并支持从 Excel/表格多行粘贴追加明细。 | 后续加入批量删除/分类、快捷新增行、历史 item autocomplete；拖拽排序后置。 |
-| 2.5 | 上传链路过长，批量操作不足 | 存在 | 部分实现。已有批量上传、队列分页、PDF 分页和上传队列“全部智能解析”。 | 裁剪弹窗增加默认跳过选项；列表页增加批量摘要与批量确认入口。 |
-| 2.6 | E-invoice 字段独立性不足 | 存在 | 部分实现。已有 E-invoice 专属字段块、LHDN 必填字段进度条和必填字段 sync gate；普通 receipt 隐藏 E-invoice 块。 | 后续增加 E-invoice 专用编辑布局和 QR/OCR 交叉校验 warning。 |
-| 3.1 | 非发票文件/模糊图片降级不足 | 存在 | 本轮已部分修复。低置信且缺少关键字段时自动标记 failed，并生成 `not_receipt` warning；已有 blurry warning。 | 下一阶段增加上传前轻量预检和裁剪弹窗模糊 banner。 |
-| 3.2 | OCR 乱码与跨页截断防呆不足 | 存在 | 部分实现。PDF 已能拆页上传；外部请求有 30 秒超时；OCR 乱码比例过高时可 fallback 到 Qwen VL。 | 继续补动态 LanguageType 和同一 PDF 多页 OCR 文本合并。 |
-| 3.3 | Excel 字段错位/类型不匹配 | 部分存在 | 本轮已部分修复。金额列写入 number，并设置 `#,##0.00`；Currency 明示；导出前有预览弹窗展示 Sheet 行数、列和样例。 | 后续增加列顺序拖拽、异常行跳过日志。 |
-| 3.4 | 网络/配额/API 故障降级不足 | 存在 | 本轮已部分修复。外部 OCR/AI 请求有 30 秒超时；已有 Processing Panel。 | 前端按阶段超时提示、retry 2 次指数退避、配额耗尽弹窗和手动录入路径。 |
-| 4.1 | 智能批处理与自动确认 | 存在 | 未实现。 | 增加用户可配置自动确认规则，符合条件时 `auto_synced=true`，保留审计标记。 |
-| 4.2 | 审计追踪与变更日志 | 存在 | 未实现。 | 新增 `receipt_field_changes` 表；所有 save/delete/restore/sync 写操作记录字段级 old/new value；Drawer 增加变更历史折叠区。 |
+| 1.1 | SST 税率字段过于粗糙 | 存在 | 已实现基础版。新增 `tax_breakdown`，prompt/normalize/导出均可保存多税率结构；旧 `tax` 继续作为汇总兼容字段。 | 后续用更多 SST 6%/8%/10% 与 service charge taxable base 样本扩充回归。 |
+| 1.2 | SSM 注册号和 SST No 无格式校验 | 存在 | 已实现基础版。新增 SSM/SST 校验工具、SST 格式化、前端输入提示和 Edge Function 提取。 | 后续按真实样本补更多 SSM 老/新格式测试。 |
+| 1.3 | 多语言混排覆盖不足 | 存在 | 已实现基础版。补充 Malay 过滤词，prompt 要求保留原文语言和中文行。 | 后续用真实中文/马来文/英文混排样本扩充 OCR 与 parser regression。 |
+| 1.4 | 地址解析过于宽泛 | 存在 | 已实现基础版。新增 `address_structured`，prompt/normalize/导出支持 street/city/state/postcode/country。 | 后续可在 UI 增加更细的折叠编辑体验。 |
+| 1.5 | 货币符号处理单一 | 存在 | 已实现基础版。`receipts.currency` 已入 schema，OCR/AI 可推断，前端可人工覆盖，Excel 明示币种。 | 后续可按客户账套增加更多币种。 |
+| 2.1 | 原图与输入框缺乏高亮联动 | 存在 | 已实现基础版。优先读取 parser `field_sources`，没有时回退 OCR 文本块匹配。 | 后续继续用真实样本提升字段到 OCR box 的精确映射。 |
+| 2.2 | 缺少快捷键驱动校对模式 | 存在 | 已实现基础版。支持 Tab/Shift+Tab、商品行 Enter/Shift+Enter、Space、左右键、S、E、Ctrl/Cmd+Enter，并显示快捷键提示。 | 后续可继续细化快捷键自定义。 |
+| 2.3 | 置信度缺乏字段级可视化 | 存在 | 已实现基础版。支持 `field_confidence`、字段级指示器、低置信字段高亮、明细行 `item_confidence` 高亮和 warning。 | 后续提升模型返回 confidence 的稳定性。 |
+| 2.4 | 商品明细大量编辑疲劳 | 存在 | 已实现基础版。支持多行粘贴、批量选择/删除、快捷新增行、merchant/item 历史 autocomplete。 | 拖拽排序后置。 |
+| 2.5 | 上传链路过长，批量操作不足 | 存在 | 已实现基础版。已有批量上传、队列分页、上传前预检、PDF 分页/合并选择和上传队列“全部智能解析”。 | 列表页行内批量编辑可后续再做。 |
+| 2.6 | E-invoice 字段独立性不足 | 存在 | 已实现基础版。已有 E-invoice 专属字段块、LHDN 必填字段进度条和必填字段 sync gate；普通 receipt 隐藏 E-invoice 块。 | 后续补更多 QR/OCR 字段交叉校验样本。 |
+| 3.1 | 非发票文件/模糊图片降级不足 | 存在 | 已实现基础版。上传前轻量预检、低置信失败标记、`not_receipt` warning、blurry banner 均已接入。 | 后续可引入更强图像质量检测。 |
+| 3.2 | OCR 乱码与跨页截断防呆不足 | 存在 | 已实现基础版。PDF 可按页识别或合并识别；外部请求有超时和 retry；OCR 乱码比例过高时可 fallback 到 Qwen VL。 | 动态 LanguageType 仍可结合更多样本微调。 |
+| 3.3 | Excel 字段错位/类型不匹配 | 部分存在 | 已实现基础版。金额列写入 number 并设置格式；Currency/tax/address 结构化字段导出；导出前有预览弹窗；财务软件模板已加入。 | 后续增加列顺序拖拽、异常行跳过日志。 |
+| 3.4 | 网络/配额/API 故障降级不足 | 存在 | 已实现基础版。外部 OCR/AI 请求 30 秒超时；Supabase invoke retry 2 次指数退避；Processing Panel 有阶段化超时提示；配额耗尽可回退人工录入。 | 后续可把配额耗尽引导做成更完整的业务弹窗。 |
+| 4.1 | 智能批处理与自动确认 | 存在 | 已实现基础版。新增自动确认规则，符合条件时 `auto_synced=true` 并记录规则名。 | 后续可做用户可配置规则 UI。 |
+| 4.2 | 审计追踪与变更日志 | 存在 | 已实现基础版。新增 `receipt_field_changes` 表，save/delete/restore/sync 等写操作记录字段级 old/new，Drawer 展示变更历史。 | 后续可增加筛选和导出审计日志。 |
 | 4.3 | LHDN MyInvois 直接对账 | 存在但剔除 | 不做外部联网验证。 | 只保留 `validation_link`、QR payload 和内部字段完整性校验，不调用外部税局 API。 |
-| 4.4 | 数据仪表盘与 OCR 配额看板 | 部分存在 | 本轮实现 OCR 配额进度条；完整 Dashboard 暂不做。 | 后续如需要，再做独立 Dashboard；当前只显示配额使用率。 |
-| 4.5 | QR 码深度利用 | 存在 | 部分实现。保存 `qr_payload`，并可解析 MyInvois URL、JSON、key-value payload，预填 supplier/buyer TIN、UUID、validation link、tax amount 等 E-invoice 字段；QR 总额/税额与 OCR/AI 总额/税额不一致时生成 `qr_amount_mismatch` / `qr_tax_mismatch` warning。 | 后续继续补更多 MyInvois payload 样本，并扩展 QR/OCR 字段交叉校验范围。 |
-| 4.6 | 批量导入接口与 Webhook | 存在 | 未实现。 | 后置为集成阶段：REST import、Webhook、AutoCount/SQL Accounting 导出模板。 |
+| 4.4 | 数据仪表盘与 OCR 配额看板 | 部分存在 | 已按范围实现 OCR 配额进度条；完整 Dashboard 暂不做。 | 后续如需要，再做独立 Dashboard。 |
+| 4.5 | QR 码深度利用 | 存在 | 已实现基础版。保存并解析 MyInvois URL、JSON、key-value payload，预填 TIN/UUID/validation/tax/total 等字段，并生成 QR 总额/税额 mismatch warning。 | 后续继续补更多 MyInvois payload 样本。 |
+| 4.6 | 批量导入接口与 Webhook | 存在 | 已实现基础版。新增 `import-receipts`、`dispatch-webhook` Edge Functions，以及 AutoCount / SQL Accounting 导出模板。 | 后续根据客户系统补字段映射预设。 |
 
 ## 推荐实施顺序
 
@@ -74,15 +79,13 @@
    - 已完成：SSM/SST 校验、语言提示、OCR 配额条、Excel 数值格式、外部请求超时、非发票后验失败。
 
 2. **P0：人工校对效率**
-   - 已完成基础版：OCR bounding boxes 存储与图片高亮联动、字段级 confidence map、快捷键矩阵与提示面板、OCR 乱码自动 fallback。
-   - 待增强：精确 field source map、可配置快捷键提示、PDF 跨页合并。
+   - 已完成基础版：OCR bounding boxes、`field_sources`、图片高亮联动、字段级 confidence、明细行 confidence、快捷键矩阵、OCR 乱码 fallback、PDF 跨页合并。
+   - 待增强：更多真实样本下的 field source 精确度、快捷键自定义。
 
 3. **P1：数据结构与财务准确性**
-   - `currency`、`tax_breakdown`、`field_confidence`、`receipt_field_changes` schema。
-   - 已完成基础版：E-invoice 合规进度和 sync gate、QR payload 深度解析预填。
-   - 待完成：更多 QR 字段交叉校验、税率拆分、审计日志。
+   - 已完成基础版：`currency`、`tax_breakdown`、`address_structured`、`field_confidence`、`receipt_field_changes` schema，E-invoice 合规进度和 sync gate、QR payload 深度解析预填。
+   - 待增强：更多 QR 字段交叉校验样本、审计日志筛选导出。
 
 4. **P1/P2：批量与集成**
-   - 已完成基础版：明细多行粘贴、上传队列一键智能解析、导出预览。
-   - 自动确认规则。
-   - Webhook 和财务软件导出模板。
+   - 已完成基础版：明细多行粘贴、批量删除、上传队列一键智能解析、导出预览、自动确认规则、批量导入、Webhook、财务软件导出模板。
+   - 待增强：客户系统专属字段映射和 webhook 重试策略。

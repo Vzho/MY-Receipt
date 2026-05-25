@@ -15,7 +15,11 @@ alter table public.ocr_usage_monthly enable row level security;
 drop policy if exists "Users can read own OCR usage" on public.ocr_usage_monthly;
 create policy "Users can read own OCR usage"
   on public.ocr_usage_monthly for select
-  using ((select auth.uid()) = user_id);
+  to authenticated
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create or replace function public.consume_ocr_quota(
   p_user_id uuid,

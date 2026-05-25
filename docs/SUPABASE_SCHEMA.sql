@@ -173,126 +173,210 @@ create index if not exists idx_receipt_field_changes_user
 create policy "Users can read own receipts"
   on public.receipts for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can insert own receipts"
   on public.receipts for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can update own receipts"
   on public.receipts for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can delete own receipts"
   on public.receipts for delete
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can read own receipt items"
   on public.receipt_items for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can insert own receipt items"
   on public.receipt_items for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can update own receipt items"
   on public.receipt_items for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can delete own receipt items"
   on public.receipt_items for delete
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can read own receipt field changes"
   on public.receipt_field_changes for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can insert own receipt field changes"
   on public.receipt_field_changes for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 grant select, insert on public.receipt_field_changes to authenticated;
 
 create policy "Users can read own webhook configs"
   on public.user_webhook_configs for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can insert own webhook configs"
   on public.user_webhook_configs for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can update own webhook configs"
   on public.user_webhook_configs for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can delete own webhook configs"
   on public.user_webhook_configs for delete
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 grant select, insert, update, delete on public.user_webhook_configs to authenticated;
 
 create policy "Users can read own OCR usage"
   on public.ocr_usage_monthly for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can read own custom document types"
   on public.custom_document_types for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can insert own custom document types"
   on public.custom_document_types for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can update own custom document types"
   on public.custom_document_types for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can delete own custom document types"
   on public.custom_document_types for delete
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can read own field preferences"
   on public.user_field_preferences for select
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can insert own field preferences"
   on public.user_field_preferences for insert
   to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can update own field preferences"
   on public.user_field_preferences for update
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create policy "Users can delete own field preferences"
   on public.user_field_preferences for delete
   to authenticated
-  using ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
+  );
 
 create or replace function public.consume_ocr_quota(
   p_user_id uuid,
@@ -392,6 +476,7 @@ create policy "Users can read own receipt files"
   using (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can upload own receipt files"
@@ -400,6 +485,7 @@ create policy "Users can upload own receipt files"
   with check (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can update own receipt files"
@@ -408,10 +494,12 @@ create policy "Users can update own receipt files"
   using (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   )
   with check (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can delete own receipt files"
@@ -420,5 +508,6 @@ create policy "Users can delete own receipt files"
   using (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
+    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
