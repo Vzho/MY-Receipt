@@ -181,7 +181,7 @@ v0.3 新增字段：
 | Function | 描述 |
 | --- | --- |
 | `POST /functions/v1/import-receipts` | 批量导入 JSON/CSV 收据数据，写入 `receipts`，状态为 `pending_review` |
-| `POST /functions/v1/dispatch-webhook` | 手动触发单据 webhook；解析自动同步时也会按 `user_webhook_configs` 自动回调 |
+| `POST /functions/v1/dispatch-webhook` | 手动触发单据 webhook；解析自动同步时也会按 `user_webhook_configs` 自动回调。默认 10 秒超时，最多重试 2 次，可用 `WEBHOOK_TIMEOUT_MS`、`WEBHOOK_RETRIES`、`WEBHOOK_RETRY_BASE_DELAY_MS` 调整。 |
 
 ### custom_document_types
 

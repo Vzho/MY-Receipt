@@ -7,6 +7,10 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+const DEFAULT_WEBHOOK_TIMEOUT_MS = 10000
+const DEFAULT_WEBHOOK_RETRIES = 2
+const DEFAULT_WEBHOOK_RETRY_BASE_DELAY_MS = 500
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -68,9 +72,75 @@ async function dispatchReceiptWebhook(client: any, receipt: Record<string, unkno
   }
   if (config.secret) headers['x-resitai-signature'] = await hmacHex(String(config.secret), body)
 
-  const response = await fetch(String(config.url), { method: 'POST', headers, body })
-  if (!response.ok) throw new Error(`Webhook failed with HTTP ${response.status}`)
-  return { dispatched: true, status: response.status }
+  const result = await sendWebhookWithRetry(String(config.url), { method: 'POST', headers, body })
+  return { dispatched: true, status: result.status, attempts: result.attempts }
+}
+
+async function sendWebhookWithRetry(url: string, init: RequestInit) {
+  const maxRetries = webhookRetryCount()
+  let lastError: unknown = null
+  let lastStatus = 0
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), webhookTimeoutMs())
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal })
+      lastStatus = response.status
+      if (response.ok) return { status: response.status, attempts: attempt + 1 }
+      if (attempt >= maxRetries || !isRetryableWebhookStatus(response.status)) {
+        throw new Error(`Webhook failed with HTTP ${response.status}`)
+      }
+      console.warn(`Webhook returned HTTP ${response.status}; retrying attempt ${attempt + 2}.`)
+    } catch (error) {
+      lastError = error
+      if (attempt >= maxRetries || !isRetryableWebhookError(error)) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          throw new Error(`Webhook timed out after ${Math.round(webhookTimeoutMs() / 1000)} seconds.`)
+        }
+        throw error
+      }
+      console.warn(`Webhook request failed; retrying attempt ${attempt + 2}.`, error)
+    } finally {
+      clearTimeout(timer)
+    }
+
+    await delay(webhookRetryDelayMs(attempt))
+  }
+
+  if (lastError instanceof Error) throw lastError
+  throw new Error(`Webhook failed after retries${lastStatus ? ` with HTTP ${lastStatus}` : ''}`)
+}
+
+function webhookTimeoutMs() {
+  const configured = Number(Deno.env.get('WEBHOOK_TIMEOUT_MS'))
+  return Number.isFinite(configured) && configured >= 1000 ? configured : DEFAULT_WEBHOOK_TIMEOUT_MS
+}
+
+function webhookRetryCount() {
+  const configured = Number(Deno.env.get('WEBHOOK_RETRIES'))
+  return Number.isFinite(configured) && configured >= 0 ? Math.min(5, Math.floor(configured)) : DEFAULT_WEBHOOK_RETRIES
+}
+
+function webhookRetryDelayMs(attempt: number) {
+  const configured = Number(Deno.env.get('WEBHOOK_RETRY_BASE_DELAY_MS'))
+  const baseDelayMs = Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_WEBHOOK_RETRY_BASE_DELAY_MS
+  return baseDelayMs * (2 ** Math.max(0, attempt))
+}
+
+function isRetryableWebhookStatus(status: number) {
+  return status === 408 || status === 425 || status === 429 || status >= 500
+}
+
+function isRetryableWebhookError(error: unknown) {
+  if (error instanceof DOMException && error.name === 'AbortError') return true
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error ?? '').toLowerCase()
+  return /timeout|timed out|network|fetch|failed|econnreset|temporarily|unavailable/.test(message)
+}
+
+function delay(delayMs: number) {
+  if (delayMs <= 0) return Promise.resolve()
+  return new Promise<void>((resolve) => setTimeout(resolve, delayMs))
 }
 
 async function hmacHex(secret: string, value: string): Promise<string> {

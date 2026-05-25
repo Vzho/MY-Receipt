@@ -71,7 +71,7 @@
 | 4.3 | LHDN MyInvois 直接对账 | 存在但剔除 | 不做外部联网验证。 | 只保留 `validation_link`、QR payload 和内部字段完整性校验，不调用外部税局 API。 |
 | 4.4 | 数据仪表盘与 OCR 配额看板 | 部分存在 | 已按范围实现 OCR 配额进度条；完整 Dashboard 暂不做。 | 后续如需要，再做独立 Dashboard。 |
 | 4.5 | QR 码深度利用 | 存在 | 已实现基础版。保存并解析 MyInvois URL、JSON、key-value payload，预填 TIN/UUID/validation/tax/total 等字段，并生成 QR 总额/税额 mismatch warning。 | 后续继续补更多 MyInvois payload 样本。 |
-| 4.6 | 批量导入接口与 Webhook | 存在 | 已实现基础版。新增 `import-receipts`、`dispatch-webhook` Edge Functions，以及 AutoCount / SQL Accounting 导出模板。 | 后续根据客户系统补字段映射预设。 |
+| 4.6 | 批量导入接口与 Webhook | 存在 | 已实现基础版。新增 `import-receipts`、`dispatch-webhook` Edge Functions、Webhook 超时与 retry，以及 AutoCount / SQL Accounting 导出模板。 | 后续根据客户系统补字段映射预设。 |
 
 ## 推荐实施顺序
 
@@ -88,4 +88,4 @@
 
 4. **P1/P2：批量与集成**
    - 已完成基础版：明细多行粘贴、批量删除、上传队列一键智能解析、导出预览、自动确认规则、批量导入、Webhook、财务软件导出模板。
-   - 待增强：客户系统专属字段映射和 webhook 重试策略。
+   - 待增强：客户系统专属字段映射和更细的失败记录/重放队列。
