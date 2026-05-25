@@ -1532,6 +1532,30 @@ function buildWarnings(
     })
   }
 
+  const extraFields = receipt.extra_fields && typeof receipt.extra_fields === 'object' ? receipt.extra_fields : {}
+  const qrGrandTotal = normalizeMoney(Number(extraFields.qr_grand_total || extraFields.grand_total || 0))
+  if (qrGrandTotal > 0 && grandTotal > 0 && Math.abs(qrGrandTotal - grandTotal) > 0.05) {
+    warnings.push({
+      code: 'qr_amount_mismatch',
+      severity: 'warning',
+      message: 'QR total does not match OCR grand total',
+      field: 'grand_total',
+      details: { qr_grand_total: qrGrandTotal, grand_total: grandTotal },
+    })
+  }
+
+  const qrTaxAmount = normalizeMoney(Number(extraFields.tax_amount || 0))
+  const tax = roundMoney(Number(receipt.tax || 0))
+  if (qrTaxAmount > 0 && tax > 0 && Math.abs(qrTaxAmount - tax) > 0.05) {
+    warnings.push({
+      code: 'qr_tax_mismatch',
+      severity: 'warning',
+      message: 'QR tax amount does not match OCR tax amount',
+      field: 'tax',
+      details: { qr_tax_amount: qrTaxAmount, tax },
+    })
+  }
+
   const fieldConfidence = rawFieldConfidenceMap(context.rawAi?.field_confidence ?? context.rawAi?.parser_meta?.field_confidence)
   for (const [field, confidence] of Object.entries(fieldConfidence)) {
     if (confidence > 0 && confidence < 0.65) {

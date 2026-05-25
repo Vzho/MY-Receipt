@@ -22,6 +22,7 @@ export interface ReceiptWarning {
     | 'not_receipt'
     | 'poor_ocr_text'
     | 'qr_amount_mismatch'
+    | 'qr_tax_mismatch'
   severity: 'info' | 'warning' | 'error'
   message: string
   field?: string

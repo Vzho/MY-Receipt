@@ -126,6 +126,21 @@ function addQrPayloadWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
       },
     })
   }
+
+  const qrTaxAmount = numberFromUnknown(extraFields.tax_amount)
+  const tax = roundMoney(Number(receipt.tax || 0))
+  if (qrTaxAmount > 0 && tax > 0 && differs(qrTaxAmount, tax)) {
+    warnings.push({
+      code: 'qr_tax_mismatch',
+      severity: 'warning',
+      message: 'QR tax amount does not match OCR tax amount',
+      field: 'tax',
+      details: {
+        qr_tax_amount: qrTaxAmount,
+        tax,
+      },
+    })
+  }
 }
 
 function addImageWarnings(warnings: ReceiptWarning[], receipt: Receipt) {

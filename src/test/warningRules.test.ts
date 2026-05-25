@@ -96,6 +96,26 @@ describe('evaluateReceiptWarnings', () => {
       },
     }))
   })
+
+  it('flags QR tax mismatches against the OCR tax amount', () => {
+    const warnings = evaluateReceiptWarnings(createReceipt({
+      doc_type: 'E-invoice',
+      tax: 7.12,
+      extra_fields: {
+        qr_payload: 'https://myinvois.hasil.gov.my/validate?uuid=UUID-1&taxAmount=6.90',
+        tax_amount: 6.9,
+      },
+    }))
+
+    expect(warnings).toContainEqual(expect.objectContaining({
+      code: 'qr_tax_mismatch',
+      message: 'QR tax amount does not match OCR tax amount',
+      details: {
+        qr_tax_amount: 6.9,
+        tax: 7.12,
+      },
+    }))
+  })
 })
 
 function createReceipt(overrides: Partial<Receipt> = {}): Receipt {

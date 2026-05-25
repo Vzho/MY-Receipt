@@ -25,7 +25,7 @@
 - OCR 乱码比例过高时可自动 fallback 到 Qwen VL，并生成 `poor_ocr_text` warning。
 - 上传队列增加“全部智能解析”，支持批量启动后台智能解析。
 - E-invoice 审核页增加 LHDN 必填字段进度条，缺失 supplier/buyer TIN、UUID、验证链接或税额时禁止同步。
-- QR payload 支持解析 MyInvois URL、JSON 和 key-value 格式，预填 `extra_fields` 中的 TIN/UUID/tax 等字段，并对 QR 总额与 OCR 总额做交叉校验 warning。
+- QR payload 支持解析 MyInvois URL、JSON 和 key-value 格式，预填 `extra_fields` 中的 TIN/UUID/tax 等字段，并对 QR 总额/税额与 OCR 总额/税额做交叉校验 warning。
 - 商品明细支持从 Excel 粘贴多行追加，降低大量明细人工补录成本。
 - Excel 导出增加预览确认弹窗，下载前展示 Receipts/Items 行数、列和样例数据。
 - 商品明细编辑时按 Enter/Shift+Enter 可在同一列上下移动，减少大量明细校对时的鼠标操作。
@@ -65,7 +65,7 @@
 | 4.2 | 审计追踪与变更日志 | 存在 | 未实现。 | 新增 `receipt_field_changes` 表；所有 save/delete/restore/sync 写操作记录字段级 old/new value；Drawer 增加变更历史折叠区。 |
 | 4.3 | LHDN MyInvois 直接对账 | 存在但剔除 | 不做外部联网验证。 | 只保留 `validation_link`、QR payload 和内部字段完整性校验，不调用外部税局 API。 |
 | 4.4 | 数据仪表盘与 OCR 配额看板 | 部分存在 | 本轮实现 OCR 配额进度条；完整 Dashboard 暂不做。 | 后续如需要，再做独立 Dashboard；当前只显示配额使用率。 |
-| 4.5 | QR 码深度利用 | 存在 | 部分实现。保存 `qr_payload`，并可解析 MyInvois URL、JSON、key-value payload，预填 supplier/buyer TIN、UUID、validation link、tax amount 等 E-invoice 字段；QR 总额与 OCR/AI 总额不一致时生成 `qr_amount_mismatch` warning。 | 后续继续补 QR 税额与 OCR 税额交叉校验，以及更多 MyInvois payload 样本。 |
+| 4.5 | QR 码深度利用 | 存在 | 部分实现。保存 `qr_payload`，并可解析 MyInvois URL、JSON、key-value payload，预填 supplier/buyer TIN、UUID、validation link、tax amount 等 E-invoice 字段；QR 总额/税额与 OCR/AI 总额/税额不一致时生成 `qr_amount_mismatch` / `qr_tax_mismatch` warning。 | 后续继续补更多 MyInvois payload 样本，并扩展 QR/OCR 字段交叉校验范围。 |
 | 4.6 | 批量导入接口与 Webhook | 存在 | 未实现。 | 后置为集成阶段：REST import、Webhook、AutoCount/SQL Accounting 导出模板。 |
 
 ## 推荐实施顺序
@@ -80,7 +80,7 @@
 3. **P1：数据结构与财务准确性**
    - `currency`、`tax_breakdown`、`field_confidence`、`receipt_field_changes` schema。
    - 已完成基础版：E-invoice 合规进度和 sync gate、QR payload 深度解析预填。
-   - 待完成：QR 税额交叉校验、税率拆分、审计日志。
+   - 待完成：更多 QR 字段交叉校验、税率拆分、审计日志。
 
 4. **P1/P2：批量与集成**
    - 已完成基础版：明细多行粘贴、上传队列一键智能解析、导出预览。
