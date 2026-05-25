@@ -25,6 +25,7 @@ import { findReceiptFieldDetections, toOverlayStyle } from '../lib/ocrDetections
 import { getReviewShortcutAction } from '../lib/reviewNavigation'
 import { buildSubsidyRows, formatSubsidyHeadline, getSubsidyPayable, hasSubsidyDetails } from '../lib/subsidyDetails'
 import type { FieldKey } from '../types/fieldConfig'
+import type { ReceiptFieldChange } from '../types/receipt'
 import { CustomDocTypeInput } from './CustomDocTypeInput'
 import { FieldConfidenceIndicator } from './FieldConfidenceIndicator'
 import { ProcessingPanel } from './ProcessingPanel'
@@ -75,6 +76,7 @@ interface ReceiptReviewDrawerProps {
     merchants: string[]
     items: string[]
   }
+  auditChanges?: ReceiptFieldChange[]
   showShortcutHints?: boolean
   onToggleShortcutHints?: (show: boolean) => void
 }
@@ -102,6 +104,7 @@ function ReceiptReviewDrawerComponent({
   onSaveCustomDocType,
   onZoomImage,
   autocompleteOptions = { merchants: [], items: [] },
+  auditChanges = [],
   showShortcutHints = true,
   onToggleShortcutHints,
 }: ReceiptReviewDrawerProps) {
@@ -142,6 +145,7 @@ function ReceiptReviewDrawerComponent({
   }, [receipt])
 
   const grandTotal = Number(receipt.grand_total) || 0
+  const receiptCurrency = receipt.currency || config.currency || 'RM'
   const receiptMath = useMemo(() => calculateReceiptMath({
     itemTotal: itemsTotal,
     subtotal: receipt.subtotal,
@@ -153,7 +157,7 @@ function ReceiptReviewDrawerComponent({
   }), [grandTotal, itemsTotal, receipt.discount, receipt.rounding, receipt.service_charge, receipt.subtotal, receipt.tax_sst])
   const manualTotal = receiptMath.calculatedTotal
 
-  const subsidyRows = useMemo(() => buildSubsidyRows(receipt.subsidy_details, config.currency), [config.currency, receipt.subsidy_details])
+  const subsidyRows = useMemo(() => buildSubsidyRows(receipt.subsidy_details, receiptCurrency), [receipt.subsidy_details, receiptCurrency])
   const subsidyPayable = useMemo(() => getSubsidyPayable(receipt.subsidy_details), [receipt.subsidy_details])
   const hasItemQualityWarning = receipt?.raw_ai?.parser_meta?.item_quality === 'low'
     || /line item names look unreliable/i.test(receipt?.raw_ai?.parser_note || '')
@@ -470,7 +474,7 @@ function ReceiptReviewDrawerComponent({
         />
         <ReviewSummaryChip
           label={labels.mathSummaryLabel || labels.calculator || 'Math'}
-          value={mathPassed ? labels.mathPassed : `${labels.mathFailed} ${config.currency} ${mathDelta.toFixed(2)}`}
+          value={mathPassed ? labels.mathPassed : `${labels.mathFailed} ${receiptCurrency} ${mathDelta.toFixed(2)}`}
           tone={mathPassed ? 'success' : 'danger'}
           colorMode={config.colorMode}
         />
@@ -573,7 +577,7 @@ function ReceiptReviewDrawerComponent({
           {(receipt.subsidy_info || hasSubsidyDetails(receipt.subsidy_details)) && (
             <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
               <p className={`text-[9px] font-black uppercase mb-1 ${config.colorMode === 'Dark' ? 'text-amber-500' : 'text-amber-700'}`}>{labels.subsidyInfo}</p>
-              <p className={`text-xs font-black leading-tight ${config.colorMode === 'Dark' ? 'text-amber-200' : 'text-amber-900'}`}>{receipt.subsidy_info || formatSubsidyHeadline(receipt.subsidy_details, config.currency)}</p>
+              <p className={`text-xs font-black leading-tight ${config.colorMode === 'Dark' ? 'text-amber-200' : 'text-amber-900'}`}>{receipt.subsidy_info || formatSubsidyHeadline(receipt.subsidy_details, receiptCurrency)}</p>
               {subsidyRows.length > 0 && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   {subsidyRows.slice(0, 6).map((row) => (
@@ -666,6 +670,17 @@ function ReceiptReviewDrawerComponent({
                       />
                     </div>
                   </div>
+                  <div className={`${isFieldVisible('currency') ? '' : 'hidden'} space-y-1.5`}>
+                    <label className={`text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>{labels.currencyFieldLabel || labels.currency || 'Currency'}</label>
+                    <SoftSelect
+                      value={receipt.currency || receiptCurrency || 'RM'}
+                      options={['RM', 'SGD', 'USD', 'CNY']}
+                      colorMode={config.colorMode}
+                      optionLabels={labels.optionLabels}
+                      onChange={(value) => updateReceipt({ currency: value })}
+                      className="w-full"
+                    />
+                  </div>
                   {(receipt.doc_type === 'Custom (自定义)' || receipt.custom_doc_type) && (
                     <CustomDocTypeInput
                       value={customDocTypeInput}
@@ -747,8 +762,8 @@ function ReceiptReviewDrawerComponent({
                     </th>
                     <th className="px-5 py-3">{labels.itemName}</th>
                     <th className="px-3 py-3 w-20 text-center">{labels.qty}</th>
-                    <th className="px-3 py-3 w-28 text-right">{labels.unitLabel || 'Unit'} {config.currency}</th>
-                    <th className="px-5 py-3 w-28 text-right">{labels.lineLabel || 'Line'} {config.currency}</th>
+                    <th className="px-3 py-3 w-28 text-right">{labels.unitLabel || 'Unit'} {receiptCurrency}</th>
+                    <th className="px-5 py-3 w-28 text-right">{labels.lineLabel || 'Line'} {receiptCurrency}</th>
                     <th className="px-3 py-3 w-10 text-center"></th>
                   </tr>
                 </thead>
@@ -819,7 +834,7 @@ function ReceiptReviewDrawerComponent({
             <div className={`grid grid-cols-6 gap-4 text-xs font-bold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-600'}`}>
               <div className={`${isFieldVisible('subtotal') ? '' : 'hidden'} space-y-1.5`}>
                 <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.subtotal}</span><FieldConfidenceIndicator confidence={confidenceFor('subtotal')} labels={labels} /></div>
-                <div className={`w-full border border-transparent rounded-lg px-3 py-2.5 text-right font-black transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'}`}>{config.currency} {itemsTotal.toFixed(2)}</div>
+                <div className={`w-full border border-transparent rounded-lg px-3 py-2.5 text-right font-black transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'}`}>{receiptCurrency} {itemsTotal.toFixed(2)}</div>
               </div>
               <div className={`${isFieldVisible('discount') ? '' : 'hidden'} space-y-1.5`}>
                 <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-rose-500 uppercase">{labels.discount}</span><FieldConfidenceIndicator confidence={confidenceFor('discount')} labels={labels} /></div>
@@ -855,7 +870,7 @@ function ReceiptReviewDrawerComponent({
                   {subsidyPayable !== null && (
                     <div className={`min-w-40 rounded-xl px-4 py-3 text-right ${config.colorMode === 'Dark' ? 'bg-slate-950/50' : 'bg-white'}`}>
                       <p className="text-[9px] font-black uppercase text-slate-400">{labels.actualPayableLabel || 'Payable / OPT'}</p>
-                      <p className={`text-2xl font-black ${config.colorMode === 'Dark' ? 'text-white' : 'text-slate-900'}`}>{config.currency} {subsidyPayable.toFixed(2)}</p>
+                      <p className={`text-2xl font-black ${config.colorMode === 'Dark' ? 'text-white' : 'text-slate-900'}`}>{receiptCurrency} {subsidyPayable.toFixed(2)}</p>
                     </div>
                   )}
                 </div>
@@ -916,16 +931,35 @@ function ReceiptReviewDrawerComponent({
               </div>
             )}
 
+            <details className={`rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/30' : 'border-slate-100 bg-slate-50'}`}>
+              <summary className={`cursor-pointer text-[10px] font-black uppercase tracking-[2px] ${config.colorMode === 'Dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                {labels.changeHistoryLabel || 'Change history'} ({auditChanges.length})
+              </summary>
+              <div className="mt-3 max-h-48 overflow-auto space-y-2">
+                {auditChanges.length === 0 ? (
+                  <p className="text-xs font-bold text-slate-400">{labels.noChangeHistoryLabel || 'No saved field changes yet.'}</p>
+                ) : auditChanges.slice(0, 30).map((change) => (
+                  <div key={change.id} className={`rounded-xl px-3 py-2 text-xs ${config.colorMode === 'Dark' ? 'bg-slate-900 text-slate-300' : 'bg-white text-slate-600'}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-black uppercase">{change.field_name}</span>
+                      <span className="text-[10px] font-bold text-slate-400">{new Date(change.changed_at).toLocaleString()}</span>
+                    </div>
+                    <p className="mt-1 truncate font-bold text-slate-400">{change.action}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+
             <div className={`pt-6 border-t flex items-center justify-between ${config.colorMode === 'Dark' ? 'border-slate-800' : 'border-slate-100'}`}>
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase mb-0.5">{labels.calculatedTotal}</p>
                 <div className="flex items-center gap-4">
                   <p className={`text-3xl font-black tracking-tight ${mathPassed ? config.theme.text : 'text-rose-600'}`}>
-                    {config.currency} {manualTotal.toFixed(2)}
+                    {receiptCurrency} {manualTotal.toFixed(2)}
                   </p>
                   {!mathPassed ? (
                     <span className="px-3 py-1.5 bg-rose-50 text-rose-600 text-[10px] font-black uppercase rounded-lg border border-rose-100 flex items-center gap-1 animate-pulse">
-                      <AlertTriangle className="w-4 h-4" /> {labels.mathFailed} {config.currency} {mathDelta.toFixed(2)}
+                      <AlertTriangle className="w-4 h-4" /> {labels.mathFailed} {receiptCurrency} {mathDelta.toFixed(2)}
                     </span>
                   ) : (
                     <span className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg border flex items-center gap-1 ${config.colorMode === 'Dark' ? 'bg-emerald-950 text-emerald-400 border-emerald-900/50' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
@@ -933,7 +967,7 @@ function ReceiptReviewDrawerComponent({
                     </span>
                   )}
                 </div>
-                <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{labels.ocrTotal}: {config.currency} {grandTotal}</p>
+                <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{labels.ocrTotal}: {receiptCurrency} {grandTotal}</p>
               </div>
 
               <div className="flex items-center gap-3">

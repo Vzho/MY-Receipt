@@ -16,9 +16,12 @@ create table if not exists public.receipts (
     check (status in ('uploaded', 'processing', 'pending_review', 'synced', 'failed')),
   processing_stage text
     check (processing_stage is null or processing_stage in ('uploaded', 'ocr_scanning', 'ai_extracting', 'generating_preview', 'ready_for_review', 'ocr_failed')),
+  currency text not null default 'RM'
+    check (currency in ('RM', 'SGD', 'USD', 'CNY')),
   merchant_name text,
   company_reg_no text,
   address text,
+  address_structured jsonb,
   phone text,
   invoice_no text,
   date date,
@@ -37,6 +40,7 @@ create table if not exists public.receipts (
   payment_method text,
   change numeric(10,2) not null default 0,
   subsidy_details jsonb,
+  tax_breakdown jsonb not null default '[]'::jsonb,
   extra_fields jsonb,
   tags text[] not null default '{}',
   confidence_score numeric(4,3) not null default 0,
@@ -125,6 +129,19 @@ create table if not exists public.user_field_preferences (
   unique(user_id, field_key)
 );
 
+create table if not exists public.receipt_field_changes (
+  id uuid primary key default gen_random_uuid(),
+  receipt_id uuid,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  action text not null
+    check (action in ('save', 'sync', 'soft_delete', 'restore', 'permanent_delete')),
+  field_name text not null,
+  old_value jsonb,
+  new_value jsonb,
+  changed_by uuid references auth.users(id) on delete set null,
+  changed_at timestamptz not null default now()
+);
+
 create index if not exists idx_ocr_usage_monthly_provider_period
   on public.ocr_usage_monthly (provider, period);
 
@@ -133,6 +150,12 @@ alter table public.receipt_items enable row level security;
 alter table public.ocr_usage_monthly enable row level security;
 alter table public.custom_document_types enable row level security;
 alter table public.user_field_preferences enable row level security;
+alter table public.receipt_field_changes enable row level security;
+
+create index if not exists idx_receipt_field_changes_receipt
+  on public.receipt_field_changes (receipt_id, changed_at desc);
+create index if not exists idx_receipt_field_changes_user
+  on public.receipt_field_changes (user_id, changed_at desc);
 
 create policy "Users can read own receipts"
   on public.receipts for select
@@ -175,6 +198,18 @@ create policy "Users can delete own receipt items"
   on public.receipt_items for delete
   to authenticated
   using ((select auth.uid()) = user_id);
+
+create policy "Users can read own receipt field changes"
+  on public.receipt_field_changes for select
+  to authenticated
+  using ((select auth.uid()) = user_id);
+
+create policy "Users can insert own receipt field changes"
+  on public.receipt_field_changes for insert
+  to authenticated
+  with check ((select auth.uid()) = user_id);
+
+grant select, insert on public.receipt_field_changes to authenticated;
 
 create policy "Users can read own OCR usage"
   on public.ocr_usage_monthly for select

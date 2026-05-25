@@ -10,6 +10,7 @@ import {
   getReceipt,
   listCustomDocumentTypes,
   listDeletedReceipts,
+  listReceiptFieldChanges,
   listFieldPreferences,
   listOcrUsageMonthly,
   listReceipts,
@@ -64,6 +65,7 @@ import type { ImageProcessingMetadata, ProcessedReceiptImage } from './lib/image
 import type { DuplicateCandidate } from './types/duplicate';
 import type { FieldKey, FieldPreference } from './types/fieldConfig';
 import type { OcrUsageMonthly } from './types/ocrUsage';
+import type { ReceiptFieldChange } from './types/receipt';
 import { supabase } from './lib/supabaseClient';
 
 const INDUSTRIES = ['Grocery', 'Fuel', 'F&B', 'Retail', 'Service', 'Other', 'Custom (自定义)'];
@@ -76,7 +78,7 @@ const THEMES = [
   { name: 'Rose', color: 'bg-rose-600', text: 'text-rose-600', light: 'bg-rose-50' }
 ];
 const LANGUAGES = ['中文', 'English', 'Melayu'];
-const CURRENCIES = ['RM', 'SGD', 'USD', '¥'];
+const CURRENCIES = ['RM', 'SGD', 'USD', 'CNY'];
 const DEFAULT_FONT_SCALE = 1.08;
 const FONT_SCALE_OPTIONS = [1, DEFAULT_FONT_SCALE, 1.16];
 
@@ -164,6 +166,7 @@ function toDisplayReceipt(receipt: any) {
     sst_no: receipt.sst_no ?? receipt.extra_fields?.sst_no ?? null,
     display_filename: formatReceiptDisplayFilename(receipt),
     source_page_label: getReceiptSourcePageLabel(receipt),
+    currency: receipt.currency || 'RM',
     tax,
     tax_sst: tax,
     subsidy_info: subsidyInfo,
@@ -182,6 +185,7 @@ function toApiReceipt(receipt: any) {
     filename: receipt.display_filename || receipt.filename,
     status: DB_STATUS_BY_DISPLAY_STATUS[receipt.status] || receipt.status || 'pending_review',
     category: receipt.category || receipt.industry || 'Other',
+    currency: receipt.currency || 'RM',
     tax: receipt.tax ?? receipt.tax_sst ?? 0,
     subsidy_details: receipt.subsidy_details || (receipt.subsidy_info ? { description: receipt.subsidy_info } : null),
     receipt_items: receipt.receipt_items || receipt.items || [],
@@ -643,6 +647,9 @@ const I18N: any = {
     receiptNotFoundLabel: '收据已不存在。',
     openNotificationReceiptFailedLabel: '无法从消息打开收据。',
     retryingLabel: (id: string) => `正在重试 API：${id}`,
+    currencyFieldLabel: '单据币种',
+    changeHistoryLabel: '变更历史',
+    noChangeHistoryLabel: '暂无已保存的字段变更。',
     retryOpenDetailLabel: '已打开单据详情，可点击“智能解析”重新处理。',
     deletePromptLabel: '删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）',
     batchDeletePromptLabel: '批量删除原因（blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other）',
@@ -1133,6 +1140,9 @@ const I18N: any = {
     receiptNotFoundLabel: 'Receipt no longer exists.',
     openNotificationReceiptFailedLabel: 'Failed to open receipt from message.',
     retryingLabel: (id: string) => `Retrying API for ID: ${id}`,
+    currencyFieldLabel: 'Receipt currency',
+    changeHistoryLabel: 'Change history',
+    noChangeHistoryLabel: 'No saved field changes yet.',
     retryOpenDetailLabel: 'Receipt detail opened. Use Smart parse to retry processing.',
     deletePromptLabel: 'Delete reason (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
     batchDeletePromptLabel: 'Batch delete reason (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
@@ -1624,6 +1634,9 @@ const I18N: any = {
     receiptNotFoundLabel: 'Resit tidak lagi wujud.',
     openNotificationReceiptFailedLabel: 'Gagal membuka resit daripada mesej.',
     retryingLabel: (id: string) => `Mencuba semula API untuk ID: ${id}`,
+    currencyFieldLabel: 'Mata wang resit',
+    changeHistoryLabel: 'Sejarah perubahan',
+    noChangeHistoryLabel: 'Tiada perubahan medan tersimpan.',
     retryOpenDetailLabel: 'Butiran resit dibuka. Gunakan huraian pintar untuk cuba semula.',
     deletePromptLabel: 'Sebab padam (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
     batchDeletePromptLabel: 'Sebab padam kelompok (blurry_image / duplicate / amount_not_clear / not_receipt / missing_required_info / other)',
@@ -1712,6 +1725,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'upload' | 'history' | 'rejected'>('upload');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
+  const [selectedReceiptChanges, setSelectedReceiptChanges] = useState<ReceiptFieldChange[]>([]);
   const [deletedReceipts, setDeletedReceipts] = useState<any[]>([]);
   const [ocrUsage, setOcrUsage] = useState<OcrUsageMonthly[]>([]);
   const [fieldPreferences, setFieldPreferences] = useState<FieldPreference[]>(() => defaultFieldPreferences());
@@ -1809,6 +1823,25 @@ export default function App() {
   }, [notifications]);
 
   useEffect(() => {
+    let cancelled = false;
+    if (!selectedReceipt?.id) {
+      setSelectedReceiptChanges([]);
+      return;
+    }
+    listReceiptFieldChanges(selectedReceipt.id)
+      .then((changes) => {
+        if (!cancelled) setSelectedReceiptChanges(changes);
+      })
+      .catch((error) => {
+        console.warn('Failed to load receipt change history:', error);
+        if (!cancelled) setSelectedReceiptChanges([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedReceipt?.id]);
+
+  useEffect(() => {
     return () => {
       if (repairProgressTimerRef.current) {
         window.clearInterval(repairProgressTimerRef.current);
@@ -1883,6 +1916,7 @@ export default function App() {
         title: 'Receipt synced',
         receiptId: displayReceipt.id,
       });
+      void listReceiptFieldChanges(displayReceipt.id).then(setSelectedReceiptChanges).catch((error) => console.warn('Failed to refresh change history:', error));
       return displayReceipt;
     } catch (err) {
       console.error("Supabase sync error:", err);
@@ -3679,6 +3713,7 @@ export default function App() {
           onSaveCustomDocType={handleSaveCustomDocType}
           onZoomImage={setZoomImage}
           autocompleteOptions={autocompleteOptions}
+          auditChanges={selectedReceiptChanges}
           showShortcutHints={Boolean(config.showShortcutHints)}
           onToggleShortcutHints={(show) => setConfig((current: any) => ({ ...current, showShortcutHints: show }))}
         />

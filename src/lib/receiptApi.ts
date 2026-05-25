@@ -8,7 +8,7 @@ import type { CustomDocumentType } from '../types/documentType'
 import type { DuplicateCandidate } from '../types/duplicate'
 import type { FieldPreference } from '../types/fieldConfig'
 import type { OcrUsageMonthly } from '../types/ocrUsage'
-import type { Receipt, ReceiptFilters, ReceiptItem } from '../types/receipt'
+import type { Receipt, ReceiptFieldChange, ReceiptFilters, ReceiptItem } from '../types/receipt'
 import type { ImageProcessingMetadata } from './imagePreprocess'
 
 export const RECEIPT_BUCKET = 'receipts'
@@ -98,6 +98,7 @@ export async function createReceiptFromFile(file: File, options: CreateReceiptFr
       file_hash: fileHash,
       status: 'uploaded',
       processing_stage: 'uploaded',
+      currency: 'RM',
       category: 'Other',
       doc_type: initialDocType,
       extra_fields: initialExtraFields,
@@ -173,6 +174,7 @@ export async function createReceiptFromFile(file: File, options: CreateReceiptFr
       mime_type: file.type,
       status: shouldAutoParse ? 'processing' : 'uploaded',
       processing_stage: shouldAutoParse ? 'ocr_scanning' : 'uploaded',
+      currency: 'RM',
     })
     .eq('id', receipt.id)
     .select('*')
@@ -402,13 +404,17 @@ export async function saveReceipt(receipt: Partial<Receipt>, items: Partial<Rece
   const client = requireSupabase()
   const user = await getCurrentUser()
   const patch = normalizeReceiptPatch(receipt as Record<string, unknown>) as Record<string, any>
+  const beforeReceipt = await getReceipt(receipt.id).catch(() => null)
+  const action = patch.status === 'synced' ? 'sync' : 'save'
 
   let { data: updated, error: updateError } = await client
     .from('receipts')
     .update({
+      currency: patch.currency ?? 'RM',
       merchant_name: patch.merchant_name ?? null,
       company_reg_no: patch.company_reg_no ?? null,
       address: patch.address ?? null,
+      address_structured: patch.address_structured ?? null,
       phone: patch.phone ?? null,
       invoice_no: patch.invoice_no ?? null,
       date: patch.date || null,
@@ -424,6 +430,7 @@ export async function saveReceipt(receipt: Partial<Receipt>, items: Partial<Rece
       payment_method: patch.payment_method ?? null,
       change: patch.change,
       subsidy_details: patch.subsidy_details ?? null,
+      tax_breakdown: patch.tax_breakdown ?? [],
       tags: patch.tags,
       confidence_score: patch.confidence_score,
       warnings: patch.warnings ?? receipt.warnings ?? [],
@@ -492,11 +499,21 @@ export async function saveReceipt(receipt: Partial<Receipt>, items: Partial<Rece
     if (itemError) throw itemError
   }
 
-  return (await getReceipt(receipt.id)) ?? (updated as Receipt)
+  const refreshed = (await getReceipt(receipt.id)) ?? (updated as Receipt)
+  await recordReceiptFieldChanges({
+    receiptId: receipt.id,
+    userId: user.id,
+    action,
+    before: beforeReceipt,
+    after: refreshed,
+  })
+  return refreshed
 }
 
 export async function softDeleteReceipt(id: string, options: SoftDeleteReceiptOptions): Promise<Receipt> {
   const client = requireSupabase()
+  const user = await getCurrentUser()
+  const beforeReceipt = await getReceipt(id).catch(() => null)
   const { data, error } = await client
     .from('receipts')
     .update({
@@ -512,11 +529,21 @@ export async function softDeleteReceipt(id: string, options: SoftDeleteReceiptOp
     throw new Error('Soft delete requires the v0.3 Supabase migration. Run docs/ADD_RESITAI_V0_3_FIELDS.sql first.')
   }
   if (error) throw error
+  await recordReceiptFieldChanges({
+    receiptId: id,
+    userId: user.id,
+    action: 'soft_delete',
+    before: beforeReceipt,
+    after: data as Receipt,
+    fieldNames: ['deleted_at', 'deleted_reason', 'deleted_note'],
+  })
   return data as Receipt
 }
 
 export async function restoreReceipt(id: string): Promise<Receipt> {
   const client = requireSupabase()
+  const user = await getCurrentUser()
+  const beforeReceipt = await getReceipt(id).catch(() => null)
   const { data, error } = await client
     .from('receipts')
     .update({
@@ -532,6 +559,14 @@ export async function restoreReceipt(id: string): Promise<Receipt> {
     throw new Error('Restore requires the v0.3 Supabase migration. Run docs/ADD_RESITAI_V0_3_FIELDS.sql first.')
   }
   if (error) throw error
+  await recordReceiptFieldChanges({
+    receiptId: id,
+    userId: user.id,
+    action: 'restore',
+    before: beforeReceipt,
+    after: data as Receipt,
+    fieldNames: ['deleted_at', 'deleted_reason', 'deleted_note'],
+  })
   return data as Receipt
 }
 
@@ -541,6 +576,7 @@ export async function deleteReceipt(id: string): Promise<void> {
 
 export async function permanentlyDeleteReceipt(id: string): Promise<void> {
   const client = requireSupabase()
+  const user = await getCurrentUser()
   const existing = await getReceipt(id)
 
   const paths = [existing?.file_path, existing?.processed_file_path].filter(Boolean) as string[]
@@ -551,6 +587,14 @@ export async function permanentlyDeleteReceipt(id: string): Promise<void> {
 
   const { error } = await client.from('receipts').delete().eq('id', id)
   if (error) throw error
+  await recordReceiptFieldChanges({
+    receiptId: id,
+    userId: user.id,
+    action: 'permanent_delete',
+    before: existing,
+    after: null,
+    fieldNames: ['status', 'deleted_at', 'file_path', 'processed_file_path'],
+  })
 }
 
 export async function findDuplicateCandidates(options: FindDuplicateCandidateOptions): Promise<DuplicateCandidate[]> {
@@ -646,6 +690,20 @@ export async function listOcrUsageMonthly(period = new Date().toISOString().slic
     return []
   }
   return (data ?? []) as OcrUsageMonthly[]
+}
+
+export async function listReceiptFieldChanges(receiptId: string): Promise<ReceiptFieldChange[]> {
+  const client = requireSupabase()
+  const { data, error } = await client
+    .from('receipt_field_changes')
+    .select('*')
+    .eq('receipt_id', receiptId)
+    .order('changed_at', { ascending: false })
+    .limit(100)
+
+  if (error && isMissingSchemaError(error)) return []
+  if (error) throw error
+  return (data ?? []) as ReceiptFieldChange[]
 }
 
 export async function createReceiptFileSignedUrl(filePath: string | null, expiresInSeconds = 60 * 60): Promise<string | null> {
@@ -755,6 +813,115 @@ async function markReceiptFailed(id: string, message: string): Promise<Receipt |
   return data as Receipt
 }
 
+type ReceiptAuditAction = ReceiptFieldChange['action']
+
+const DEFAULT_AUDIT_FIELDS = [
+  'currency',
+  'merchant_name',
+  'company_reg_no',
+  'address',
+  'address_structured',
+  'phone',
+  'invoice_no',
+  'date',
+  'time',
+  'category',
+  'doc_type',
+  'custom_doc_type',
+  'subtotal',
+  'discount',
+  'tax',
+  'service_charge',
+  'rounding',
+  'grand_total',
+  'payment_method',
+  'change',
+  'subsidy_details',
+  'tax_breakdown',
+  'extra_fields',
+  'tags',
+  'status',
+  'processing_stage',
+  'warnings',
+  'deleted_at',
+  'deleted_reason',
+  'deleted_note',
+  'receipt_items',
+]
+
+export function buildReceiptFieldChangeRows(input: {
+  receiptId: string
+  userId: string
+  action: ReceiptAuditAction
+  before: Partial<Receipt> | null
+  after: Partial<Receipt> | null
+  fieldNames?: string[]
+}) {
+  const fields = input.fieldNames ?? DEFAULT_AUDIT_FIELDS
+  return fields
+    .map((fieldName) => {
+      const oldValue = normalizeAuditValue(readAuditField(input.before, fieldName))
+      const newValue = normalizeAuditValue(readAuditField(input.after, fieldName))
+      if (stableJson(oldValue) === stableJson(newValue)) return null
+      return {
+        receipt_id: input.receiptId,
+        user_id: input.userId,
+        action: input.action,
+        field_name: fieldName,
+        old_value: oldValue,
+        new_value: newValue,
+        changed_by: input.userId,
+      }
+    })
+    .filter(Boolean)
+}
+
+async function recordReceiptFieldChanges(input: {
+  receiptId: string
+  userId: string
+  action: ReceiptAuditAction
+  before: Partial<Receipt> | null
+  after: Partial<Receipt> | null
+  fieldNames?: string[]
+}) {
+  const rows = buildReceiptFieldChangeRows(input)
+  if (rows.length === 0) return
+
+  const client = requireSupabase()
+  const { error } = await client.from('receipt_field_changes').insert(rows)
+  if (error) {
+    if (isMissingSchemaError(error)) {
+      console.warn('Receipt field change audit table is not available yet; skipped audit logging.', error)
+      return
+    }
+    console.warn('Receipt field change audit logging failed; receipt write was kept.', error)
+  }
+}
+
+function readAuditField(receipt: Partial<Receipt> | null, fieldName: string) {
+  if (!receipt) return null
+  if (fieldName === 'receipt_items') return receipt.receipt_items ?? []
+  return (receipt as Record<string, unknown>)[fieldName]
+}
+
+function normalizeAuditValue(value: unknown): unknown {
+  if (value === undefined) return null
+  if (Array.isArray(value)) return value.map(normalizeAuditValue)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, entryValue]) => entryValue !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entryValue]) => [key, normalizeAuditValue(entryValue)]),
+    )
+  }
+  return value
+}
+
+function stableJson(value: unknown) {
+  return JSON.stringify(normalizeAuditValue(value))
+}
+
 async function getCurrentUser() {
   const client = requireSupabase()
   const {
@@ -793,7 +960,7 @@ function isMissingSchemaError(error: unknown): boolean {
   const code = record?.code ?? ''
   const text = `${record?.message ?? ''} ${record?.details ?? ''} ${record?.hint ?? ''}`
   return ['PGRST204', 'PGRST205', '42703', '42P01'].includes(code)
-    || /schema cache|column|relation .* does not exist|deleted_at|file_hash|processing_stage|warnings|extra_fields|duplicate_of|custom_doc_type|custom_document_types|user_field_preferences/i.test(text)
+    || /schema cache|column|relation .* does not exist|deleted_at|file_hash|processing_stage|warnings|extra_fields|duplicate_of|custom_doc_type|currency|tax_breakdown|address_structured|receipt_field_changes|custom_document_types|user_field_preferences/i.test(text)
 }
 
 function buildDuplicateTarget(options: FindDuplicateCandidateOptions): Receipt {

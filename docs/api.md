@@ -155,6 +155,18 @@ v0.3 新增字段：
 | `file_hash`, `duplicate_of`, `duplicate_score` | 文件 hash 与业务去重 |
 | `custom_doc_type` | 用户自定义单据类型 |
 | `extra_fields` | E-invoice 专属字段 |
+| `currency` | 单据币种：`RM` / `SGD` / `USD` / `CNY`，旧数据默认 `RM` |
+| `tax_breakdown` | 多税率明细：`{ tax_type, tax_rate, taxable_amount, tax_amount }[]` |
+| `address_structured` | 地址结构化字段：`street / city / state / postcode / country` |
+
+### receipt_field_changes
+
+| 方法 | 描述 |
+|------|------|
+| `supabase.from('receipt_field_changes').select('*').eq('receipt_id', id)` | 查询单据字段级变更历史 |
+| `supabase.from('receipt_field_changes').insert([...])` | 保存 save / sync / soft_delete / restore / permanent_delete 的字段变更 |
+
+`receipt_field_changes` 只允许用户读取和插入自己的记录；审计写入失败不会阻断单据保存。
 
 ### custom_document_types
 

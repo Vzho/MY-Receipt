@@ -156,4 +156,28 @@ function createReceipt(overrides: Partial<Receipt>): Receipt {
   }
 }
 
-const { ACCEPTED_RECEIPT_MIME_TYPES, createReceiptFromFile, validateReceiptFile } = await import('../lib/receiptApi')
+describe('buildReceiptFieldChangeRows', () => {
+  it('records only changed receipt fields with old and new values', () => {
+    const rows = buildReceiptFieldChangeRows({
+      receiptId: 'receipt-1',
+      userId: 'user-1',
+      action: 'save',
+      before: createReceipt({ merchant_name: 'Old Merchant', currency: 'RM' }),
+      after: createReceipt({ merchant_name: 'New Merchant', currency: 'RM' }),
+      fieldNames: ['merchant_name', 'currency'],
+    })
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        receipt_id: 'receipt-1',
+        user_id: 'user-1',
+        action: 'save',
+        field_name: 'merchant_name',
+        old_value: 'Old Merchant',
+        new_value: 'New Merchant',
+      }),
+    ])
+  })
+})
+
+const { ACCEPTED_RECEIPT_MIME_TYPES, buildReceiptFieldChangeRows, createReceiptFromFile, validateReceiptFile } = await import('../lib/receiptApi')

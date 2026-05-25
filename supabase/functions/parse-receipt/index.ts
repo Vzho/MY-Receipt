@@ -1303,11 +1303,16 @@ function normalizeReceipt(input: Record<string, any>) {
   const tags = Array.isArray(input.tags)
     ? input.tags.filter((tag: string) => validTags.includes(tag))
     : ['Pending']
+  const currency = ['RM', 'SGD', 'USD', 'CNY'].includes(String(input.currency || '').toUpperCase())
+    ? String(input.currency).toUpperCase()
+    : inferCurrency(input)
 
   return {
+    currency,
     merchant_name: stringOrNull(input.merchant_name),
     company_reg_no: stringOrNull(input.company_reg_no),
     address: stringOrNull(input.address),
+    address_structured: normalizeAddressStructured(input.address_structured),
     phone: stringOrNull(input.phone),
     invoice_no: stringOrNull(input.invoice_no),
     date: normalizeDate(input.date),
@@ -1324,6 +1329,7 @@ function normalizeReceipt(input: Record<string, any>) {
     payment_method: stringOrNull(input.payment_method),
     change: normalizeMoney(input.change),
     subsidy_details: input.subsidy_details && typeof input.subsidy_details === 'object' ? input.subsidy_details : null,
+    tax_breakdown: normalizeTaxBreakdown(input.tax_breakdown),
     extra_fields: input.extra_fields && typeof input.extra_fields === 'object' ? normalizeExtraFields(input.extra_fields as Record<string, unknown>) : null,
     tags,
     confidence_score: clamp(Number(input.confidence_score) || 0, 0, 1),
@@ -1354,6 +1360,45 @@ function mergeQrPayload(normalizedReceipt: Record<string, any>, receipt: Record<
   if (looksLikeEInvoiceQrPayload(payload) || parsedQrFields.invoice_uuid || parsedQrFields.supplier_tin || parsedQrFields.buyer_tin) {
     normalizedReceipt.doc_type = 'E-invoice'
   }
+}
+
+function inferCurrency(input: Record<string, unknown>) {
+  const haystack = [
+    input.currency,
+    input.raw_text,
+    input.parser_note,
+    input.payment_method,
+  ].map((value) => String(value ?? '')).join(' ')
+  if (/\bsgd\b|s\$/i.test(haystack)) return 'SGD'
+  if (/\busd\b|us\$/i.test(haystack)) return 'USD'
+  if (/\bcny\b|rmb|人民币|¥/i.test(haystack)) return 'CNY'
+  return 'RM'
+}
+
+function normalizeTaxBreakdown(value: unknown) {
+  if (!Array.isArray(value)) return []
+  return value.map((entry) => {
+    const record = entry && typeof entry === 'object' ? entry as Record<string, unknown> : {}
+    return {
+      tax_type: stringOrNull(record.tax_type ?? record.type) || 'SST',
+      tax_rate: nullableMoney(record.tax_rate ?? record.rate),
+      taxable_amount: nullableMoney(record.taxable_amount ?? record.base_amount),
+      tax_amount: nullableMoney(record.tax_amount ?? record.amount),
+    }
+  }).filter((entry) => entry.tax_rate !== null || entry.taxable_amount !== null || entry.tax_amount !== null)
+}
+
+function normalizeAddressStructured(value: unknown) {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  const address = {
+    street: stringOrNull(record.street),
+    city: stringOrNull(record.city),
+    state: stringOrNull(record.state ?? record.negeri),
+    postcode: stringOrNull(record.postcode ?? record.postal_code),
+    country: stringOrNull(record.country) || 'Malaysia',
+  }
+  return Object.values(address).some(Boolean) ? address : null
 }
 
 function looksLikeEInvoiceQrPayload(payload: string | null | undefined): boolean {
@@ -2098,6 +2143,11 @@ function normalizeDate(value: unknown): string | null {
 function normalizeMoney(value: unknown): number {
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0
+}
+
+function nullableMoney(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : null
 }
 
 function normalizeQuantity(value: unknown): number {

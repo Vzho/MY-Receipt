@@ -2,6 +2,7 @@ export type ReceiptStatus = 'uploaded' | 'processing' | 'pending_review' | 'sync
 export type ReceiptCategory = 'Grocery' | 'Fuel' | 'F&B' | 'Retail' | 'Service' | 'Other'
 export type ReceiptDocType = 'Receipt' | 'Invoice' | 'Credit Note' | 'Expense' | 'E-invoice'
 export type ReceiptTag = 'Business' | 'Personal' | 'Tax Deductible' | 'Pending'
+export type ReceiptCurrency = 'RM' | 'SGD' | 'USD' | 'CNY'
 export type ReceiptProcessingStage =
   | 'uploaded'
   | 'ocr_scanning'
@@ -57,6 +58,33 @@ export interface EInvoiceExtraFields {
   qr_grand_total?: number | null
 }
 
+export interface ReceiptTaxBreakdownEntry {
+  tax_type: string
+  tax_rate: number | null
+  taxable_amount: number | null
+  tax_amount: number | null
+}
+
+export interface ReceiptAddressStructured {
+  street?: string | null
+  city?: string | null
+  state?: string | null
+  postcode?: string | null
+  country?: string | null
+}
+
+export interface ReceiptFieldChange {
+  id: string
+  receipt_id: string | null
+  user_id: string
+  action: 'save' | 'sync' | 'soft_delete' | 'restore' | 'permanent_delete'
+  field_name: string
+  old_value: unknown
+  new_value: unknown
+  changed_by?: string | null
+  changed_at: string
+}
+
 export interface ReceiptItem {
   id?: string
   receipt_id?: string
@@ -82,11 +110,13 @@ export interface Receipt {
   file_hash?: string | null
   status: ReceiptStatus
   processing_stage?: ReceiptProcessingStage | null
+  currency?: ReceiptCurrency | null
   merchant_name: string | null
   company_reg_no: string | null
   tin_no?: string | null
   sst_no?: string | null
   address: string | null
+  address_structured?: ReceiptAddressStructured | null
   phone: string | null
   invoice_no: string | null
   date: string | null
@@ -103,6 +133,7 @@ export interface Receipt {
   payment_method: string | null
   change: number
   subsidy_details: Record<string, unknown> | null
+  tax_breakdown?: ReceiptTaxBreakdownEntry[] | null
   extra_fields?: EInvoiceExtraFields & Record<string, unknown> | null
   tags: ReceiptTag[]
   confidence_score: number

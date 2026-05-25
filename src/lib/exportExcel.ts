@@ -32,6 +32,8 @@ export interface ReceiptSummaryExportRow {
   item_count: number
   items_summary: string
   warning_count: number
+  tax_breakdown: string
+  address_structured: string
   supplier_name: string
   buyer_name: string
   supplier_tin: string
@@ -103,7 +105,7 @@ export function flattenReceipts(receipts: Receipt[], options: DownloadReceiptsOp
     return {
       receipt_id: receipt.id,
       filename: receipt.filename || '',
-      currency: options.currency || (receipt as Receipt & { currency?: string }).currency || 'RM',
+      currency: (receipt as Receipt & { currency?: string }).currency || options.currency || 'RM',
       merchant_name: receipt.merchant_name || '',
       company_reg_no: receipt.company_reg_no || '',
       tin_no: stringValue((receipt as Receipt & { tin_no?: unknown }).tin_no) || stringValue(extraFields.tin_no),
@@ -130,6 +132,8 @@ export function flattenReceipts(receipts: Receipt[], options: DownloadReceiptsOp
       item_count: items.length,
       items_summary: summarizeItems(items),
       warning_count: receipt.warnings?.length ?? 0,
+      tax_breakdown: summarizeTaxBreakdown(receipt.tax_breakdown),
+      address_structured: summarizeAddressStructured(receipt.address_structured),
       supplier_name: stringValue(extraFields.supplier_name),
       buyer_name: stringValue(extraFields.buyer_name),
       supplier_tin: stringValue(extraFields.supplier_tin),
@@ -293,7 +297,9 @@ export function buildReceiptColumns(exportFieldKeys: FieldKey[]) {
     grand_total: { header: 'Grand Total', key: 'grand_total', width: 14 },
     payment_method: { header: 'Payment Method', key: 'payment_method', width: 18 },
     change: { header: 'Change', key: 'change', width: 14 },
+    tax_breakdown: { header: 'Tax Breakdown', key: 'tax_breakdown', width: 36 },
     company_reg_no: { header: 'Company Reg No', key: 'company_reg_no', width: 18 },
+    address_structured: { header: 'Structured Address', key: 'address_structured', width: 42 },
     tin_no: { header: 'TIN No', key: 'tin_no', width: 18 },
     supplier_name: { header: 'Supplier Name', key: 'supplier_name', width: 24 },
     buyer_name: { header: 'Buyer Name', key: 'buyer_name', width: 24 },
@@ -316,6 +322,30 @@ export function buildReceiptColumns(exportFieldKeys: FieldKey[]) {
     { header: 'Government Subsidy', key: 'government_subsidy', width: 20 },
     { header: 'Payable Total', key: 'payable_total', width: 16 },
   ]
+}
+
+function summarizeTaxBreakdown(value: Receipt['tax_breakdown']) {
+  if (!Array.isArray(value) || value.length === 0) return ''
+  return value.map((entry) => {
+    const parts = [
+      entry.tax_type || 'Tax',
+      entry.tax_rate !== null && entry.tax_rate !== undefined ? `${entry.tax_rate}%` : '',
+      entry.taxable_amount !== null && entry.taxable_amount !== undefined ? `base ${entry.taxable_amount}` : '',
+      entry.tax_amount !== null && entry.tax_amount !== undefined ? `tax ${entry.tax_amount}` : '',
+    ].filter(Boolean)
+    return parts.join(' ')
+  }).join('; ')
+}
+
+function summarizeAddressStructured(value: Receipt['address_structured']) {
+  if (!value || typeof value !== 'object') return ''
+  return [
+    value.street,
+    value.postcode,
+    value.city,
+    value.state,
+    value.country,
+  ].filter(Boolean).join(', ')
 }
 
 function buildItemColumns(exportFieldKeys: FieldKey[]) {

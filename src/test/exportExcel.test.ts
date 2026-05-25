@@ -151,6 +151,35 @@ describe('flattenReceipts', () => {
     ]))
   })
 
+  it('keeps receipt currency and structured tax/address fields when present', () => {
+    const rows = flattenReceipts([
+      createReceipt({
+        currency: 'SGD',
+        tax_breakdown: [
+          { tax_type: 'SST', tax_rate: 8, taxable_amount: 100, tax_amount: 8 },
+        ],
+        address_structured: {
+          street: '1 Jalan Test',
+          city: 'Petaling Jaya',
+          state: 'Selangor',
+          postcode: '46000',
+          country: 'Malaysia',
+        },
+      }),
+    ], { currency: 'RM' })
+    const columns = buildReceiptColumns(['tax_breakdown', 'address_structured'])
+
+    expect(rows[0]).toMatchObject({
+      currency: 'SGD',
+      tax_breakdown: 'SST 8% base 100 tax 8',
+      address_structured: '1 Jalan Test, 46000, Petaling Jaya, Selangor, Malaysia',
+    })
+    expect(columns).toEqual(expect.arrayContaining([
+      expect.objectContaining({ header: 'Tax Breakdown', key: 'tax_breakdown' }),
+      expect.objectContaining({ header: 'Structured Address', key: 'address_structured' }),
+    ]))
+  })
+
   it('builds an export preview from the configured receipt and item sheets', () => {
     const preview = buildExportPreview([createReceipt()], {
       currency: 'RM',

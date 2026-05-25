@@ -40,6 +40,7 @@ const EINVOICE_EXTRA_FIELDS_SCHEMA = `{
     "validation_link": string | null,
     "qr_payload": string | null,
     "invoice_type": string | null,
+    "tax_rate": number | null,
     "tax_amount": number | null
   } | null`
 
@@ -61,12 +62,17 @@ Special rules for Malaysian fuel subsidy receipts:
 
 Special rules for Malaysian e-invoices:
 - If the image is a Malaysian e-invoice, set doc_type to E-invoice.
-- Put supplier/buyer names, TIN values, SST number, invoice UUID, validation link, QR payload, invoice type, and tax amount in extra_fields.
+- Put supplier/buyer names, TIN values, SST number, invoice UUID, validation link, QR payload, invoice type, tax rate, and tax amount in extra_fields.
+- Set currency to RM, SGD, USD, or CNY. Malaysian receipts default to RM.
+- If tax details show multiple rates, add tax_breakdown entries: { tax_type, tax_rate, taxable_amount, tax_amount }.
+- If an address is visible, also fill address_structured with street, city, state, postcode, country when possible.
 
 {
+  "currency": "RM" | "SGD" | "USD" | "CNY",
   "merchant_name": string | null,
   "company_reg_no": string | null,
   "address": string | null,
+  "address_structured": { "street": string | null, "city": string | null, "state": string | null, "postcode": string | null, "country": string | null } | null,
   "phone": string | null,
   "invoice_no": string | null,
   "date": "YYYY-MM-DD" | null,
@@ -83,6 +89,7 @@ Special rules for Malaysian e-invoices:
   "payment_method": string | null,
   "change": number,
   "subsidy_details": ${SUBSIDY_SCHEMA},
+  "tax_breakdown": Array<{ "tax_type": string, "tax_rate": number | null, "taxable_amount": number | null, "tax_amount": number | null }>,
   "extra_fields": ${buildExtraFieldsSchema(options)},
   "tags": string[],
   "confidence_score": number,
@@ -126,12 +133,17 @@ Special rules for Malaysian fuel subsidy receipts:
 
 Special rules for Malaysian e-invoices:
 - If the image is a Malaysian e-invoice, set doc_type to E-invoice.
-- Put supplier/buyer names, TIN values, SST number, invoice UUID, validation link, QR payload, invoice type, and tax amount in extra_fields.
+- Put supplier/buyer names, TIN values, SST number, invoice UUID, validation link, QR payload, invoice type, tax rate, and tax amount in extra_fields.
+- Set currency to RM, SGD, USD, or CNY. Malaysian receipts default to RM.
+- If tax details show multiple rates, add tax_breakdown entries: { tax_type, tax_rate, taxable_amount, tax_amount }.
+- If an address is visible, also fill address_structured with street, city, state, postcode, country when possible.
 
 {
+  "currency": "RM" | "SGD" | "USD" | "CNY",
   "merchant_name": string | null,
   "company_reg_no": string | null,
   "address": string | null,
+  "address_structured": { "street": string | null, "city": string | null, "state": string | null, "postcode": string | null, "country": string | null } | null,
   "phone": string | null,
   "invoice_no": string | null,
   "date": "YYYY-MM-DD" | null,
@@ -148,6 +160,7 @@ Special rules for Malaysian e-invoices:
   "payment_method": string | null,
   "change": number,
   "subsidy_details": ${SUBSIDY_SCHEMA},
+  "tax_breakdown": Array<{ "tax_type": string, "tax_rate": number | null, "taxable_amount": number | null, "tax_amount": number | null }>,
   "extra_fields": ${buildExtraFieldsSchema(options)},
   "tags": string[],
   "confidence_score": number,
