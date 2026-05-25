@@ -439,6 +439,8 @@ export async function saveReceipt(receipt: Partial<Receipt>, items: Partial<Rece
       extra_fields: patch.extra_fields ?? null,
       duplicate_of: patch.duplicate_of ?? null,
       duplicate_score: patch.duplicate_score ?? null,
+      auto_synced: patch.auto_synced ?? false,
+      auto_sync_rule_name: patch.auto_sync_rule_name ?? null,
       status: patch.status ?? 'pending_review',
       error_message: null,
     })
@@ -846,6 +848,8 @@ const DEFAULT_AUDIT_FIELDS = [
   'deleted_at',
   'deleted_reason',
   'deleted_note',
+  'auto_synced',
+  'auto_sync_rule_name',
   'receipt_items',
 ]
 

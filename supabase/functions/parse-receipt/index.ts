@@ -153,6 +153,7 @@ serve(async (req) => {
       if (itemError) throw itemError
     }
 
+    const autoSyncDecision = evaluateAutoSync(normalizedReceipt, normalizedItems, warnings)
     const { data: updated, error: updateError } = await serviceClient
       .from('receipts')
       .update({
@@ -161,8 +162,10 @@ serve(async (req) => {
         raw_ai: aiJson,
         warnings,
         ...duplicatePatch,
-        status: 'pending_review',
+        status: autoSyncDecision.shouldSync ? 'synced' : 'pending_review',
         processing_stage: 'ready_for_review',
+        auto_synced: autoSyncDecision.shouldSync,
+        auto_sync_rule_name: autoSyncDecision.ruleName,
         error_message: null,
         processed_at: new Date().toISOString(),
       })
@@ -171,6 +174,11 @@ serve(async (req) => {
       .single()
 
     if (updateError) throw updateError
+    if (autoSyncDecision.shouldSync) {
+      await maybeDispatchReceiptWebhook(serviceClient, updated).catch((webhookError) => {
+        console.warn('Receipt webhook dispatch skipped or failed:', webhookError)
+      })
+    }
 
     return json({ receipt: updated })
   } catch (error) {
@@ -1942,6 +1950,75 @@ function detectInvalidReceipt(receipt: Record<string, any>, items: Array<Record<
   return null
 }
 
+function evaluateAutoSync(receipt: Record<string, any>, items: Array<Record<string, any>>, warnings: Array<Record<string, unknown>>) {
+  const confidence = Number(receipt.confidence_score || 0)
+  const grandTotal = roundMoney(Number(receipt.grand_total || 0))
+  const itemTotal = roundMoney(items.reduce((sum, item) => sum + Number(item.line_total || 0), 0))
+  const receiptMath = calculateReceiptMath({
+    itemTotal,
+    subtotal: receipt.subtotal,
+    discount: receipt.discount,
+    tax: receipt.tax,
+    serviceCharge: receipt.service_charge,
+    rounding: receipt.rounding,
+    grandTotal: receipt.grand_total,
+  })
+  const mathPassed = grandTotal > 0 && Math.abs(receiptMath.calculatedTotal - grandTotal) <= 0.05
+  const shouldSync = confidence >= 0.9 && warnings.length === 0 && mathPassed
+  return {
+    shouldSync,
+    ruleName: shouldSync ? 'high_confidence_no_warnings_math_passed' : null,
+  }
+}
+
+async function maybeDispatchReceiptWebhook(client: any, receipt: Record<string, any>) {
+  const { data: config, error } = await client
+    .from('user_webhook_configs')
+    .select('url,secret,enabled,events')
+    .eq('user_id', receipt.user_id)
+    .eq('enabled', true)
+    .single()
+  if (error) {
+    if (isMissingSchemaError(error) || error.code === 'PGRST116') return
+    throw error
+  }
+  if (!config?.url || (Array.isArray(config.events) && !config.events.includes('receipt.synced'))) return
+
+  const payload = {
+    event: 'receipt.synced',
+    receipt_id: receipt.id,
+    user_id: receipt.user_id,
+    auto_synced: receipt.auto_synced === true,
+    auto_sync_rule_name: receipt.auto_sync_rule_name ?? null,
+    receipt,
+  }
+  const body = JSON.stringify(payload)
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    'x-resitai-event': 'receipt.synced',
+  }
+  if (config.secret) {
+    headers['x-resitai-signature'] = await hmacHex(String(config.secret), body)
+  }
+
+  const response = await fetchWithTimeout(String(config.url), {
+    method: 'POST',
+    headers,
+    body,
+  }, 10000)
+  if (!response.ok) {
+    throw new Error(`Webhook failed with HTTP ${response.status}`)
+  }
+}
+
+function isMissingSchemaError(error: unknown): boolean {
+  const record = error as { code?: string; message?: string; details?: string; hint?: string }
+  const code = record?.code ?? ''
+  const text = `${record?.message ?? ''} ${record?.details ?? ''} ${record?.hint ?? ''}`
+  return ['PGRST204', 'PGRST205', '42703', '42P01'].includes(code)
+    || /schema cache|column|relation .* does not exist|user_webhook_configs|auto_synced|auto_sync_rule_name/i.test(text)
+}
+
 function sameText(left: string | null | undefined, right: string | null | undefined) {
   return Boolean(left && right && normalizeComparableText(left) === normalizeComparableText(right))
 }
@@ -2178,6 +2255,10 @@ async function hmacSha256(key: Uint8Array, value: string): Promise<Uint8Array> {
   )
   const signature = await crypto.subtle.sign('HMAC', cryptoKey, encodeUtf8(value))
   return new Uint8Array(signature)
+}
+
+async function hmacHex(secret: string, value: string): Promise<string> {
+  return bytesToHex(await hmacSha256(encodeUtf8(secret), value))
 }
 
 function bytesToHex(bytes: Uint8Array): string {

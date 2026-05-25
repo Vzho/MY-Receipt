@@ -40,6 +40,7 @@ import { getAdjacentReviewReceipt, getReviewShortcutAction } from './lib/reviewN
 import { playNotificationSound } from './lib/notificationSound';
 import { applyReceiptDraftToCollection, applyReceiptDraftToSelection } from './lib/receiptState';
 import { getProcessingStageTimeoutHint } from './lib/processingTimeout';
+import { isLowValueBatchSyncCandidate } from './lib/autoSyncRules';
 import { analyzeReceiptPreflight, type ReceiptPreflightReason, type ReceiptPreflightResult } from './lib/receiptPreflight';
 import {
   createAppNotification,
@@ -680,6 +681,8 @@ const I18N: any = {
     batchSyncSuccessLabel: (count: number) => `${count} 张收据已标记为已同步。`,
     batchSyncFinishedLabel: '批量同步完成',
     batchSyncFailedLabel: '批量同步失败。',
+    lowValueBatchSyncLabel: '低金额无提醒批量确认',
+    lowValueBatchSyncEmptyLabel: '没有符合低金额无提醒规则的已选收据。',
     receiptRestoredLabel: '收据已恢复。',
     batchRestoreSuccessLabel: (count: number) => `${count} 张收据已恢复。`,
     batchRestoreFinishedLabel: '批量恢复完成',
@@ -1173,6 +1176,8 @@ const I18N: any = {
     batchSyncSuccessLabel: (count: number) => `${count} receipts marked as synced.`,
     batchSyncFinishedLabel: 'Batch sync finished',
     batchSyncFailedLabel: 'Batch sync failed.',
+    lowValueBatchSyncLabel: 'Confirm low-value clean receipts',
+    lowValueBatchSyncEmptyLabel: 'No selected receipts match the low-value clean rule.',
     receiptRestoredLabel: 'Receipt restored.',
     batchRestoreSuccessLabel: (count: number) => `${count} receipts restored.`,
     batchRestoreFinishedLabel: 'Batch restore finished',
@@ -1667,6 +1672,8 @@ const I18N: any = {
     batchSyncSuccessLabel: (count: number) => `${count} resit ditanda disegerak.`,
     batchSyncFinishedLabel: 'Segerak kelompok selesai',
     batchSyncFailedLabel: 'Segerak kelompok gagal.',
+    lowValueBatchSyncLabel: 'Sahkan resit nilai rendah',
+    lowValueBatchSyncEmptyLabel: 'Tiada resit terpilih memenuhi peraturan nilai rendah tanpa amaran.',
     receiptRestoredLabel: 'Resit dipulihkan.',
     batchRestoreSuccessLabel: (count: number) => `${count} resit dipulihkan.`,
     batchRestoreFinishedLabel: 'Pulih kelompok selesai',
@@ -2943,6 +2950,38 @@ export default function App() {
     }
   };
 
+  const handleLowValueBatchSync = async () => {
+    const targets = history
+      .filter((item) => selectedRowIds.includes(item.id))
+      .filter((item) => isLowValueBatchSyncCandidate(toApiReceipt(item) as any));
+    if (targets.length === 0) {
+      showToast(t.lowValueBatchSyncEmptyLabel || 'No selected receipts match the low-value clean rule.', 'info');
+      return;
+    }
+
+    try {
+      const updatedReceipts = await Promise.all(
+        targets.map((item) => saveReceipt(toApiReceipt({
+          ...item,
+          status: 'Synced',
+          auto_synced: true,
+          auto_sync_rule_name: 'low_value_batch_confirm',
+        }), item.items || [])),
+      );
+      const displayReceipts = await Promise.all(updatedReceipts.map((receipt) => buildDisplayReceipt(receipt)));
+      setHistory((current) => current.map((item) => displayReceipts.find((updated) => updated.id === item.id) || item));
+      setSelectedReceipt((current: any) => displayReceipts.find((updated) => updated.id === current?.id) || current);
+      setSelectedRowIds((current) => current.filter((id) => !displayReceipts.some((receipt) => receipt.id === id)));
+      showToast(typeof t.batchSyncSuccessLabel === 'function' ? t.batchSyncSuccessLabel(targets.length) : `${targets.length} receipts marked as synced.`, 'success', {
+        persist: true,
+        title: t.batchSyncFinishedLabel,
+      });
+    } catch (error) {
+      console.error('Low-value batch sync failed:', error);
+      showToast(t.batchSyncFailedLabel, 'error', { persist: true, title: t.batchSyncFailedLabel });
+    }
+  };
+
   const handleRestoreDeleted = async (id: string) => {
     try {
       const restored = await restoreReceipt(id);
@@ -3587,6 +3626,7 @@ export default function App() {
                       <div className="flex flex-wrap gap-2">
                         <button type="button" onClick={() => handleExport()} className="rounded-xl bg-white px-3 py-2 text-[10px] font-black uppercase text-slate-700 shadow-sm hover:bg-slate-50">{t.exportSelected}</button>
                         <button type="button" onClick={handleBatchMarkSynced} className="rounded-xl bg-emerald-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-emerald-500">{t.markSyncedLabel || '标记为已同步'}</button>
+                        <button type="button" onClick={handleLowValueBatchSync} className="rounded-xl bg-teal-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-teal-500">{t.lowValueBatchSyncLabel || '低金额无提醒批量确认'}</button>
                         <button type="button" onClick={handleBatchDelete} className="rounded-xl bg-rose-600 px-3 py-2 text-[10px] font-black uppercase text-white shadow-sm hover:bg-rose-500">{t.deleteSelectedLabel || '删除已选'}</button>
                       </div>
                     </div>

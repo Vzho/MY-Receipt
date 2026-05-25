@@ -140,6 +140,8 @@ export interface Receipt {
   warnings?: ReceiptWarning[] | null
   duplicate_of?: string | null
   duplicate_score?: number | null
+  auto_synced?: boolean | null
+  auto_sync_rule_name?: string | null
   raw_ocr?: string | null
   raw_ai?: Record<string, unknown> | null
   error_message: string | null

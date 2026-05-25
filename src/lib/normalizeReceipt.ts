@@ -48,6 +48,8 @@ export function normalizeReceiptPatch(input: Record<string, unknown>) {
     confidence_score: Math.max(0, Math.min(1, Number(input.confidence_score) || 0)),
     tax_breakdown: normalizeTaxBreakdown(input.tax_breakdown),
     address_structured: normalizeAddressStructured(input.address_structured),
+    auto_synced: input.auto_synced === true,
+    auto_sync_rule_name: typeof input.auto_sync_rule_name === 'string' && input.auto_sync_rule_name.trim() ? input.auto_sync_rule_name.trim() : null,
     extra_fields: Object.keys(extraFields).length > 0 ? extraFields : null,
   }
 }

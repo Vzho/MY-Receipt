@@ -158,6 +158,7 @@ v0.3 新增字段：
 | `currency` | 单据币种：`RM` / `SGD` / `USD` / `CNY`，旧数据默认 `RM` |
 | `tax_breakdown` | 多税率明细：`{ tax_type, tax_rate, taxable_amount, tax_amount }[]` |
 | `address_structured` | 地址结构化字段：`street / city / state / postcode / country` |
+| `auto_synced`, `auto_sync_rule_name` | 自动确认标记与触发规则名称 |
 
 ### receipt_field_changes
 
@@ -167,6 +168,20 @@ v0.3 新增字段：
 | `supabase.from('receipt_field_changes').insert([...])` | 保存 save / sync / soft_delete / restore / permanent_delete 的字段变更 |
 
 `receipt_field_changes` 只允许用户读取和插入自己的记录；审计写入失败不会阻断单据保存。
+
+### user_webhook_configs
+
+| 方法 | 描述 |
+|------|------|
+| `supabase.from('user_webhook_configs').select('*')` | 查询当前用户 webhook 配置 |
+| `supabase.from('user_webhook_configs').upsert({...})` | 保存回调 URL、secret、启用事件 |
+
+### Edge Functions
+
+| Function | 描述 |
+| --- | --- |
+| `POST /functions/v1/import-receipts` | 批量导入 JSON/CSV 收据数据，写入 `receipts`，状态为 `pending_review` |
+| `POST /functions/v1/dispatch-webhook` | 手动触发单据 webhook；解析自动同步时也会按 `user_webhook_configs` 自动回调 |
 
 ### custom_document_types
 
