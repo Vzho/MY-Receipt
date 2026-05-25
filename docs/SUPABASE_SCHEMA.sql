@@ -164,7 +164,6 @@ create policy "Users can read own receipts"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can insert own receipts"
@@ -172,7 +171,6 @@ create policy "Users can insert own receipts"
   to authenticated
   with check (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can update own receipts"
@@ -180,11 +178,9 @@ create policy "Users can update own receipts"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   )
   with check (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can delete own receipts"
@@ -192,7 +188,6 @@ create policy "Users can delete own receipts"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can read own receipt items"
@@ -200,7 +195,6 @@ create policy "Users can read own receipt items"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can insert own receipt items"
@@ -208,7 +202,6 @@ create policy "Users can insert own receipt items"
   to authenticated
   with check (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can update own receipt items"
@@ -216,11 +209,9 @@ create policy "Users can update own receipt items"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   )
   with check (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can delete own receipt items"
@@ -228,7 +219,6 @@ create policy "Users can delete own receipt items"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can read own receipt field changes"
@@ -236,7 +226,6 @@ create policy "Users can read own receipt field changes"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can insert own receipt field changes"
@@ -244,7 +233,6 @@ create policy "Users can insert own receipt field changes"
   to authenticated
   with check (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 grant select, insert on public.receipt_field_changes to authenticated;
@@ -254,7 +242,6 @@ create policy "Users can read own OCR usage"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can read own custom document types"
@@ -262,7 +249,6 @@ create policy "Users can read own custom document types"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can insert own custom document types"
@@ -270,7 +256,6 @@ create policy "Users can insert own custom document types"
   to authenticated
   with check (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can update own custom document types"
@@ -278,11 +263,9 @@ create policy "Users can update own custom document types"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   )
   with check (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can delete own custom document types"
@@ -290,7 +273,6 @@ create policy "Users can delete own custom document types"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can read own field preferences"
@@ -298,7 +280,6 @@ create policy "Users can read own field preferences"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can insert own field preferences"
@@ -306,7 +287,6 @@ create policy "Users can insert own field preferences"
   to authenticated
   with check (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can update own field preferences"
@@ -314,11 +294,9 @@ create policy "Users can update own field preferences"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   )
   with check (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can delete own field preferences"
@@ -326,7 +304,6 @@ create policy "Users can delete own field preferences"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create or replace function public.consume_ocr_quota(
@@ -427,7 +404,6 @@ create policy "Users can read own receipt files"
   using (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can upload own receipt files"
@@ -436,7 +412,6 @@ create policy "Users can upload own receipt files"
   with check (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can update own receipt files"
@@ -445,12 +420,10 @@ create policy "Users can update own receipt files"
   using (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   )
   with check (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create policy "Users can delete own receipt files"
@@ -459,6 +432,5 @@ create policy "Users can delete own receipt files"
   using (
     bucket_id = 'receipts'
     and (select auth.uid())::text = (storage.foldername(name))[1]
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 

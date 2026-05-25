@@ -18,7 +18,6 @@ create policy "Users can read own OCR usage"
   to authenticated
   using (
     (select auth.uid()) = user_id
-    and coalesce(((select auth.jwt())->>'is_anonymous')::boolean, false) is false
   );
 
 create or replace function public.consume_ocr_quota(

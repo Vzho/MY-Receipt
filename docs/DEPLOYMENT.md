@@ -111,7 +111,7 @@ alter table public.receipts
 - 所有业务表启用 RLS。
 - Storage bucket 默认不公开。
 - Storage policy 限制用户只能访问 `receipts/{auth.uid()}/...`。
-- Edge Function 校验 JWT，不接受匿名解析请求。
+- Edge Function 校验 JWT；匿名试用用户也必须持有自己的 Supabase 会话，只能访问自己 `user_id` 下的数据。
 - Edge Function 调用前检查 `receipt_id` 所属用户。
 - 腾讯云 SecretId/SecretKey、OpenAI key、OpenAI 开关和 Supabase service role key 不进入前端包。
 - 腾讯云 OCR 经 `consume_ocr_quota` 硬限制每用户每月最多 900 次，避免超出免费资源包。

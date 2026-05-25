@@ -33,7 +33,7 @@
 - PDF 多页可选择按页分别识别或合并为一张发票统一 OCR。
 - `currency`、`tax_breakdown`、`address_structured`、`receipt_field_changes` 和 `auto_synced` 已进入 schema/API。
 - 自动确认规则和字段级审计日志已完成基础版。
-- Supabase RLS 已补充匿名登录用户隔离，advisors 当前无 ERROR；唯一剩余 WARN 为 Pro 计划才可开启的 leaked password protection。
+- Supabase RLS 保持按 `user_id` 隔离；匿名试用用户可上传和解析自己的单据。Supabase advisors 的匿名登录 WARN 属于当前产品选择；另一个剩余 WARN 为 Pro 计划才可开启的 leaked password protection。
 
 仍需作为后续增强的能力：
 
