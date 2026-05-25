@@ -1,6 +1,6 @@
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { UploadQueue } from '../components/UploadQueue'
 
 describe('UploadQueue', () => {
@@ -69,5 +69,27 @@ describe('UploadQueue', () => {
 
     expect(html).toContain('正在上传 PDF 第 2 / 5 页')
     expect(html).not.toContain('Uploading PDF page 2 of 5')
+  })
+
+  it('shows the batch smart parse action when provided', () => {
+    const html = renderToStaticMarkup(
+      <UploadQueue
+        items={[{ id: 'upload-1', name: 'receipt.jpg', status: 'Uploaded', progress: 100 }]}
+        processingLabel="处理中"
+        actionLabel="全部智能解析"
+        onAction={vi.fn()}
+        labels={{}}
+        config={{
+          colorMode: 'Light',
+          theme: {
+            color: 'bg-indigo-600',
+            light: 'bg-indigo-50',
+            text: 'text-indigo-600',
+          },
+        }}
+      />,
+    )
+
+    expect(html).toContain('全部智能解析')
   })
 })

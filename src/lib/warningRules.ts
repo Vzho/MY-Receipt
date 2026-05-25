@@ -1,4 +1,5 @@
 import type { Receipt, ReceiptItem, ReceiptWarning } from '../types/receipt'
+import { getLowConfidenceFields } from './fieldConfidence'
 import { calculateReceiptMath, differs, roundMoney } from './receiptMath'
 
 export function evaluateReceiptWarnings(receipt: Receipt, items: ReceiptItem[] = receipt.receipt_items ?? []): ReceiptWarning[] {
@@ -44,6 +45,19 @@ function addMissingFieldWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
 }
 
 function addConfidenceWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
+  const lowConfidenceFields = getLowConfidenceFields(receipt)
+  for (const { field, confidence } of lowConfidenceFields) {
+    warnings.push({
+      code: 'low_confidence_field',
+      severity: 'warning',
+      message: 'Low confidence extraction',
+      field,
+      details: { confidence_score: confidence },
+    })
+  }
+
+  if (lowConfidenceFields.length > 0) return
+
   if (Number(receipt.confidence_score || 0) > 0 && Number(receipt.confidence_score || 0) < 0.65) {
     warnings.push({
       code: 'low_confidence_field',
@@ -105,6 +119,15 @@ function addImageWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
       code: 'blurry_image',
       severity: 'warning',
       message: 'Image or item OCR quality is low',
+    })
+  }
+
+  if (Number(parserMeta.poor_ocr_text_score || 0) > 0.15) {
+    warnings.push({
+      code: 'poor_ocr_text',
+      severity: 'warning',
+      message: 'OCR text quality was poor; vision fallback was used when available',
+      details: { poor_ocr_text_score: parserMeta.poor_ocr_text_score },
     })
   }
 }

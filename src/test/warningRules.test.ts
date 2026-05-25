@@ -59,6 +59,23 @@ describe('evaluateReceiptWarnings', () => {
       details: { duplicate_of: 'existing-receipt', duplicate_score: 0.8 },
     }))
   })
+
+  it('flags the exact field when field confidence is low', () => {
+    const warnings = evaluateReceiptWarnings(createReceipt({
+      raw_ai: {
+        field_confidence: {
+          merchant_name: 0.52,
+          invoice_no: 0.91,
+        },
+      },
+    }))
+
+    expect(warnings).toContainEqual(expect.objectContaining({
+      code: 'low_confidence_field',
+      field: 'merchant_name',
+      details: { confidence_score: 0.52 },
+    }))
+  })
 })
 
 function createReceipt(overrides: Partial<Receipt> = {}): Receipt {

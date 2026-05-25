@@ -69,6 +69,10 @@ const labels: Record<string, any> = {
   itemsSummaryLabel: '明细',
   companyRegInvalidLabel: 'SSM 注册号格式可能不正确。',
   sstInvalidLabel: 'SST 编号格式应类似 A00-0000-00000000。',
+  fieldConfidenceLabel: '字段置信度',
+  fieldConfidenceHint: '低置信度字段请核对。',
+  shortcutHintTitle: '快捷校对',
+  shortcutHintBody: 'Tab 切字段 / S 同步',
   warningCountLabel: (count: number) => `${count} 条提醒`,
   lineItemCountLabel: (count: number) => `${count} 条明细`,
   customDocTypePlaceholder: '自定义单据类型',
@@ -119,7 +123,10 @@ describe('ReceiptReviewDrawer i18n labels', () => {
           change: 0,
           grand_total: 0,
           confidence_score: 0.9,
-          raw_ai: { parser_meta: { item_quality: 'low' } },
+          raw_ai: {
+            field_confidence: { merchant_name: 0.58 },
+            parser_meta: { item_quality: 'low' },
+          },
           extra_fields: {
             supplier_name: '供应商 A',
             buyer_name: '买方 B',
@@ -161,6 +168,8 @@ describe('ReceiptReviewDrawer i18n labels', () => {
     expect(html).toContain('状态')
     expect(html).toContain('0 条提醒')
     expect(html).toContain('0 条明细')
+    expect(html).toContain('58%')
+    expect(html).toContain('快捷校对')
     expect(html).not.toContain('TIN No')
     expect(html).not.toContain('Line item names look unreliable')
   })

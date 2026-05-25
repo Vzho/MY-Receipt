@@ -86,6 +86,7 @@ Special rules for Malaysian e-invoices:
   "extra_fields": ${buildExtraFieldsSchema(options)},
   "tags": string[],
   "confidence_score": number,
+  "field_confidence": Record<string, number>,
   "items": [
     {
       "name": string,
@@ -148,6 +149,7 @@ Special rules for Malaysian e-invoices:
   "extra_fields": ${buildExtraFieldsSchema(options)},
   "tags": string[],
   "confidence_score": number,
+  "field_confidence": Record<string, number>,
   "items": [
     {
       "name": string,

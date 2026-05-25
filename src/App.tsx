@@ -34,6 +34,7 @@ import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages }
 import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/receiptDisplay';
 import { constrainSelectionToVisible, filterReceiptQueue, summarizeReceiptQueue } from './lib/receiptFilters';
 import { keepSyncedReceiptSelected } from './lib/syncSelection';
+import { getAdjacentReviewReceipt, getReviewShortcutAction } from './lib/reviewNavigation';
 import { playNotificationSound } from './lib/notificationSound';
 import { applyReceiptDraftToCollection, applyReceiptDraftToSelection } from './lib/receiptState';
 import {
@@ -392,6 +393,10 @@ const I18N: any = {
     notificationSoundLabel: '消息音效',
     notificationSoundDescription: '仅在失败、重复检测和批量完成等关键消息时播放。',
     ocrQuotaLabel: 'OCR 配额进度',
+    fieldConfidenceLabel: '字段置信度',
+    fieldConfidenceHint: 'AI 对该字段的把握程度。低置信度字段请对照左侧原图核对。',
+    shortcutHintTitle: '快捷校对',
+    shortcutHintBody: 'Tab 切字段 / 空格切图 / ← → 切单据 / S 同步 / E 导出 / Ctrl+Enter 同步并下一张',
     fontScaleLabel: '界面字号',
     fontScaleDescription: '调整页面文字、表格和按钮的显示大小。',
     fontScaleCompactLabel: '标准',
@@ -450,6 +455,9 @@ const I18N: any = {
     deleteSelectedLabel: '删除已选',
     restoreSelectedLabel: '恢复已选',
     smartParseLabel: '智能解析',
+    smartParseAllLabel: '全部智能解析',
+    smartParseAllStartedLabel: (count: number) => `已启动 ${count} 张单据的智能解析。`,
+    noSmartParseTargetsLabel: '当前没有可智能解析的单据。',
     smartParsingLabel: '智能解析中',
     processingTimeLabel: '处理时间',
     restoreLabel: '恢复',
@@ -814,6 +822,10 @@ const I18N: any = {
     notificationSoundLabel: 'Notification sound',
     notificationSoundDescription: 'Play sound only for key messages such as failures, duplicate checks, and batch completion.',
     ocrQuotaLabel: 'OCR quota progress',
+    fieldConfidenceLabel: 'Field confidence',
+    fieldConfidenceHint: 'AI confidence for this field. Low confidence fields should be checked against the receipt image.',
+    shortcutHintTitle: 'Review shortcuts',
+    shortcutHintBody: 'Tab fields / Space image / ← → receipts / S sync / E export / Ctrl+Enter sync and next',
     fontScaleLabel: 'Interface text size',
     fontScaleDescription: 'Adjust the display size for page text, tables, and buttons.',
     fontScaleCompactLabel: 'Standard',
@@ -872,6 +884,9 @@ const I18N: any = {
     deleteSelectedLabel: 'Delete selected',
     restoreSelectedLabel: 'Restore selected',
     smartParseLabel: 'Smart parse',
+    smartParseAllLabel: 'Smart parse all',
+    smartParseAllStartedLabel: (count: number) => `Started smart parsing for ${count} receipt${count > 1 ? 's' : ''}.`,
+    noSmartParseTargetsLabel: 'No receipts are ready for smart parse.',
     smartParsingLabel: 'Smart parsing',
     processingTimeLabel: 'Processing time',
     restoreLabel: 'Restore',
@@ -1237,6 +1252,10 @@ const I18N: any = {
     notificationSoundLabel: 'Bunyi notifikasi',
     notificationSoundDescription: 'Mainkan bunyi hanya untuk mesej penting seperti kegagalan, pendua, dan siap kelompok.',
     ocrQuotaLabel: 'Kemajuan kuota OCR',
+    fieldConfidenceLabel: 'Keyakinan medan',
+    fieldConfidenceHint: 'Tahap keyakinan AI untuk medan ini. Semak medan rendah dengan imej resit.',
+    shortcutHintTitle: 'Pintasan semakan',
+    shortcutHintBody: 'Tab medan / Space imej / ← → resit / S segerak / E eksport / Ctrl+Enter segerak dan seterusnya',
     fontScaleLabel: 'Saiz teks antara muka',
     fontScaleDescription: 'Laraskan saiz paparan teks halaman, jadual, dan butang.',
     fontScaleCompactLabel: 'Standard',
@@ -1295,6 +1314,9 @@ const I18N: any = {
     deleteSelectedLabel: 'Padam pilihan',
     restoreSelectedLabel: 'Pulihkan pilihan',
     smartParseLabel: 'Huraian pintar',
+    smartParseAllLabel: 'Huraikan semua',
+    smartParseAllStartedLabel: (count: number) => `${count} resit dimulakan untuk huraian pintar.`,
+    noSmartParseTargetsLabel: 'Tiada resit sedia untuk huraian pintar.',
     smartParsingLabel: 'Huraian pintar berjalan',
     processingTimeLabel: 'Masa proses',
     restoreLabel: 'Pulihkan',
@@ -1654,6 +1676,7 @@ export default function App() {
         title: 'Receipt synced',
         receiptId: displayReceipt.id,
       });
+      return displayReceipt;
     } catch (err) {
       console.error("Supabase sync error:", err);
       showToast("Supabase sync failed.", "error", {
@@ -1661,6 +1684,7 @@ export default function App() {
         title: 'Receipt sync failed',
         receiptId: data.id,
       });
+      return null;
     }
   };
 
@@ -2451,6 +2475,31 @@ export default function App() {
     }
   };
 
+  const handleSmartParseAllQueued = async () => {
+    if (smartParsingReceiptId) return;
+    const targets = history.filter((receipt) =>
+      !receipt.deleted_at &&
+      receipt.id &&
+      receipt.status !== 'Processing' &&
+      receipt.status !== 'Synced' &&
+      (receipt.status === 'Uploaded' || receipt.status === 'Pending' || receipt.status === 'Failed')
+    );
+
+    if (targets.length === 0) {
+      showToast(t.noSmartParseTargetsLabel, 'info');
+      return;
+    }
+
+    showToast(typeof t.smartParseAllStartedLabel === 'function' ? t.smartParseAllStartedLabel(targets.length) : `Started smart parsing for ${targets.length} receipts.`, 'info', {
+      persist: true,
+      title: t.smartParseAllLabel,
+    });
+
+    for (const receipt of targets) {
+      await runSmartParse(receipt, null, null);
+    }
+  };
+
   const handleDelete = useCallback(async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setDeleteDialog({ mode: 'soft', ids: [id], defaultReason: 'other', isSubmitting: false });
@@ -2644,11 +2693,25 @@ export default function App() {
     }
   };
 
-  const handleSyncSelectedReceipt = async () => {
+  const handleSelectAdjacentReceipt = useCallback((direction: 1 | -1) => {
     if (!selectedReceipt) return;
-    const updated = { ...selectedReceipt, status: 'Synced' };
-    setHistory(history.map(h => h.id === selectedReceipt.id ? updated : h));
+    const nextReceipt = getAdjacentReviewReceipt(history, selectedReceipt.id, direction);
+    if (nextReceipt && nextReceipt.id !== selectedReceipt.id) {
+      setSelectedReceipt(nextReceipt);
+    }
+  }, [history, selectedReceipt]);
+
+  const handleSyncSelectedReceipt = async (options: { selectNext?: boolean } = {}) => {
+    if (!selectedReceipt) return;
+    const currentReceipt = selectedReceipt;
+    const updated = { ...currentReceipt, status: 'Synced' };
+    const nextCandidate = options.selectNext ? getAdjacentReviewReceipt(history, currentReceipt.id, 1) : null;
+    const nextReceipt = nextCandidate?.id !== currentReceipt.id ? nextCandidate : null;
+    setHistory(history.map(h => h.id === currentReceipt.id ? updated : h));
     await syncToDatabase(updated);
+    if (nextReceipt) {
+      setSelectedReceipt(nextReceipt);
+    }
   };
 
   useEffect(() => {
@@ -2683,6 +2746,23 @@ export default function App() {
         return;
       }
 
+      const reviewAction = getReviewShortcutAction(event, { drawerOpen: Boolean(selectedReceipt), isTyping });
+      if (reviewAction && reviewAction !== 'toggle_image') {
+        event.preventDefault();
+        if (reviewAction === 'next') {
+          handleSelectAdjacentReceipt(1);
+        } else if (reviewAction === 'previous') {
+          handleSelectAdjacentReceipt(-1);
+        } else if (reviewAction === 'save') {
+          void handleSyncSelectedReceipt();
+        } else if (reviewAction === 'sync_next') {
+          void handleSyncSelectedReceipt({ selectNext: true });
+        } else if (reviewAction === 'export') {
+          void handleExport(selectedReceipt || undefined);
+        }
+        return;
+      }
+
       if (isTyping || (!event.ctrlKey && !event.metaKey)) return;
 
       const key = event.key.toLowerCase();
@@ -2702,7 +2782,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deleteDialog, duplicatePrompt, handleExport, handleSyncSelectedReceipt, isNotificationCenterOpen, isSettingsOpen, selectedReceipt, zoomImage]);
+  }, [deleteDialog, duplicatePrompt, handleExport, handleSelectAdjacentReceipt, handleSyncSelectedReceipt, isNotificationCenterOpen, isSettingsOpen, selectedReceipt, zoomImage]);
 
   const deleteDialogReceipt = deleteDialog?.ids.length === 1
     ? [...history, ...deletedReceipts].find((receipt) => receipt.id === deleteDialog.ids[0])
@@ -2829,7 +2909,16 @@ export default function App() {
                   <input type="file" className="hidden" multiple onChange={handleUpload} accept="image/png,image/jpeg,application/pdf" />
                 </label>
 
-                <UploadQueue items={uploadList} visibleLimit={config.uploadQueueLimit || 10} processingLabel={t.processing} labels={t} config={config} />
+                <UploadQueue
+                  items={uploadList}
+                  visibleLimit={config.uploadQueueLimit || 10}
+                  processingLabel={t.processing}
+                  labels={t}
+                  actionLabel={t.smartParseAllLabel}
+                  actionDisabled={Boolean(smartParsingReceiptId)}
+                  onAction={handleSmartParseAllQueued}
+                  config={config}
+                />
 
                 <OcrQuotaProgress usage={ocrUsage} colorMode={config.colorMode} labels={t} />
 
@@ -3017,6 +3106,8 @@ export default function App() {
           onRestore={() => handleRestoreDeleted(selectedReceipt.id)}
           onPermanentDelete={() => handlePermanentDelete(selectedReceipt.id)}
           onSync={handleSyncSelectedReceipt}
+          onSyncAndNext={() => handleSyncSelectedReceipt({ selectNext: true })}
+          onSelectAdjacent={handleSelectAdjacentReceipt}
           onSaveCustomDocType={handleSaveCustomDocType}
           onZoomImage={setZoomImage}
         />

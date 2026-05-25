@@ -17,12 +17,19 @@
 - Excel 导出显式增加 Currency 列，并给金额列设置 Excel 数值格式。
 - 首页增加 OCR 配额进度条，先替代完整 Dashboard。
 
-仍需作为后续重点开发的 P0 能力：
+继续补齐的 P0/P1 基础能力：
 
-- 字段与原图 OCR bounding box 高亮联动。
-- 全键盘高效校对模式。
-- 字段级置信度可视化。
-- OCR 乱码检测后的自动 vision fallback、PDF 跨页合并。
+- Edge Function 保存 Tencent OCR 文本块坐标到 `raw_ai.ocr_meta.ocr_detections`，前端字段聚焦时可在原图上高亮匹配区域。
+- Edge Function prompt 支持 `field_confidence`，前端输入框显示字段级置信度，低置信字段生成 `low_confidence_field` warning。
+- 审核 Drawer 支持快捷键：Tab/Shift+Tab 按业务字段顺序跳转、Space 切换原图/识别图、左右键切换单据、S 同步、E 导出、Ctrl/Cmd+Enter 同步并跳到下一张。
+- OCR 乱码比例过高时可自动 fallback 到 Qwen VL，并生成 `poor_ocr_text` warning。
+- 上传队列增加“全部智能解析”，支持批量启动后台智能解析。
+
+仍需作为后续重点开发的能力：
+
+- 字段高亮目前是基于 OCR 文本匹配和现有图片尺寸，后续可升级为模型返回的精确 field source map。
+- PDF 跨页同一发票合并仍未完成。
+- 审计日志、自动确认规则、税率拆分和正式 `currency` schema 仍未完成。
 
 ## 范围边界
 
@@ -39,14 +46,14 @@
 | 1.3 | 多语言混排覆盖不足 | 存在 | 本轮已部分修复。补充 Malay 过滤词，prompt 要求保留原文语言和中文行。 | 后续用真实中文/马来文/英文混排样本扩充 OCR 与 parser regression。 |
 | 1.4 | 地址解析过于宽泛 | 存在 | 部分实现。当前只提取普通地址字符串。 | 增加 `address_structured`：street/city/state/postcode；UI 默认折叠；AI prompt 输出结构化地址。 |
 | 1.5 | 货币符号处理单一 | 存在 | 本轮已部分修复。Excel 导出显式带 Currency，前端按设置传入导出币种。 | 后续给 receipts 增加 `currency` 字段，由 OCR/AI 推断并可人工覆盖。 |
-| 2.1 | 原图与输入框缺乏高亮联动 | 存在 | 未实现。当前没有保存 OCR bounding boxes，也没有前端 overlay。 | Edge Function 保存 Tencent OCR 坐标到 `raw_ai.ocr_detections` 或新列；建立字段到文本块映射；Drawer 左侧图片增加半透明框选 overlay。 |
-| 2.2 | 缺少快捷键驱动校对模式 | 存在 | 部分实现。已有少量快捷操作，但没有业务语义顺序矩阵。 | 新增 `reviewHotkeys.ts`，统一 Tab/Enter/Ctrl+Enter/S/E/左右键/Space；右下角快捷键提示面板可关闭。 |
-| 2.3 | 置信度缺乏字段级可视化 | 存在 | 部分实现。当前只有 receipt 全局 confidence 和 warning。 | Edge Function 输出 `field_confidence`；输入框显示绿/黄/红指示器；低置信字段自动高亮并生成 warning。 |
+| 2.1 | 原图与输入框缺乏高亮联动 | 存在 | 部分实现。Tencent OCR 坐标已保存到 `raw_ai.ocr_meta.ocr_detections`，Drawer 字段聚焦时可按文本匹配高亮图片区域。 | 后续升级为 Edge Function 明确输出 `field_sources`，减少同名文本匹配误差。 |
+| 2.2 | 缺少快捷键驱动校对模式 | 存在 | 部分实现。已支持 Tab/Shift+Tab、Space、左右键、S、E、Ctrl/Cmd+Enter，并显示快捷键提示。 | 下一阶段补 Enter 在商品行同列下移，以及可关闭/可配置的快捷键提示。 |
+| 2.3 | 置信度缺乏字段级可视化 | 存在 | 部分实现。已支持 `field_confidence` 读取、字段级指示器、低置信字段输入框高亮和 warning。 | 后续提升 Edge Function 对每个字段 confidence 的真实性，并为 item 行做逐行 confidence。 |
 | 2.4 | 商品明细大量编辑疲劳 | 存在 | 部分实现。已有明细增删和逐行编辑。 | 分阶段加入多行粘贴、批量删除/分类、快捷新增行、历史 item autocomplete；拖拽排序后置。 |
-| 2.5 | 上传链路过长，批量操作不足 | 存在 | 部分实现。已有批量上传、队列分页、PDF 分页，但仍缺一键全部智能解析和跳过裁剪策略。 | 上传队列新增“全部智能解析”；裁剪弹窗增加默认跳过选项；列表页增加批量摘要与批量确认入口。 |
+| 2.5 | 上传链路过长，批量操作不足 | 存在 | 部分实现。已有批量上传、队列分页、PDF 分页和上传队列“全部智能解析”。 | 裁剪弹窗增加默认跳过选项；列表页增加批量摘要与批量确认入口。 |
 | 2.6 | E-invoice 字段独立性不足 | 存在 | 部分实现。已有 E-invoice 专属字段块。 | 增加 LHDN 合规字段进度条和必填字段 sync gate；普通 receipt 隐藏 E-invoice 块。 |
 | 3.1 | 非发票文件/模糊图片降级不足 | 存在 | 本轮已部分修复。低置信且缺少关键字段时自动标记 failed，并生成 `not_receipt` warning；已有 blurry warning。 | 下一阶段增加上传前轻量预检和裁剪弹窗模糊 banner。 |
-| 3.2 | OCR 乱码与跨页截断防呆不足 | 存在 | 部分实现。PDF 已能拆页上传；本轮增加 30 秒外部请求超时。 | 增加乱码率检测、OCR 失败自动 Qwen VL fallback、动态 LanguageType、同一 PDF 多页 OCR 文本合并。 |
+| 3.2 | OCR 乱码与跨页截断防呆不足 | 存在 | 部分实现。PDF 已能拆页上传；外部请求有 30 秒超时；OCR 乱码比例过高时可 fallback 到 Qwen VL。 | 继续补动态 LanguageType 和同一 PDF 多页 OCR 文本合并。 |
 | 3.3 | Excel 字段错位/类型不匹配 | 部分存在 | 本轮已部分修复。金额列写入 number，并设置 `#,##0.00`；Currency 明示。 | 下一阶段增加导出预览弹窗、列顺序拖拽、异常行跳过日志。 |
 | 3.4 | 网络/配额/API 故障降级不足 | 存在 | 本轮已部分修复。外部 OCR/AI 请求有 30 秒超时；已有 Processing Panel。 | 前端按阶段超时提示、retry 2 次指数退避、配额耗尽弹窗和手动录入路径。 |
 | 4.1 | 智能批处理与自动确认 | 存在 | 未实现。 | 增加用户可配置自动确认规则，符合条件时 `auto_synced=true`，保留审计标记。 |
@@ -61,11 +68,9 @@
 1. **当前批次：基础健壮性与本地化**
    - 已完成：SSM/SST 校验、语言提示、OCR 配额条、Excel 数值格式、外部请求超时、非发票后验失败。
 
-2. **下一批 P0：人工校对效率**
-   - OCR bounding boxes 存储与图片高亮联动。
-   - 字段级 confidence map。
-   - 快捷键矩阵与快捷键提示面板。
-   - OCR 乱码自动 fallback。
+2. **P0：人工校对效率**
+   - 已完成基础版：OCR bounding boxes 存储与图片高亮联动、字段级 confidence map、快捷键矩阵与提示面板、OCR 乱码自动 fallback。
+   - 待增强：精确 field source map、商品行 Enter 同列下移、PDF 跨页合并。
 
 3. **P1：数据结构与财务准确性**
    - `currency`、`tax_breakdown`、`field_confidence`、`receipt_field_changes` schema。

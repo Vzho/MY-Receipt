@@ -13,6 +13,9 @@ interface UploadQueueProps {
   visibleLimit?: number
   processingLabel: string
   labels?: any
+  actionLabel?: string
+  actionDisabled?: boolean
+  onAction?: () => void
   config: {
     colorMode: string
     theme: {
@@ -29,7 +32,7 @@ function normalizeProgress(value: number) {
   return Math.max(0, Math.min(100, Math.round(progress)))
 }
 
-function UploadQueueComponent({ items, visibleLimit = 10, processingLabel, labels, config }: UploadQueueProps) {
+function UploadQueueComponent({ items, visibleLimit = 10, processingLabel, labels, actionLabel, actionDisabled = false, onAction, config }: UploadQueueProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (items.length === 0) return null
@@ -44,6 +47,16 @@ function UploadQueueComponent({ items, visibleLimit = 10, processingLabel, label
         <span className={`text-[10px] font-black uppercase flex items-center gap-2 ${config.theme.text}`}>
           <Cpu className="w-3.5 h-3.5 animate-pulse" /> {processingLabel}
         </span>
+        {onAction && (
+          <button
+            type="button"
+            onClick={onAction}
+            disabled={actionDisabled}
+            className={`rounded-xl px-3 py-1.5 text-[10px] font-black uppercase transition-all disabled:cursor-not-allowed disabled:opacity-50 ${config.colorMode === 'Dark' ? 'bg-indigo-900/40 text-indigo-300 hover:bg-indigo-900' : `${config.theme.light} ${config.theme.text} hover:brightness-95`}`}
+          >
+            {actionLabel || labels?.smartParseAllLabel || 'Smart parse all'}
+          </button>
+        )}
       </div>
       {visibleItems.map((item) => {
         const progress = normalizeProgress(item.progress)

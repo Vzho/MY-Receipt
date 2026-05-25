@@ -239,11 +239,25 @@ async function parseWithTencentOCR(client: any, receipt: any, options: ReceiptPr
     language: ocrResult.language,
     line_count: ocrResult.lineCount,
     average_confidence: ocrResult.averageConfidence,
+    ocr_detections: ocrResult.detections,
     image_source: sourcePath === receipt.processed_file_path ? 'processed' : 'original',
     image_processing: receipt.image_processing ?? null,
   })
 
   const repaired = await maybeRepairWithDeepSeek(client, receipt, rawOcr, aiJson, options)
+  const poorOcrScore = poorOcrTextScore(rawOcr)
+  if (poorOcrScore > 0.15 && Deno.env.get('DASHSCOPE_API_KEY') && Deno.env.get('OCR_GARBLED_FALLBACK') !== 'false') {
+    const visionResult = await parseWithVisionModel(client, receipt, options)
+    visionResult.aiJson.parser_meta = {
+      ...(visionResult.aiJson.parser_meta ?? {}),
+      fallback_from: repaired.parser ?? 'tencent_ocr',
+      poor_ocr_text_score: poorOcrScore,
+    }
+    visionResult.aiJson.parser_note = visionResult.aiJson.parser_note
+      ? `${visionResult.aiJson.parser_note} Tencent OCR text looked garbled, so Qwen VL fallback was used.`
+      : 'Tencent OCR text looked garbled, so Qwen VL fallback was used.'
+    return visionResult
+  }
   return { aiJson: repaired, rawOcr }
 }
 
@@ -520,6 +534,7 @@ async function runTencentOCR(base64File: string): Promise<{
   language: string | null
   lineCount: number
   averageConfidence: number
+  detections: Array<Record<string, unknown>>
 }> {
   const action = Deno.env.get('TENCENT_OCR_ACTION') || 'GeneralBasicOCR'
   const payload = JSON.stringify({
@@ -552,7 +567,50 @@ async function runTencentOCR(base64File: string): Promise<{
     language: result?.Language ?? null,
     lineCount: lines.length,
     averageConfidence: clamp(averageConfidence, 0, 1),
+    detections: normalizeTencentDetections(detections),
   }
+}
+
+function normalizeTencentDetections(detections: Array<Record<string, unknown>>) {
+  return detections
+    .map((item) => {
+      const text = String(item.DetectedText ?? '').trim()
+      if (!text) return null
+      const confidence = Number(item.Confidence)
+      const polygon = normalizeTencentPolygon(item.Polygon ?? item.ItemPolygon)
+      const box = polygon.length > 0 ? polygonToBox(polygon) : null
+      return {
+        text,
+        confidence: Number.isFinite(confidence) ? clamp(confidence / 100, 0, 1) : null,
+        box,
+      }
+    })
+    .filter(Boolean)
+}
+
+function normalizeTencentPolygon(value: unknown): Array<{ x: number; y: number }> {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((point) => {
+      if (!point || typeof point !== 'object') return null
+      const raw = point as Record<string, unknown>
+      const x = Number(raw.X ?? raw.x)
+      const y = Number(raw.Y ?? raw.y)
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+      return { x, y }
+    })
+    .filter((point): point is { x: number; y: number } => Boolean(point))
+}
+
+function polygonToBox(points: Array<{ x: number; y: number }>) {
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+  const minX = Math.min(...xs)
+  const minY = Math.min(...ys)
+  const maxX = Math.max(...xs)
+  const maxY = Math.max(...ys)
+  if (![minX, minY, maxX, maxY].every(Number.isFinite) || maxX <= minX || maxY <= minY) return null
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
 }
 
 async function callTencentCloudApi(action: string, version: string, payload: string): Promise<Response> {
@@ -796,10 +854,26 @@ function inferReceiptFromOcrText(text: string, filename: string | null, meta: Re
   const invoiceNo = inferInvoiceNo(lines)
   const phone = inferPhone(lines)
   const sstNo = inferSstNo(lines)
+  const companyRegNo = inferCompanyRegNo(lines)
+  const rounding = inferRounding(lines)
+  const paymentMethod = inferPaymentMethod(lines)
+  const fieldConfidence = buildRuleFieldConfidence({
+    merchant_name: merchantName,
+    company_reg_no: companyRegNo,
+    invoice_no: invoiceNo,
+    date,
+    subtotal,
+    tax: 0,
+    service_charge: 0,
+    rounding,
+    grand_total: grandTotal,
+    payment_method: paymentMethod,
+    items,
+  }, meta)
 
   return {
     merchant_name: merchantName,
-    company_reg_no: inferCompanyRegNo(lines),
+    company_reg_no: companyRegNo,
     address: inferAddress(lines, merchantName),
     phone,
     invoice_no: invoiceNo,
@@ -811,14 +885,15 @@ function inferReceiptFromOcrText(text: string, filename: string | null, meta: Re
     discount: 0,
     tax: 0,
     service_charge: 0,
-    rounding: inferRounding(lines),
+    rounding,
     grand_total: grandTotal,
-    payment_method: inferPaymentMethod(lines),
+    payment_method: paymentMethod,
     change: inferChange(lines),
     subsidy_details: null,
     extra_fields: sstNo ? { sst_no: sstNo } : null,
     tags: ['Pending'],
     confidence_score: typeof meta.average_confidence === 'number' ? meta.average_confidence : 0.5,
+    field_confidence: fieldConfidence,
     items,
     parser: 'tencent_ocr_rules',
     parser_note: 'Tencent OCR populated text fields with lightweight rules. Please review totals and line items manually.',
@@ -836,6 +911,17 @@ function inferMerchantName(lines: string[], filename: string | null): string | n
   )
   if (candidate) return candidate.slice(0, 160)
   return filename ? filename.replace(/\.[^.]+$/, '') : null
+}
+
+function buildRuleFieldConfidence(fields: Record<string, unknown>, meta: Record<string, unknown>) {
+  const average = typeof meta.average_confidence === 'number' ? clamp(meta.average_confidence, 0, 1) : 0.5
+  return Object.entries(fields).reduce<Record<string, number>>((result, [field, value]) => {
+    const hasValue = Array.isArray(value)
+      ? value.length > 0
+      : value !== null && value !== undefined && value !== '' && value !== 0
+    if (hasValue) result[field] = average
+    return result
+  }, {})
 }
 
 function inferGrandTotal(lines: string[]): number {
@@ -1377,10 +1463,32 @@ function buildWarnings(
     })
   }
 
+  const fieldConfidence = rawFieldConfidenceMap(context.rawAi?.field_confidence ?? context.rawAi?.parser_meta?.field_confidence)
+  for (const [field, confidence] of Object.entries(fieldConfidence)) {
+    if (confidence > 0 && confidence < 0.65) {
+      warnings.push({
+        code: 'low_confidence_field',
+        severity: 'warning',
+        message: 'Low confidence extraction',
+        field,
+        details: { confidence_score: confidence },
+      })
+    }
+  }
+
   const imageQuality = String(context.imageProcessing?.quality ?? context.rawAi?.parser_meta?.image_quality ?? '').toLowerCase()
   const itemQuality = String(context.rawAi?.parser_meta?.item_quality ?? '').toLowerCase()
   if (imageQuality.includes('blur') || itemQuality === 'low') {
     warnings.push({ code: 'blurry_image', severity: 'warning', message: 'Image or item OCR quality is low' })
+  }
+
+  if (Number(context.rawAi?.parser_meta?.poor_ocr_text_score || 0) > 0.15) {
+    warnings.push({
+      code: 'poor_ocr_text',
+      severity: 'warning',
+      message: 'OCR text quality was poor; vision fallback was used when available',
+      details: { poor_ocr_text_score: context.rawAi?.parser_meta?.poor_ocr_text_score },
+    })
   }
 
   if (context.duplicateOf) {
@@ -1393,6 +1501,22 @@ function buildWarnings(
   }
 
   return warnings
+}
+
+function rawFieldConfidenceMap(source: unknown): Record<string, number> {
+  if (!source || typeof source !== 'object') return {}
+  return Object.entries(source as Record<string, unknown>).reduce<Record<string, number>>((result, [field, value]) => {
+    const confidence = Number(value)
+    if (Number.isFinite(confidence)) result[field] = clamp(confidence, 0, 1)
+    return result
+  }, {})
+}
+
+function poorOcrTextScore(text: string) {
+  const compact = text.replace(/\s/g, '')
+  if (compact.length < 20) return 0
+  const suspicious = compact.match(/[^A-Za-z0-9\u3400-\u9fff.,:;/%()[\]#&+*'"-]/g) ?? []
+  return suspicious.length / compact.length
 }
 
 function detectInvalidReceipt(receipt: Record<string, any>, items: Array<Record<string, any>>, rawAi: Record<string, any>) {
