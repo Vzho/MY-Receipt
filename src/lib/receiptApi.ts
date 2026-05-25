@@ -752,13 +752,14 @@ async function invokeReceiptParser(id: string, options: ParseMode | ParseReceipt
       },
     })
   } catch (error) {
-    const message = error instanceof Error
+    const fallbackMessage = error instanceof Error
       ? error.message
       : error && typeof error === 'object' && 'message' in error
         ? String((error as { message?: unknown }).message || '')
       : mode === 'repair'
         ? 'DeepSeek text repair failed'
         : 'parse-receipt invocation failed'
+    const message = await resolveParserFailureMessage(id, fallbackMessage)
     await markReceiptFailed(id, message)
     return message
   }
@@ -766,13 +767,39 @@ async function invokeReceiptParser(id: string, options: ParseMode | ParseReceipt
   const { error } = invocationResult
   if (!error) return null
 
-  const message = error.message || (mode === 'repair' ? 'DeepSeek text repair failed' : 'parse-receipt invocation failed')
+  const message = await resolveParserFailureMessage(
+    id,
+    error.message || (mode === 'repair' ? 'DeepSeek text repair failed' : 'parse-receipt invocation failed'),
+  )
   await markReceiptFailed(id, message)
   return message
 }
 
 function getParserRetryBaseDelayMs() {
   return import.meta.env.MODE === 'test' ? 0 : 750
+}
+
+async function resolveParserFailureMessage(id: string, fallbackMessage: string) {
+  const normalizedFallback = fallbackMessage.trim() || 'parse-receipt invocation failed'
+  if (!isGenericParserInvocationError(normalizedFallback)) return normalizedFallback
+
+  try {
+    const current = await getReceipt(id)
+    const serverMessage = current?.error_message?.trim()
+    if (serverMessage && !isGenericParserInvocationError(serverMessage)) return serverMessage
+  } catch (error) {
+    console.warn('Failed to read parser error details from receipt:', error)
+  }
+
+  return normalizedFallback
+}
+
+function isGenericParserInvocationError(message: string) {
+  const normalized = message.trim().toLowerCase()
+  return normalized === ''
+    || normalized === 'parse-receipt invocation failed'
+    || normalized === 'unknown parse error'
+    || normalized.includes('edge function returned a non-2xx status code')
 }
 
 async function markReceiptFailed(id: string, message: string): Promise<Receipt | null> {

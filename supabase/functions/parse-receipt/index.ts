@@ -177,7 +177,7 @@ serve(async (req) => {
 
     return json({ receipt: updated })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown parse error'
+    const message = getErrorMessage(error, 'Unknown parse error')
     console.error('parse-receipt failed:', error)
 
     if (receiptId) {
@@ -2149,6 +2149,30 @@ function json(payload: Record<string, unknown>, status = 200) {
       'Content-Type': 'application/json',
     },
   })
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message || fallback
+  if (typeof error === 'string') return error.trim() || fallback
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>
+    const directMessage = [
+      record.message,
+      record.error_description,
+      record.details,
+      record.hint,
+      record.code,
+    ].find((value) => typeof value === 'string' && value.trim())
+    if (typeof directMessage === 'string') return directMessage.trim()
+
+    try {
+      const serialized = JSON.stringify(record)
+      if (serialized && serialized !== '{}') return serialized
+    } catch {
+      // Keep the configured fallback if an unknown object cannot be serialized.
+    }
+  }
+  return fallback
 }
 
 function assertEnv(name: string) {
