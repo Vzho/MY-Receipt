@@ -63,6 +63,15 @@ export interface DownloadReceiptsOptions {
   currency?: string
 }
 
+export interface ExportPreview {
+  receiptCount: number
+  itemCount: number
+  receiptHeaders: string[]
+  itemHeaders: string[]
+  sampleReceipts: ReceiptSummaryExportRow[]
+  sampleItems: ReceiptItemExportRow[]
+}
+
 function getSubsidyNumber(details: Record<string, unknown> | null, keys: string[]) {
   if (!details) return 0
   for (const key of keys) {
@@ -238,6 +247,21 @@ function formatWorksheet(worksheet: import('exceljs').Worksheet) {
       column.numFmt = '#,##0.00'
     }
   })
+}
+
+export function buildExportPreview(receipts: Receipt[], options: DownloadReceiptsOptions = {}): ExportPreview {
+  const receiptRows = flattenReceipts(receipts, options)
+  const itemRows = flattenReceiptItems(receipts, options)
+  const exportFieldKeys = getExportFieldKeys(options.fieldPreferences)
+
+  return {
+    receiptCount: receiptRows.length,
+    itemCount: itemRows.length,
+    receiptHeaders: buildReceiptColumns(exportFieldKeys).map((column) => column.header),
+    itemHeaders: buildItemColumns(exportFieldKeys).map((column) => column.header),
+    sampleReceipts: receiptRows.slice(0, 3),
+    sampleItems: itemRows.slice(0, 3),
+  }
 }
 
 export function buildReceiptColumns(exportFieldKeys: FieldKey[]) {

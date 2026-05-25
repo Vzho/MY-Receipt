@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { memo, useEffect, useMemo, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import {
   AlertTriangle,
   Building2,
@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import { calculateReceiptMath } from '../lib/receiptMath'
 import { getFieldConfidence, getFieldConfidenceTone } from '../lib/fieldConfidence'
+import { getEInvoiceCompliance } from '../lib/einvoiceCompliance'
+import { parseLineItemsFromClipboard } from '../lib/lineItemPaste'
 import { isLikelyMalaysiaCompanyRegNo, isValidSstNo, normalizeSstNo } from '../lib/malaysiaTaxIds'
 import { findReceiptFieldDetections, toOverlayStyle } from '../lib/ocrDetections'
 import { getReviewShortcutAction } from '../lib/reviewNavigation'
@@ -188,6 +190,21 @@ function ReceiptReviewDrawerComponent({
     updateReceipt({ items: (receipt.items || []).filter((item: any) => item.id !== itemId) })
   }
 
+  const handleItemPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const pasted = event.clipboardData.getData('text')
+    const parsed = parseLineItemsFromClipboard(pasted)
+    const isBatchPaste = pasted.includes('\t') || pasted.includes('\n') || parsed.length > 1
+    if (!isBatchPaste || parsed.length === 0) return
+
+    event.preventDefault()
+    const timestamp = Date.now()
+    const newItems = parsed.map((item, index) => ({
+      id: `paste-${timestamp}-${index}`,
+      ...item,
+    }))
+    updateReceipt({ items: [...(receipt.items || []), ...newItems] })
+  }
+
   const toggleTag = (tag: string) => {
     const currentTags = receipt.tags || []
     const newTags = currentTags.includes(tag)
@@ -228,6 +245,12 @@ function ReceiptReviewDrawerComponent({
   const warningCount = Array.isArray(receipt.warnings) ? receipt.warnings.length : 0
   const itemCount = Array.isArray(receipt.items) ? receipt.items.length : 0
   const statusLabel = labels.optionLabels?.[receipt.status] || labels.statusLabels?.[receipt.status] || receipt.status
+  const eInvoiceCompliance = useMemo(() => getEInvoiceCompliance(receipt), [receipt])
+  const missingEInvoiceLabels = useMemo(
+    () => eInvoiceCompliance.missing.map((field) => labels.fieldLabels?.[field] || field),
+    [eInvoiceCompliance.missing, labels.fieldLabels],
+  )
+  const syncBlocked = eInvoiceCompliance.isEInvoice && !eInvoiceCompliance.canSync
   const companyRegInvalid = Boolean(receipt.company_reg_no) && !isLikelyMalaysiaCompanyRegNo(receipt.company_reg_no)
   const sstNoInvalid = Boolean(receipt.sst_no) && !isValidSstNo(receipt.sst_no)
   const taxIdInputClass = (invalid: boolean) => invalid
@@ -264,9 +287,9 @@ function ReceiptReviewDrawerComponent({
       onSelectAdjacent?.(1)
     } else if (action === 'previous') {
       onSelectAdjacent?.(-1)
-    } else if (action === 'save') {
+    } else if (action === 'save' && !syncBlocked) {
       onSync()
-    } else if (action === 'sync_next') {
+    } else if (action === 'sync_next' && !syncBlocked) {
       onSyncAndNext?.()
     } else if (action === 'export') {
       onExport()
@@ -316,7 +339,13 @@ function ReceiptReviewDrawerComponent({
               </button>
               <button
                 onClick={onSync}
-                className={`px-5 py-2.5 ${config.theme.color} text-white rounded-xl text-[10px] font-black flex items-center gap-2 transition-all shadow-md hover:brightness-110 active:scale-95`}
+                disabled={syncBlocked}
+                title={syncBlocked ? `${labels.einvoiceSyncBlockedLabel || 'Missing required E-invoice fields'}: ${missingEInvoiceLabels.join(', ')}` : undefined}
+                className={`px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 transition-all ${
+                  syncBlocked
+                    ? 'cursor-not-allowed bg-slate-300 text-slate-500 shadow-none'
+                    : `${config.theme.color} text-white shadow-md hover:brightness-110 active:scale-95`
+                }`}
               >
                 <Save className="w-3.5 h-3.5" /> {labels.syncToSheets}
               </button>
@@ -576,6 +605,9 @@ function ReceiptReviewDrawerComponent({
                 <ShoppingCart className="w-4 h-4" /> {labels.skuItems}
                 <FieldConfidenceIndicator confidence={confidenceFor('items')} labels={labels} />
               </h4>
+              <span className={`text-[10px] font-bold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                {labels.lineItemPasteHintLabel || 'Paste rows from Excel to append items'}
+              </span>
               <button type="button" onClick={addNewItem} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 hover:brightness-95 transition-all ${config.colorMode === 'Dark' ? 'bg-indigo-900/30 text-indigo-400' : `${config.theme.light} ${config.theme.text}`}`}>
                 <Plus className="w-3.5 h-3.5" /> SKU
               </button>
@@ -604,7 +636,7 @@ function ReceiptReviewDrawerComponent({
                   {(receipt.items || []).map((item: any) => (
                     <tr key={item.id} className="group transition-colors">
                       <td className="px-5 py-2">
-                        <input {...reviewFieldProps('items')} type="text" value={item.name || ''} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder={labels.itemNamePlaceholder || labels.itemName} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'} ${confidenceInputClass('items')}`} />
+                        <input {...reviewFieldProps('items')} type="text" value={item.name || ''} onPaste={handleItemPaste} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder={labels.itemNamePlaceholder || labels.itemName} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'} ${confidenceInputClass('items')}`} />
                       </td>
                       <td className="px-3 py-2">
                         <input type="number" step="0.001" value={item.qty === 0 ? '' : item.qty} onChange={(event) => updateItem(item.id, 'qty', event.target.value)} className={`w-full bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded text-center ${config.colorMode === 'Dark' ? 'text-slate-400 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-600 focus:ring-slate-200 focus:bg-white'}`} />
@@ -685,21 +717,42 @@ function ReceiptReviewDrawerComponent({
               </div>
             )}
 
-            {receipt.doc_type === 'E-invoice' && receipt.extra_fields && (
+            {receipt.doc_type === 'E-invoice' && (
               <div className={`rounded-2xl border p-5 ${config.colorMode === 'Dark' ? 'border-indigo-900/50 bg-indigo-950/20' : 'border-indigo-100 bg-indigo-50/60'}`}>
-                <p className={`text-[10px] font-black uppercase tracking-[2px] ${config.colorMode === 'Dark' ? 'text-indigo-300' : 'text-indigo-700'}`}>{labels.einvoiceSectionLabel || '电子发票信息'}</p>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className={`text-[10px] font-black uppercase tracking-[2px] ${config.colorMode === 'Dark' ? 'text-indigo-300' : 'text-indigo-700'}`}>{labels.einvoiceSectionLabel || '电子发票信息'}</p>
+                    <p className={`mt-1 text-xs font-bold ${config.colorMode === 'Dark' ? 'text-indigo-100' : 'text-indigo-900'}`}>
+                      {eInvoiceCompliance.canSync
+                        ? labels.einvoiceComplianceReadyLabel || 'LHDN required fields are complete.'
+                        : `${labels.einvoiceComplianceMissingLabel || 'Missing'}: ${missingEInvoiceLabels.join(', ')}`}
+                    </p>
+                  </div>
+                  <div className="min-w-48">
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase text-indigo-500">
+                      <span>{labels.einvoiceComplianceTitle || 'LHDN compliance'}</span>
+                      <span>{eInvoiceCompliance.filled}/{eInvoiceCompliance.total}</span>
+                    </div>
+                    <div className={`mt-2 h-2 rounded-full overflow-hidden ${config.colorMode === 'Dark' ? 'bg-slate-900' : 'bg-white'}`}>
+                      <div
+                        className={`h-full rounded-full transition-all ${eInvoiceCompliance.canSync ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                        style={{ width: `${eInvoiceCompliance.percent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
                   {[
-                    [labels.einvoiceSupplierLabel || 'Supplier', receipt.extra_fields.supplier_name, 'supplier_name'],
-                    [labels.einvoiceBuyerLabel || 'Buyer', receipt.extra_fields.buyer_name, 'buyer_name'],
-                    [labels.einvoiceSupplierTinLabel || 'Supplier TIN', receipt.extra_fields.supplier_tin, 'supplier_tin'],
-                    [labels.einvoiceBuyerTinLabel || 'Buyer TIN', receipt.extra_fields.buyer_tin, 'buyer_tin'],
-                    [labels.einvoiceSstNoLabel || 'SST No', receipt.extra_fields.sst_no, 'sst_no'],
-                    [labels.einvoiceUuidLabel || 'UUID', receipt.extra_fields.invoice_uuid, 'invoice_uuid'],
-                    [labels.einvoiceValidationLabel || 'Validation', receipt.extra_fields.validation_link, 'validation_link'],
-                    [labels.einvoiceQrPayloadLabel || 'QR Payload', receipt.extra_fields.qr_payload, 'qr_payload'],
-                    [labels.einvoiceTypeLabel || 'Invoice Type', receipt.extra_fields.invoice_type, 'invoice_type'],
-                    [labels.einvoiceTaxAmountLabel || 'Tax Amount', receipt.extra_fields.tax_amount, 'tax_amount'],
+                    [labels.einvoiceSupplierLabel || 'Supplier', receipt.extra_fields?.supplier_name, 'supplier_name'],
+                    [labels.einvoiceBuyerLabel || 'Buyer', receipt.extra_fields?.buyer_name, 'buyer_name'],
+                    [labels.einvoiceSupplierTinLabel || 'Supplier TIN', receipt.extra_fields?.supplier_tin, 'supplier_tin'],
+                    [labels.einvoiceBuyerTinLabel || 'Buyer TIN', receipt.extra_fields?.buyer_tin, 'buyer_tin'],
+                    [labels.einvoiceSstNoLabel || 'SST No', receipt.extra_fields?.sst_no, 'sst_no'],
+                    [labels.einvoiceUuidLabel || 'UUID', receipt.extra_fields?.invoice_uuid, 'invoice_uuid'],
+                    [labels.einvoiceValidationLabel || 'Validation', receipt.extra_fields?.validation_link, 'validation_link'],
+                    [labels.einvoiceQrPayloadLabel || 'QR Payload', receipt.extra_fields?.qr_payload, 'qr_payload'],
+                    [labels.einvoiceTypeLabel || 'Invoice Type', receipt.extra_fields?.invoice_type, 'invoice_type'],
+                    [labels.einvoiceTaxAmountLabel || 'Tax Amount', receipt.extra_fields?.tax_amount, 'tax_amount'],
                   ].filter(([, value, key]) => isFieldVisible(key as FieldKey) && value !== null && value !== undefined && value !== '').map(([label, value]) => (
                     <div key={label as string} className={`rounded-xl px-3 py-2 ${config.colorMode === 'Dark' ? 'bg-slate-950/40' : 'bg-white/80'}`}>
                       <p className="text-[9px] font-black uppercase text-slate-400">{label}</p>
@@ -736,7 +789,13 @@ function ReceiptReviewDrawerComponent({
                 </button>
                 <button
                   onClick={onSync}
-                  className={`px-8 py-4 ${config.theme.color} text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 active:scale-95`}
+                  disabled={syncBlocked}
+                  title={syncBlocked ? `${labels.einvoiceSyncBlockedLabel || 'Missing required E-invoice fields'}: ${missingEInvoiceLabels.join(', ')}` : undefined}
+                  className={`px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${
+                    syncBlocked
+                      ? 'cursor-not-allowed bg-slate-200 text-slate-400 shadow-none'
+                      : `${config.theme.color} text-white shadow-lg hover:brightness-110 active:scale-95`
+                  }`}
                 >
                   <Save className="w-4 h-4" /> {labels.syncToSheets}
                 </button>

@@ -2,6 +2,7 @@ import { normalizeReceiptItem, normalizeReceiptPatch } from './normalizeReceipt'
 import { requireSupabase } from './supabaseClient'
 import { computeFileSha256, scoreDuplicateCandidate } from './duplicateDetection'
 import { defaultFieldPreferences, mergeFieldPreferences } from './fieldConfig'
+import { mergeQrPayloadExtraFields } from './qrPayload'
 import type { CustomDocumentType } from '../types/documentType'
 import type { DuplicateCandidate } from '../types/duplicate'
 import type { FieldPreference } from '../types/fieldConfig'
@@ -85,7 +86,7 @@ export async function createReceiptFromFile(file: File, options: CreateReceiptFr
   const user = await getCurrentUser()
   const fileHash = options.fileHash ?? await computeFileSha256(file)
   const initialDocType = options.docType === 'E-invoice' ? 'E-invoice' : 'Receipt'
-  const initialExtraFields = options.qrPayload ? { qr_payload: options.qrPayload } : null
+  const initialExtraFields = options.qrPayload ? mergeQrPayloadExtraFields(null, options.qrPayload) : null
 
   let { data: inserted, error: insertError } = await client
     .from('receipts')

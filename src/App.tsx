@@ -28,7 +28,8 @@ import { computeFileSha256, computeImageAverageHash } from './lib/duplicateDetec
 import { evaluateReceiptWarnings } from './lib/warningRules';
 import { defaultFieldPreferences, isFieldEnabled, mergeFieldPreferences } from './lib/fieldConfig';
 import { decodeQrPayloadFromImageFile, looksLikeEInvoiceQrPayload } from './lib/qrPayload';
-import { downloadReceiptsXlsx } from './lib/exportExcel';
+import { buildExportPreview, downloadReceiptsXlsx, type ExportPreview } from './lib/exportExcel';
+import { getEInvoiceCompliance } from './lib/einvoiceCompliance';
 import { formatSubsidyHeadline } from './lib/subsidyDetails';
 import { buildPdfPageFileHash, isPdfReceiptFile, renderPdfPagesToReceiptImages } from './lib/pdfPreprocess';
 import { formatReceiptDisplayFilename, getReceiptSourcePageLabel } from './lib/receiptDisplay';
@@ -126,6 +127,11 @@ type DuplicatePromptState = {
   perceptualHash: string | null;
   candidates: DuplicateCandidate[];
   renderedPdfPages?: ProcessedReceiptImage[];
+};
+
+type ExportPreviewState = {
+  receipts: any[];
+  preview: ExportPreview;
 };
 
 function toDisplayReceipt(receipt: any) {
@@ -476,6 +482,7 @@ const I18N: any = {
     lineLabel: '行金额',
     itemNamePlaceholder: '名称',
     noLineItemsLabel: '暂无明细记录，请手动添加。',
+    lineItemPasteHintLabel: '可从 Excel 粘贴多行明细',
     fuelSubsidyLabel: '燃油补贴 / Budi Madani',
     subsidyMathNoteLabel: '票面总额保留在计算总额，客户实际支付金额单独展示，避免把政府补贴误当普通折扣。',
     actualPayableLabel: '实际支付 / OPT',
@@ -490,6 +497,21 @@ const I18N: any = {
     einvoiceQrPayloadLabel: '二维码内容',
     einvoiceTypeLabel: '发票类型',
     einvoiceTaxAmountLabel: '税额',
+    einvoiceComplianceTitle: 'LHDN 合规状态',
+    einvoiceComplianceReadyLabel: '必填字段已完整，可同步。',
+    einvoiceComplianceMissingLabel: '缺少必填字段',
+    einvoiceSyncBlockedLabel: 'E-invoice 必填字段未完整',
+    einvoiceSyncBlockedMessage: (missing: string) => `E-invoice 缺少必填字段：${missing}`,
+    exportPreviewTitle: '导出预览',
+    exportPreviewDescription: '下载前确认 Excel 工作簿的 Sheet、列和样例数据。',
+    exportReceiptSheetLabel: 'Receipts 表：一张发票一行',
+    exportItemSheetLabel: 'Items 表：一条明细一行',
+    exportPreviewCancelLabel: '取消',
+    exportPreviewConfirmLabel: '确认导出',
+    exportFinishedTitleLabel: 'Excel 导出完成',
+    exportFinishedLabel: (count: number) => `已导出 ${count} 条记录。`,
+    exportFailedTitleLabel: 'Excel 导出失败',
+    exportFailedLabel: '导出失败，请稍后重试。',
     signOutLabel: '退出登录',
     rejectedReceiptsLabel: '已删除收据',
     cropTitle: '智能解析前裁剪',
@@ -905,6 +927,7 @@ const I18N: any = {
     lineLabel: 'Line',
     itemNamePlaceholder: 'Name',
     noLineItemsLabel: 'No line items. Add one manually.',
+    lineItemPasteHintLabel: 'Paste multiple item rows from Excel',
     fuelSubsidyLabel: 'Fuel subsidy / Budi Madani',
     subsidyMathNoteLabel: 'Receipt grand total is preserved; customer payable is shown separately to avoid treating government subsidy as a normal discount.',
     actualPayableLabel: 'Payable / OPT',
@@ -919,6 +942,21 @@ const I18N: any = {
     einvoiceQrPayloadLabel: 'QR payload',
     einvoiceTypeLabel: 'Invoice type',
     einvoiceTaxAmountLabel: 'Tax amount',
+    einvoiceComplianceTitle: 'LHDN compliance',
+    einvoiceComplianceReadyLabel: 'Required fields are complete and ready to sync.',
+    einvoiceComplianceMissingLabel: 'Missing required fields',
+    einvoiceSyncBlockedLabel: 'E-invoice required fields are incomplete',
+    einvoiceSyncBlockedMessage: (missing: string) => `Missing required E-invoice fields: ${missing}`,
+    exportPreviewTitle: 'Export preview',
+    exportPreviewDescription: 'Confirm workbook sheets, columns, and sample data before downloading.',
+    exportReceiptSheetLabel: 'Receipts sheet: one receipt per row',
+    exportItemSheetLabel: 'Items sheet: one item per row',
+    exportPreviewCancelLabel: 'Cancel',
+    exportPreviewConfirmLabel: 'Confirm export',
+    exportFinishedTitleLabel: 'Excel export finished',
+    exportFinishedLabel: (count: number) => `Exported ${count} record${count === 1 ? '' : 's'}.`,
+    exportFailedTitleLabel: 'Excel export failed',
+    exportFailedLabel: 'Export failed. Please try again.',
     signOutLabel: 'Sign out',
     rejectedReceiptsLabel: 'Deleted receipts',
     cropTitle: 'Crop before smart parse',
@@ -1335,6 +1373,7 @@ const I18N: any = {
     lineLabel: 'Baris',
     itemNamePlaceholder: 'Nama',
     noLineItemsLabel: 'Tiada item. Tambah secara manual.',
+    lineItemPasteHintLabel: 'Tampal beberapa baris item daripada Excel',
     fuelSubsidyLabel: 'Subsidi minyak / Budi Madani',
     subsidyMathNoteLabel: 'Jumlah resit dikekalkan; bayaran pelanggan dipaparkan berasingan supaya subsidi kerajaan tidak dianggap diskaun biasa.',
     actualPayableLabel: 'Bayaran sebenar / OPT',
@@ -1349,6 +1388,21 @@ const I18N: any = {
     einvoiceQrPayloadLabel: 'Kandungan QR',
     einvoiceTypeLabel: 'Jenis invois',
     einvoiceTaxAmountLabel: 'Amaun cukai',
+    einvoiceComplianceTitle: 'Pematuhan LHDN',
+    einvoiceComplianceReadyLabel: 'Medan wajib lengkap dan sedia disegerak.',
+    einvoiceComplianceMissingLabel: 'Medan wajib tiada',
+    einvoiceSyncBlockedLabel: 'Medan wajib E-invois belum lengkap',
+    einvoiceSyncBlockedMessage: (missing: string) => `Medan wajib E-invois tiada: ${missing}`,
+    exportPreviewTitle: 'Pratonton eksport',
+    exportPreviewDescription: 'Sahkan sheet, lajur, dan sampel data sebelum muat turun.',
+    exportReceiptSheetLabel: 'Sheet Receipts: satu resit setiap baris',
+    exportItemSheetLabel: 'Sheet Items: satu item setiap baris',
+    exportPreviewCancelLabel: 'Batal',
+    exportPreviewConfirmLabel: 'Sahkan eksport',
+    exportFinishedTitleLabel: 'Eksport Excel selesai',
+    exportFinishedLabel: (count: number) => `${count} rekod dieksport.`,
+    exportFailedTitleLabel: 'Eksport Excel gagal',
+    exportFailedLabel: 'Eksport gagal. Cuba lagi.',
     signOutLabel: 'Log keluar',
     rejectedReceiptsLabel: 'Resit dipadam',
     cropTitle: 'Potong sebelum huraian pintar',
@@ -1516,6 +1570,7 @@ export default function App() {
   const [duplicatePrompt, setDuplicatePrompt] = useState<DuplicatePromptState | null>(null);
   const [selectedDeletedIds, setSelectedDeletedIds] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportPreview, setExportPreview] = useState<ExportPreviewState | null>(null);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [uploadList, setUploadList] = useState<any[]>([]);
   const [notifications, setNotifications] = useState(() => loadAppNotifications());
@@ -1923,7 +1978,7 @@ export default function App() {
 
   const handleExport = async (singleItem: any = null) => {
     if (isExporting) return;
-    let dataToExport = [];
+    let dataToExport: any[] = [];
     if (singleItem) {
        dataToExport = [singleItem]; 
     } else if (selectedRowIds.length > 0) {
@@ -1937,17 +1992,30 @@ export default function App() {
        return;
     }
 
+    const apiReceipts = dataToExport.map(toApiReceipt);
+    setExportPreview({
+      receipts: apiReceipts,
+      preview: buildExportPreview(apiReceipts, { fieldPreferences, currency: config.currency }),
+    });
+  };
+
+  const handleConfirmExport = async () => {
+    if (!exportPreview || isExporting) return;
     setIsExporting(true);
     try {
-      await downloadReceiptsXlsx(dataToExport.map(toApiReceipt), undefined, { fieldPreferences, currency: config.currency });
-      showToast(`Successfully Exported ${dataToExport.length} Records!`, 'success', {
+      await downloadReceiptsXlsx(exportPreview.receipts, undefined, { fieldPreferences, currency: config.currency });
+      const message = typeof t.exportFinishedLabel === 'function'
+        ? t.exportFinishedLabel(exportPreview.preview.receiptCount)
+        : `Successfully exported ${exportPreview.preview.receiptCount} records.`;
+      showToast(message, 'success', {
         persist: true,
-        title: 'Excel export finished',
+        title: t.exportFinishedTitleLabel || 'Excel export finished',
       });
       setSelectedRowIds([]);
+      setExportPreview(null);
     } catch (error) {
       console.error('Export failed:', error);
-      showToast('Export failed.', 'error', { persist: true, title: 'Excel export failed' });
+      showToast(t.exportFailedLabel || 'Export failed.', 'error', { persist: true, title: t.exportFailedTitleLabel || 'Excel export failed' });
     } finally {
       setIsExporting(false);
     }
@@ -2704,6 +2772,17 @@ export default function App() {
   const handleSyncSelectedReceipt = async (options: { selectNext?: boolean } = {}) => {
     if (!selectedReceipt) return;
     const currentReceipt = selectedReceipt;
+    const eInvoiceCompliance = getEInvoiceCompliance(toApiReceipt(currentReceipt));
+    if (!eInvoiceCompliance.canSync) {
+      const missing = eInvoiceCompliance.missing.map((field) => t.fieldLabels?.[field] || field).join(', ');
+      showToast(
+        typeof t.einvoiceSyncBlockedMessage === 'function'
+          ? t.einvoiceSyncBlockedMessage(missing)
+          : `Missing required E-invoice fields: ${missing}`,
+        'error',
+      );
+      return;
+    }
     const updated = { ...currentReceipt, status: 'Synced' };
     const nextCandidate = options.selectNext ? getAdjacentReviewReceipt(history, currentReceipt.id, 1) : null;
     const nextReceipt = nextCandidate?.id !== currentReceipt.id ? nextCandidate : null;
@@ -2730,6 +2809,10 @@ export default function App() {
         }
         if (duplicatePrompt) {
           cancelDuplicateUpload();
+          return;
+        }
+        if (exportPreview && !isExporting) {
+          setExportPreview(null);
           return;
         }
         if (isSettingsOpen) {
@@ -2782,7 +2865,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [deleteDialog, duplicatePrompt, handleExport, handleSelectAdjacentReceipt, handleSyncSelectedReceipt, isNotificationCenterOpen, isSettingsOpen, selectedReceipt, zoomImage]);
+  }, [deleteDialog, duplicatePrompt, exportPreview, handleExport, handleSelectAdjacentReceipt, handleSyncSelectedReceipt, isExporting, isNotificationCenterOpen, isSettingsOpen, selectedReceipt, zoomImage]);
 
   const deleteDialogReceipt = deleteDialog?.ids.length === 1
     ? [...history, ...deletedReceipts].find((receipt) => receipt.id === deleteDialog.ids[0])
@@ -2849,6 +2932,67 @@ export default function App() {
           onContinue={continueDuplicateUpload}
           onOpenExisting={openDuplicateCandidate}
         />
+      )}
+
+      {exportPreview && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-3xl rounded-[28px] border p-6 shadow-2xl ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900 text-slate-100' : 'border-slate-200 bg-white text-slate-900'}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black">{t.exportPreviewTitle || 'Export preview'}</h3>
+                <p className={`mt-1 text-xs font-bold ${config.colorMode === 'Dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {t.exportPreviewDescription || 'Confirm the workbook sheets and columns before downloading.'}
+                </p>
+              </div>
+              <button type="button" onClick={() => setExportPreview(null)} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <div className={`rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/50' : 'border-slate-100 bg-slate-50'}`}>
+                <p className="text-[10px] font-black uppercase tracking-[1.5px] text-slate-400">{t.exportReceiptSheetLabel || 'Receipts sheet'}</p>
+                <p className="mt-1 text-2xl font-black tabular-nums">{exportPreview.preview.receiptCount}</p>
+                <p className="mt-2 text-xs font-bold text-slate-500">{exportPreview.preview.receiptHeaders.slice(0, 8).join(' / ')}</p>
+              </div>
+              <div className={`rounded-2xl border p-4 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-950/50' : 'border-slate-100 bg-slate-50'}`}>
+                <p className="text-[10px] font-black uppercase tracking-[1.5px] text-slate-400">{t.exportItemSheetLabel || 'Items sheet'}</p>
+                <p className="mt-1 text-2xl font-black tabular-nums">{exportPreview.preview.itemCount}</p>
+                <p className="mt-2 text-xs font-bold text-slate-500">{exportPreview.preview.itemHeaders.length > 0 ? exportPreview.preview.itemHeaders.join(' / ') : t.noLineItemsLabel}</p>
+              </div>
+            </div>
+
+            <div className={`mt-4 max-h-52 overflow-auto rounded-2xl border ${config.colorMode === 'Dark' ? 'border-slate-800' : 'border-slate-100'}`}>
+              <table className="w-full text-left text-xs">
+                <thead className={config.colorMode === 'Dark' ? 'bg-slate-950 text-slate-500' : 'bg-slate-50 text-slate-500'}>
+                  <tr>
+                    <th className="px-4 py-3">{t.merchantLabel}</th>
+                    <th className="px-4 py-3">{t.invoiceLabel}</th>
+                    <th className="px-4 py-3 text-right">{t.grandTotal}</th>
+                  </tr>
+                </thead>
+                <tbody className={config.colorMode === 'Dark' ? 'divide-y divide-slate-800' : 'divide-y divide-slate-100'}>
+                  {exportPreview.preview.sampleReceipts.map((row) => (
+                    <tr key={row.receipt_id}>
+                      <td className="px-4 py-3 font-bold">{row.merchant_name || '-'}</td>
+                      <td className="px-4 py-3 font-bold">{row.invoice_no || '-'}</td>
+                      <td className="px-4 py-3 text-right font-black">{row.currency} {row.grand_total.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setExportPreview(null)} className={`rounded-xl px-5 py-3 text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                {t.exportPreviewCancelLabel || 'Cancel'}
+              </button>
+              <button type="button" disabled={isExporting} onClick={handleConfirmExport} className={`rounded-xl px-5 py-3 text-[10px] font-black uppercase text-white disabled:cursor-wait disabled:opacity-60 ${config.theme.color}`}>
+                {isExporting ? t.generatingExcelLabel : t.exportPreviewConfirmLabel || t.exportExcel}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="flex flex-1 overflow-hidden">

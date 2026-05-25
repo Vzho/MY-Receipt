@@ -1278,13 +1278,16 @@ function mergeQrPayload(normalizedReceipt: Record<string, any>, receipt: Record<
     ?? stringOrNull(storedExtraFields.qr_payload)
 
   if (!payload) return
+  const parsedQrFields = parseQrPayloadFields(payload)
 
   normalizedReceipt.extra_fields = {
+    ...parsedQrFields,
+    ...storedExtraFields,
     ...normalizedExtraFields,
     qr_payload: payload,
   }
 
-  if (looksLikeEInvoiceQrPayload(payload)) {
+  if (looksLikeEInvoiceQrPayload(payload) || parsedQrFields.invoice_uuid || parsedQrFields.supplier_tin || parsedQrFields.buyer_tin) {
     normalizedReceipt.doc_type = 'E-invoice'
   }
 }
@@ -1292,6 +1295,69 @@ function mergeQrPayload(normalizedReceipt: Record<string, any>, receipt: Record<
 function looksLikeEInvoiceQrPayload(payload: string | null | undefined): boolean {
   if (!payload) return false
   return /myinvois|e-?invoice|invoice|lhdn|hasil|tax|uuid|validation/i.test(payload)
+}
+
+function parseQrPayloadFields(payload: string): Record<string, unknown> {
+  const fields: Record<string, unknown> = {}
+  const rawValues: Record<string, string> = {}
+
+  try {
+    const url = new URL(payload)
+    url.searchParams.forEach((value, key) => {
+      rawValues[key] = value
+    })
+    if (/myinvois|hasil|lhdn/i.test(url.hostname)) {
+      rawValues.validation_link = payload
+      const lastPathPart = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || '')
+      if (lastPathPart && /[a-z0-9-]{8,}/i.test(lastPathPart)) {
+        rawValues.uuid = rawValues.uuid || lastPathPart
+      }
+    }
+  } catch {
+    // Non-URL QR payloads are parsed below as key-value strings.
+  }
+
+  if (payload.trim().startsWith('{')) {
+    try {
+      const json = JSON.parse(payload)
+      if (json && typeof json === 'object') {
+        Object.entries(json as Record<string, unknown>).forEach(([key, value]) => {
+          const text = stringOrNull(value)
+          if (text) rawValues[key] = text
+        })
+      }
+    } catch {
+      // Leave malformed JSON to the generic key-value parser.
+    }
+  }
+
+  payload.split(/[|&;\n]/).forEach((part) => {
+    const match = part.trim().match(/^([^:=]+)\s*[:=]\s*(.+)$/)
+    if (match) rawValues[match[1].trim()] = match[2].trim()
+  })
+
+  Object.entries(rawValues).forEach(([rawKey, rawValue]) => {
+    const key = rawKey.trim().replace(/[\s-]+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').toLowerCase()
+    const value = rawValue.trim()
+    if (!value) return
+
+    if (['uuid', 'invoice_uuid', 'invoiceuuid', 'invoice_id', 'invoiceid', 'document_uuid', 'documentuuid', 'document_id', 'documentid'].includes(key)) {
+      fields.invoice_uuid = value
+    } else if (['suppliertin', 'supplier_tin', 'sellertin', 'issuertin', 'tin_supplier'].includes(key)) {
+      fields.supplier_tin = value
+    } else if (['buyertin', 'buyer_tin', 'customertin', 'recipienttin', 'tin_buyer'].includes(key)) {
+      fields.buyer_tin = value
+    } else if (['validation_link', 'validationlink', 'validation_url', 'validationurl', 'verify_url', 'verifyurl', 'url'].includes(key)) {
+      fields.validation_link = value
+    } else if (['invoice_type', 'invoicetype', 'type', 'doc_type', 'doctype', 'document_type', 'documenttype'].includes(key)) {
+      fields.invoice_type = value
+    } else if (['tax_amount', 'taxamount', 'tax', 'sst_amount', 'sstamount', 'tax_total', 'taxtotal'].includes(key)) {
+      const taxAmount = Number(value.replace(/[^\d.-]/g, ''))
+      if (Number.isFinite(taxAmount)) fields.tax_amount = normalizeMoney(taxAmount)
+    }
+  })
+
+  return fields
 }
 
 function normalizeExtraFields(input: Record<string, unknown>) {

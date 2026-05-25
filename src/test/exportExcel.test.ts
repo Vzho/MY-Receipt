@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildReceiptColumns, flattenReceiptItems, flattenReceipts } from '../lib/exportExcel'
+import { buildExportPreview, buildReceiptColumns, flattenReceiptItems, flattenReceipts } from '../lib/exportExcel'
 import type { Receipt } from '../types/receipt'
 
 describe('flattenReceipts', () => {
@@ -149,6 +149,22 @@ describe('flattenReceipts', () => {
     expect(columns).toEqual(expect.arrayContaining([
       expect.objectContaining({ header: 'Currency', key: 'currency' }),
     ]))
+  })
+
+  it('builds an export preview from the configured receipt and item sheets', () => {
+    const preview = buildExportPreview([createReceipt()], {
+      currency: 'RM',
+      fieldPreferences: [
+        { field_key: 'merchant_name', enabled: true, export_enabled: true },
+        { field_key: 'items', enabled: true, export_enabled: true },
+      ],
+    })
+
+    expect(preview.receiptCount).toBe(1)
+    expect(preview.itemCount).toBe(2)
+    expect(preview.receiptHeaders).toContain('Merchant')
+    expect(preview.itemHeaders).toContain('Line Total')
+    expect(preview.sampleReceipts[0]).toMatchObject({ merchant_name: 'Test Merchant' })
   })
 })
 

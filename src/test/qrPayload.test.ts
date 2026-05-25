@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { decodeQrPayloadFromImageFile, looksLikeEInvoiceQrPayload } from '../lib/qrPayload'
+import {
+  decodeQrPayloadFromImageFile,
+  looksLikeEInvoiceQrPayload,
+  mergeQrPayloadExtraFields,
+  parseMyInvoisQrPayload,
+} from '../lib/qrPayload'
 
 describe('qr payload helpers', () => {
   it('detects Malaysian e-invoice-like QR payloads', () => {
@@ -22,5 +27,37 @@ describe('qr payload helpers', () => {
         ;(globalThis as typeof globalThis & { BarcodeDetector?: unknown }).BarcodeDetector = originalDetector
       }
     }
+  })
+
+  it('parses MyInvois validation links and query fields', () => {
+    const payload = 'https://myinvois.hasil.gov.my/validate?uuid=INV-UUID-1&supplierTin=C123&buyerTin=B456&taxAmount=7.12&total=137.60'
+
+    expect(parseMyInvoisQrPayload(payload)).toMatchObject({
+      invoice_uuid: 'INV-UUID-1',
+      validation_link: payload,
+      supplier_tin: 'C123',
+      buyer_tin: 'B456',
+      tax_amount: 7.12,
+      grand_total: 137.6,
+      qr_payload: payload,
+    })
+  })
+
+  it('parses structured key-value QR payloads and preserves existing fields on merge', () => {
+    const payload = 'supplier_tin=C123|buyer_tin=B456|invoice_uuid=UUID-2|tax_amount=3.21'
+
+    expect(parseMyInvoisQrPayload(payload)).toMatchObject({
+      supplier_tin: 'C123',
+      buyer_tin: 'B456',
+      invoice_uuid: 'UUID-2',
+      tax_amount: 3.21,
+    })
+
+    expect(mergeQrPayloadExtraFields({ supplier_tin: 'EXISTING' }, payload)).toMatchObject({
+      supplier_tin: 'EXISTING',
+      buyer_tin: 'B456',
+      invoice_uuid: 'UUID-2',
+      qr_payload: payload,
+    })
   })
 })
