@@ -194,9 +194,9 @@ function ReceiptTableComponent({
                         <CheckCircle className={`w-5 h-5 ${config.colorMode === 'Dark' ? 'text-amber-600' : 'text-amber-500'}`} />
                       )}
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-center gap-2">
-                        <p className={`text-sm font-black leading-tight ${item.status === 'Failed' ? 'text-rose-600' : config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-800'}`}>
+                        <p className={`max-w-[22rem] truncate text-sm font-black leading-tight ${item.status === 'Failed' ? 'text-rose-600' : config.colorMode === 'Dark' ? 'text-slate-200' : 'text-slate-800'}`}>
                           {item.merchant_name || item.display_filename || item.filename || labels.processingReceiptLabel || 'Processing receipt'}
                         </p>
                         {item.merchant_name && (
@@ -220,7 +220,7 @@ function ReceiptTableComponent({
                           </button>
                         )}
                       </div>
-                      <div className="mt-2 flex max-w-xl flex-col gap-1.5">
+                      <div className="mt-2 flex w-72 max-w-full flex-col gap-1.5">
                         <ProcessingPanel stage={item.processing_stage} status={item.status} compact labels={labels} />
                         <WarningPanel warnings={item.warnings} compact labels={labels} />
                       </div>

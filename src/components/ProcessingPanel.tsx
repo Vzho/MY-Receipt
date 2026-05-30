@@ -27,15 +27,25 @@ export function ProcessingPanel({ stage, status, compact = false, labels }: Proc
   const stageLabel = (item: ReceiptProcessingStage) => labels?.processingStageLabels?.[item] || stageLabels[item]
   const statusLabel = status ? labels?.optionLabels?.[status] || status : stageLabel(activeStage)
 
+  const progressPercent = failed ? 100 : activeIndex >= 0 ? Math.round(((activeIndex + 1) / stageOrder.length) * 100) : 20
+
   return (
-    <div className={`rounded-2xl border ${failed ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-indigo-100 bg-indigo-50 text-indigo-700'} ${compact ? 'px-2.5 py-1.5' : 'p-4'}`}>
+    <div className={`rounded-2xl border ${failed ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-indigo-100 bg-indigo-50 text-indigo-700'} ${compact ? 'w-72 max-w-full px-2.5 py-1.5' : 'p-4'}`}>
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {failed ? <TriangleAlert className="h-4 w-4" /> : status === 'processing' || status === 'Processing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cpu className="h-4 w-4" />}
-          <span className="text-[10px] font-black uppercase tracking-wide">{activeIcon} {stageLabel(activeStage)}</span>
+          <span className="truncate text-[10px] font-black uppercase tracking-wide">{activeIcon} {stageLabel(activeStage)}</span>
         </div>
         {!compact && <span className="text-[10px] font-black uppercase opacity-70">{statusLabel}</span>}
       </div>
+      {compact && (
+        <div className={`mt-1.5 h-1 overflow-hidden rounded-full ${failed ? 'bg-rose-100' : 'bg-indigo-100'}`}>
+          <div
+            className={`h-full rounded-full transition-all duration-300 ${failed ? 'bg-rose-500' : 'bg-indigo-500'}`}
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      )}
       {!compact && (
         <div className="mt-3 grid grid-cols-5 gap-2">
           {stageOrder.map((item, index) => {

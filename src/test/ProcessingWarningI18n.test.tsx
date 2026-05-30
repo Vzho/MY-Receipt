@@ -31,6 +31,30 @@ describe('processing and warning panel i18n', () => {
     expect(html).not.toContain('Ready for review')
   })
 
+  it('keeps compact processing width independent from receipt name length', () => {
+    const html = renderToStaticMarkup(
+      <ProcessingPanel
+        compact
+        stage="ocr_scanning"
+        status="Processing"
+        labels={{
+          processingStageLabels: {
+            uploaded: '已上传',
+            ocr_scanning: 'OCR 识别中',
+            ai_extracting: 'AI 抽取字段中',
+            generating_preview: '生成预览中',
+            ready_for_review: '待审核',
+            ocr_failed: 'OCR 失败',
+          },
+        }}
+      />,
+    )
+
+    expect(html).toContain('w-72')
+    expect(html).toContain('OCR 识别中')
+    expect(html).toContain('width:40%')
+  })
+
   it('renders warning labels and messages from labels', () => {
     const html = renderToStaticMarkup(
       <WarningPanel
