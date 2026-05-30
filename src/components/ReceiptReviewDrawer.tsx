@@ -492,9 +492,9 @@ function ReceiptReviewDrawerComponent({
         />
       </div>
 
-      <div className={`grid grid-cols-1 gap-3 border-b px-8 py-4 lg:grid-cols-2 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
-        <ProcessingPanel stage={receipt.processing_stage} status={receipt.status} labels={labels} />
-        <WarningPanel warnings={receipt.warnings} labels={labels} />
+      <div className={`flex flex-wrap items-start gap-2 border-b px-8 py-2.5 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
+        <ProcessingPanel stage={receipt.processing_stage} status={receipt.status} compact labels={labels} />
+        <WarningPanel warnings={receipt.warnings} compact labels={labels} />
         {receipt.deleted_at && (
           <div className={`rounded-2xl border px-4 py-3 text-xs font-bold ${config.colorMode === 'Dark' ? 'border-rose-900/60 bg-rose-950/20 text-rose-200' : 'border-rose-100 bg-rose-50 text-rose-700'}`}>
             {labels.rejectedReasonLabel || 'Rejected reason'}: {receipt.deleted_reason || 'other'}{receipt.deleted_note ? ` / ${receipt.deleted_note}` : ''} / {receipt.deleted_at.slice(0, 10)}
