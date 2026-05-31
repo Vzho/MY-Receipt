@@ -15,10 +15,12 @@ export function summarizeOcrUsage(
   quotas: Record<string, { label: string; limit: number }> = DEFAULT_OCR_QUOTAS,
 ): OcrQuotaSummary[] {
   return Object.entries(quotas).map(([provider, quota]) => {
-    const used = usage
-      .filter((item) => item.provider === provider)
-      .reduce((sum, item) => sum + Math.max(0, Math.round(Number(item.units) || 0)), 0)
-    const limit = Math.max(1, quota.limit)
+    const providerRows = usage.filter((item) => item.provider === provider)
+    const used = providerRows.reduce((sum, item) => sum + Math.max(0, Math.round(Number(item.units) || 0)), 0)
+    const configuredLimit = providerRows
+      .map((item) => Math.round(Number(item.monthly_limit) || 0))
+      .find((limit) => limit > 0)
+    const limit = Math.max(1, configuredLimit || quota.limit)
     return {
       provider,
       label: quota.label,

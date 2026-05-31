@@ -35,6 +35,7 @@ describe('calculateReceiptMath', () => {
   it('treats positive wipe-off rounding as a deduction when that matches the printed total', () => {
     const result = calculateReceiptMath({
       itemTotal: 118.7,
+      hasLineItems: true,
       subtotal: 118.7,
       discount: 0,
       serviceCharge: 11.87,
@@ -45,5 +46,31 @@ describe('calculateReceiptMath', () => {
 
     expect(result.effectiveRounding).toBe(-0.09)
     expect(result.calculatedTotal).toBe(137.6)
+  })
+
+  it('does not hide zero-value line items by falling back to OCR subtotal', () => {
+    const result = calculateReceiptMath({
+      itemTotal: 0,
+      hasLineItems: true,
+      subtotal: 24.89,
+      rounding: 0.01,
+      grandTotal: 24.9,
+    })
+
+    expect(result.baseTotal).toBe(0)
+    expect(result.calculatedTotal).toBe(0.01)
+  })
+
+  it('uses OCR subtotal only when no line items are available', () => {
+    const result = calculateReceiptMath({
+      itemTotal: 0,
+      hasLineItems: false,
+      subtotal: 24.89,
+      rounding: 0.01,
+      grandTotal: 24.9,
+    })
+
+    expect(result.baseTotal).toBe(24.89)
+    expect(result.calculatedTotal).toBe(24.9)
   })
 })

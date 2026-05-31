@@ -8,6 +8,7 @@ const validCategories = ['Grocery', 'Fuel', 'F&B', 'Retail', 'Service', 'Other']
 const validDocTypes = ['Receipt', 'Invoice', 'Credit Note', 'Expense', 'E-invoice']
 const validTags = ['Business', 'Personal', 'Tax Deductible', 'Pending']
 const DEFAULT_EXTERNAL_FETCH_TIMEOUT_MS = 30000
+const DEFAULT_VISION_FETCH_TIMEOUT_MS = 90000
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -672,8 +673,12 @@ async function callTencentCloudApi(action: string, version: string, payload: str
   })
 }
 
-async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = externalFetchTimeoutMs()): Promise<Response> {
-  const maxRetries = externalFetchRetryCount()
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMs = externalFetchTimeoutMs(),
+  maxRetries = externalFetchRetryCount(),
+): Promise<Response> {
   let lastError: unknown = null
 
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
@@ -713,9 +718,23 @@ function externalFetchTimeoutMs() {
   return Number.isFinite(configured) && configured >= 5000 ? configured : DEFAULT_EXTERNAL_FETCH_TIMEOUT_MS
 }
 
+function visionFetchTimeoutMs() {
+  const configured = Number(
+    Deno.env.get('VISION_FETCH_TIMEOUT_MS')
+    || Deno.env.get('QWEN_FETCH_TIMEOUT_MS')
+    || Deno.env.get('AI_VISION_FETCH_TIMEOUT_MS'),
+  )
+  return Number.isFinite(configured) && configured >= 10000 ? configured : DEFAULT_VISION_FETCH_TIMEOUT_MS
+}
+
 function externalFetchRetryCount() {
   const configured = Number(Deno.env.get('OCR_AI_FETCH_RETRIES'))
   return Number.isFinite(configured) && configured >= 0 ? Math.min(5, Math.floor(configured)) : 2
+}
+
+function visionFetchRetryCount() {
+  const configured = Number(Deno.env.get('VISION_FETCH_RETRIES') || Deno.env.get('QWEN_FETCH_RETRIES'))
+  return Number.isFinite(configured) && configured >= 0 ? Math.min(2, Math.floor(configured)) : 0
 }
 
 function externalFetchRetryDelayMs(attempt: number) {
@@ -744,34 +763,39 @@ async function runOpenAIVision(base64File: string, mimeType: string, options: Re
     throw new Error('OpenAI vision fallback currently supports JPEG and PNG receipts only.')
   }
 
-  const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${Deno.env.get('OPENAI_API_KEY')!}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
-      temperature: 0,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: buildImageUserPrompt(options) },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${mimeType};base64,${base64File}`,
-                detail: 'high',
+  const response = await fetchWithTimeout(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${Deno.env.get('OPENAI_API_KEY')!}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
+        temperature: 0,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: buildImageUserPrompt(options) },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64File}`,
+                  detail: 'high',
+                },
               },
-            },
-          ],
-        },
-      ],
-    }),
-  })
+            ],
+          },
+        ],
+      }),
+    },
+    visionFetchTimeoutMs(),
+    visionFetchRetryCount(),
+  )
 
   const payload = await response.json()
   if (!response.ok) {
@@ -789,34 +813,39 @@ async function runQwenVision(base64File: string, mimeType: string, options: Rece
   }
 
   const endpoint = Deno.env.get('QWEN_BASE_URL') || 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation'
-  const response = await fetchWithTimeout(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${Deno.env.get('DASHSCOPE_API_KEY')!}`,
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    endpoint,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${Deno.env.get('DASHSCOPE_API_KEY')!}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: Deno.env.get('QWEN_VL_MODEL') || 'qwen3.6-plus',
+        input: {
+          messages: [
+            {
+              role: 'system',
+              content: [{ text: SYSTEM_PROMPT }],
+            },
+            {
+              role: 'user',
+              content: [
+                { image: `data:${mimeType};base64,${base64File}` },
+                { text: buildImageUserPrompt(options) },
+              ],
+            },
+          ],
+        },
+        parameters: {
+          temperature: 0,
+        },
+      }),
     },
-    body: JSON.stringify({
-      model: Deno.env.get('QWEN_VL_MODEL') || 'qwen3.6-plus',
-      input: {
-        messages: [
-          {
-            role: 'system',
-            content: [{ text: SYSTEM_PROMPT }],
-          },
-          {
-            role: 'user',
-            content: [
-              { image: `data:${mimeType};base64,${base64File}` },
-              { text: buildImageUserPrompt(options) },
-            ],
-          },
-        ],
-      },
-      parameters: {
-        temperature: 0,
-      },
-    }),
-  })
+    visionFetchTimeoutMs(),
+    visionFetchRetryCount(),
+  )
 
   const payload = await response.json()
   if (!response.ok) {
@@ -1218,6 +1247,7 @@ function shouldRepairStructuredReceipt(input: Record<string, any>): boolean {
   const printedTotal = normalizeMoney(input.grand_total)
   const calculatedTotal = calculateReceiptMath({
     itemTotal: itemsTotal,
+    hasLineItems: items.length > 0,
     subtotal: input.subtotal,
     discount: input.discount,
     tax: input.tax,
@@ -1645,6 +1675,7 @@ function buildWarnings(
   const subtotal = roundMoney(Number(receipt.subtotal || 0))
   const receiptMath = calculateReceiptMath({
     itemTotal,
+    hasLineItems: items.length > 0,
     subtotal,
     discount: receipt.discount,
     tax: receipt.tax,
@@ -1928,6 +1959,7 @@ function evaluateAutoSync(receipt: Record<string, any>, items: Array<Record<stri
   const itemTotal = roundMoney(items.reduce((sum, item) => sum + Number(item.line_total || 0), 0))
   const receiptMath = calculateReceiptMath({
     itemTotal,
+    hasLineItems: items.length > 0,
     subtotal: receipt.subtotal,
     discount: receipt.discount,
     tax: receipt.tax,
@@ -2057,6 +2089,7 @@ function roundMoney(value: number) {
 
 function calculateReceiptMath(input: {
   itemTotal?: unknown
+  hasLineItems?: boolean
   subtotal?: unknown
   discount?: unknown
   tax?: unknown
@@ -2071,7 +2104,7 @@ function calculateReceiptMath(input: {
   const serviceCharge = normalizeMoney(input.serviceCharge)
   const rounding = normalizeMoney(input.rounding)
   const grandTotal = normalizeMoney(input.grandTotal)
-  const baseTotal = itemTotal > 0 ? itemTotal : subtotal
+  const baseTotal = input.hasLineItems ? itemTotal : itemTotal > 0 ? itemTotal : subtotal
   const discountCandidates = discount > 0 ? [0, discount] : [0]
   const roundingCandidates = rounding === 0
     ? [0]

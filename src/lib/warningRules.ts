@@ -68,6 +68,7 @@ function addAmountWarnings(warnings: ReceiptWarning[], receipt: Receipt, items: 
   const subtotal = roundMoney(Number(receipt.subtotal || 0))
   const receiptMath = calculateReceiptMath({
     itemTotal,
+    hasLineItems: items.length > 0,
     subtotal,
     discount: receipt.discount,
     tax: getReceiptTax(receipt),

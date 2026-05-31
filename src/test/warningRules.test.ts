@@ -31,6 +31,22 @@ describe('evaluateReceiptWarnings', () => {
     expect(warnings.map((warning) => warning.code)).toEqual(expect.arrayContaining(['total_mismatch', 'amount_mismatch']))
   })
 
+  it('does not pass math when line item rows exist but all line totals are zero', () => {
+    const warnings = evaluateReceiptWarnings(
+      createReceipt({
+        subtotal: 24.89,
+        rounding: 0.01,
+        grand_total: 24.9,
+        receipt_items: [
+          { name: 'NHP JR AC', qty: 1, unit: null, unit_price: 0, line_total: 0 },
+          { name: 'FRIES MD', qty: 1, unit: null, unit_price: 0, line_total: 0 },
+        ],
+      }),
+    )
+
+    expect(warnings.map((warning) => warning.code)).toEqual(expect.arrayContaining(['total_mismatch', 'amount_mismatch']))
+  })
+
   it('does not subtract discount again when line totals are already discounted', () => {
     const warnings = evaluateReceiptWarnings(
       createReceipt({

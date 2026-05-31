@@ -1,5 +1,6 @@
 export interface ReceiptMathInput {
   itemTotal?: number | string | null
+  hasLineItems?: boolean
   subtotal?: number | string | null
   discount?: number | string | null
   tax?: number | string | null
@@ -24,7 +25,7 @@ export function calculateReceiptMath(input: ReceiptMathInput): ReceiptMathResult
   const serviceCharge = toNumber(input.serviceCharge)
   const rounding = roundMoney(toNumber(input.rounding))
   const grandTotal = roundMoney(toNumber(input.grandTotal))
-  const baseTotal = itemTotal > 0 ? itemTotal : subtotal
+  const baseTotal = input.hasLineItems ? itemTotal : itemTotal > 0 ? itemTotal : subtotal
   const mathCandidate = chooseMathCandidate({
     baseTotal,
     discount,

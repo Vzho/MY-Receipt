@@ -1,29 +1,16 @@
-create table if not exists public.ocr_usage_monthly (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  period text not null check (period ~ '^\d{4}-\d{2}$'),
-  provider text not null,
-  units integer not null default 0 check (units >= 0),
-  monthly_limit integer check (monthly_limit is null or monthly_limit > 0),
-  updated_at timestamptz not null default now(),
-  primary key (user_id, period, provider)
-);
-
 alter table public.ocr_usage_monthly
   add column if not exists monthly_limit integer
   check (monthly_limit is null or monthly_limit > 0);
 
-create index if not exists idx_ocr_usage_monthly_provider_period
-  on public.ocr_usage_monthly (provider, period);
-
-alter table public.ocr_usage_monthly enable row level security;
-
-drop policy if exists "Users can read own OCR usage" on public.ocr_usage_monthly;
-create policy "Users can read own OCR usage"
-  on public.ocr_usage_monthly for select
-  to authenticated
-  using (
-    (select auth.uid()) = user_id
-  );
+update public.ocr_usage_monthly
+set monthly_limit = case provider
+  when 'tencent' then 900
+  when 'qwen_vl' then 100
+  when 'deepseek_v4' then 500
+  else monthly_limit
+end
+where monthly_limit is null
+  and provider in ('tencent', 'qwen_vl', 'deepseek_v4');
 
 create or replace function public.consume_ocr_quota(
   p_user_id uuid,

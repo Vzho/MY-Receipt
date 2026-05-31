@@ -682,11 +682,24 @@ export async function listOcrUsageMonthly(period = new Date().toISOString().slic
   const client = requireSupabase()
   const { data, error } = await client
     .from('ocr_usage_monthly')
-    .select('user_id,period,provider,units,updated_at')
+    .select('user_id,period,provider,units,monthly_limit,updated_at')
     .eq('period', period)
     .order('provider', { ascending: true })
 
-  if (error && isMissingSchemaError(error)) return []
+  if (error && isMissingSchemaError(error)) {
+    const fallback = await client
+      .from('ocr_usage_monthly')
+      .select('user_id,period,provider,units,updated_at')
+      .eq('period', period)
+      .order('provider', { ascending: true })
+
+    if (fallback.error && isMissingSchemaError(fallback.error)) return []
+    if (fallback.error) {
+      console.warn('OCR usage is not available yet:', fallback.error)
+      return []
+    }
+    return (fallback.data ?? []) as OcrUsageMonthly[]
+  }
   if (error) {
     console.warn('OCR usage is not available yet:', error)
     return []
@@ -991,7 +1004,7 @@ function isMissingSchemaError(error: unknown): boolean {
   const code = record?.code ?? ''
   const text = `${record?.message ?? ''} ${record?.details ?? ''} ${record?.hint ?? ''}`
   return ['PGRST204', 'PGRST205', '42703', '42P01'].includes(code)
-    || /schema cache|column|relation .* does not exist|deleted_at|file_hash|processing_stage|warnings|extra_fields|duplicate_of|custom_doc_type|currency|tax_breakdown|address_structured|receipt_field_changes|custom_document_types|user_field_preferences/i.test(text)
+    || /schema cache|column|relation .* does not exist|deleted_at|file_hash|processing_stage|warnings|extra_fields|duplicate_of|custom_doc_type|currency|tax_breakdown|address_structured|monthly_limit|receipt_field_changes|custom_document_types|user_field_preferences/i.test(text)
 }
 
 function buildDuplicateTarget(options: FindDuplicateCandidateOptions): Receipt {

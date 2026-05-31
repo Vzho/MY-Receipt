@@ -108,6 +108,7 @@ create table if not exists public.ocr_usage_monthly (
   period text not null check (period ~ '^\d{4}-\d{2}$'),
   provider text not null,
   units integer not null default 0 check (units >= 0),
+  monthly_limit integer check (monthly_limit is null or monthly_limit > 0),
   updated_at timestamptz not null default now(),
   primary key (user_id, period, provider)
 );
@@ -334,11 +335,12 @@ begin
     return 0;
   end if;
 
-  insert into public.ocr_usage_monthly (user_id, period, provider, units, updated_at)
-  values (p_user_id, p_period, p_provider, p_units, now())
+  insert into public.ocr_usage_monthly (user_id, period, provider, units, monthly_limit, updated_at)
+  values (p_user_id, p_period, p_provider, p_units, p_limit, now())
   on conflict (user_id, period, provider)
   do update set
     units = public.ocr_usage_monthly.units + excluded.units,
+    monthly_limit = excluded.monthly_limit,
     updated_at = now()
   where public.ocr_usage_monthly.units + excluded.units <= p_limit
   returning units into new_units;

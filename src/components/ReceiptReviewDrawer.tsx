@@ -165,18 +165,20 @@ function ReceiptReviewDrawerComponent({
   const itemsTotal = useMemo(() => {
     return receipt?.items?.reduce((sum: number, item: any) => sum + (Number(item.line_total) || 0), 0) || 0
   }, [receipt])
+  const hasLineItems = Array.isArray(receipt?.items) && receipt.items.length > 0
 
   const grandTotal = Number(receipt.grand_total) || 0
   const receiptCurrency = receipt.currency || config.currency || 'RM'
   const receiptMath = useMemo(() => calculateReceiptMath({
     itemTotal: itemsTotal,
+    hasLineItems,
     subtotal: receipt.subtotal,
     discount: receipt.discount,
     tax: receipt.tax_sst,
     serviceCharge: receipt.service_charge,
     rounding: receipt.rounding,
     grandTotal,
-  }), [grandTotal, itemsTotal, receipt.discount, receipt.rounding, receipt.service_charge, receipt.subtotal, receipt.tax_sst])
+  }), [grandTotal, hasLineItems, itemsTotal, receipt.discount, receipt.rounding, receipt.service_charge, receipt.subtotal, receipt.tax_sst])
   const manualTotal = receiptMath.calculatedTotal
 
   const subsidyRows = useMemo(() => buildSubsidyRows(receipt.subsidy_details, receiptCurrency), [receipt.subsidy_details, receiptCurrency])

@@ -42,6 +42,7 @@ function receiptMathPassed(receipt: Receipt, items: ReceiptItem[]) {
   const itemTotal = roundMoney(items.reduce((sum, item) => sum + Number(item.line_total || 0), 0))
   const receiptMath = calculateReceiptMath({
     itemTotal,
+    hasLineItems: items.length > 0,
     subtotal: receipt.subtotal,
     discount: receipt.discount,
     tax: receipt.tax,

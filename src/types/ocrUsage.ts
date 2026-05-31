@@ -3,6 +3,7 @@ export interface OcrUsageMonthly {
   period: string
   provider: string
   units: number
+  monthly_limit?: number | null
   updated_at?: string | null
 }
 
