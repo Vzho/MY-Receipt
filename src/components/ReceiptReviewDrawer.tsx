@@ -16,11 +16,9 @@ import {
 } from 'lucide-react'
 import { calculateReceiptMath } from '../lib/receiptMath'
 import { filterVisibleReceiptWarnings } from '../lib/visibleWarnings'
-import { getFieldConfidence, getFieldConfidenceTone } from '../lib/fieldConfidence'
 import { getEInvoiceCompliance } from '../lib/einvoiceCompliance'
 import { getNextLineItemFieldIndex, shouldMoveLineItemFieldOnEnter } from '../lib/lineItemKeyboard'
 import { parseLineItemsFromClipboard } from '../lib/lineItemPaste'
-import { getLineItemConfidence, isLowLineItemConfidence } from '../lib/itemConfidence'
 import { isLikelyMalaysiaCompanyRegNo, isValidSstNo, normalizeSstNo } from '../lib/malaysiaTaxIds'
 import { findReceiptFieldDetections, toOverlayStyle } from '../lib/ocrDetections'
 import { getReviewShortcutAction } from '../lib/reviewNavigation'
@@ -28,7 +26,6 @@ import { buildSubsidyRows, formatSubsidyHeadline, getSubsidyPayable, hasSubsidyD
 import type { FieldKey } from '../types/fieldConfig'
 import type { ReceiptFieldChange } from '../types/receipt'
 import { CustomDocTypeInput } from './CustomDocTypeInput'
-import { FieldConfidenceIndicator } from './FieldConfidenceIndicator'
 import { ProcessingPanel } from './ProcessingPanel'
 import { ReceiptDetailPanel } from './ReceiptDetailPanel'
 import { SoftSelect } from './SoftSelect'
@@ -177,17 +174,9 @@ function ReceiptReviewDrawerComponent({
     onFocus: () => setFocusedFieldKey(fieldKey),
   })
 
-  const confidenceFor = (fieldKey: string) => getFieldConfidence(receipt, fieldKey)
-  const confidenceInputClass = (fieldKey: string) => (
-    getFieldConfidenceTone(confidenceFor(fieldKey)) === 'low'
-      ? 'border-amber-300 bg-amber-50/80 focus:ring-amber-400/30'
-      : ''
-  )
-
-  const fieldLabel = (label: string, fieldKey: string, className = '') => (
+  const fieldLabel = (label: string, _fieldKey: string, className = '') => (
     <div className="flex items-center justify-between gap-2">
       <label className={className}>{label}</label>
-      <FieldConfidenceIndicator confidence={confidenceFor(fieldKey)} labels={labels} />
     </div>
   )
 
@@ -395,9 +384,6 @@ function ReceiptReviewDrawerComponent({
           <div>
             <h2 className={`text-lg font-black tracking-tight flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-white' : 'text-slate-900'}`}>
               {receipt.merchant_name || receipt.display_filename || receipt.filename || 'Processing receipt'}
-              <span className={`px-2 py-0.5 rounded text-[9px] uppercase ${receipt.status === 'Failed' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                {labels.confidence}: {((Number(receipt.confidence_score) || 0) * 100).toFixed(0)}%
-              </span>
             </h2>
             {receipt.source_page_label && (
               <p className={`text-[10px] font-black uppercase mt-0.5 ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -504,7 +490,7 @@ function ReceiptReviewDrawerComponent({
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className={`w-[25%] p-6 flex flex-col border-r relative transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-100/80 border-slate-200'}`}>
+        <div className={`w-[38%] min-w-[360px] max-w-[46%] p-6 flex flex-col border-r relative transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-100/80 border-slate-200'}`}>
           <h4 className={`text-[11px] font-black uppercase tracking-[2px] flex items-center gap-2 mb-4 ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-500'}`}>
             <Eye className="w-4 h-4" /> {imagePreviewMode === 'processed' ? labels.processedImgLabel || 'Processed image' : labels.originalImg}
           </h4>
@@ -604,7 +590,7 @@ function ReceiptReviewDrawerComponent({
           )}
         </div>
 
-        <div className={`themed-scrollbar w-[75%] flex flex-col overflow-y-auto ${config.colorMode === 'Dark' ? 'bg-slate-900/50' : 'bg-slate-50/30'}`}>
+        <div className={`themed-scrollbar min-w-0 flex-1 flex flex-col overflow-y-auto ${config.colorMode === 'Dark' ? 'bg-slate-900/50' : 'bg-slate-50/30'}`}>
           <div className={`p-8 border-b space-y-6 transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
             <section className="space-y-4">
               <h4 className={`text-[11px] font-black ${config.theme.text} uppercase tracking-[2px] flex items-center gap-2`}>
@@ -614,36 +600,36 @@ function ReceiptReviewDrawerComponent({
                 <div className="col-span-4 lg:col-span-3 grid grid-cols-6 gap-4">
                   <div className={`${isFieldVisible('merchant_name') ? '' : 'hidden'} col-span-6 xl:col-span-4 space-y-1.5`}>
                     {fieldLabel(labels.merchantLabel, 'merchant_name', `text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`)}
-                    <input {...reviewFieldProps('merchant_name')} list={merchantAutocompleteId} type="text" value={receipt.merchant_name || ''} onChange={(event) => updateReceipt({ merchant_name: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'} ${confidenceInputClass('merchant_name')}`} />
+                    <input {...reviewFieldProps('merchant_name')} list={merchantAutocompleteId} type="text" value={receipt.merchant_name || ''} onChange={(event) => updateReceipt({ merchant_name: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('date') ? '' : 'hidden'} col-span-6 sm:col-span-2 xl:col-span-2 space-y-1.5`}>
                     {fieldLabel(labels.dateLabel, 'date', `text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`)}
-                    <input {...reviewFieldProps('date')} type="text" value={receipt.date || ''} onChange={(event) => updateReceipt({ date: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'} ${confidenceInputClass('date')}`} />
+                    <input {...reviewFieldProps('date')} type="text" value={receipt.date || ''} onChange={(event) => updateReceipt({ date: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('invoice_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
                     {fieldLabel(labels.invoiceLabel, 'invoice_no', `text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`)}
-                    <input {...reviewFieldProps('invoice_no')} type="text" value={receipt.invoice_no || ''} onChange={(event) => updateReceipt({ invoice_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'} ${confidenceInputClass('invoice_no')}`} />
+                    <input {...reviewFieldProps('invoice_no')} type="text" value={receipt.invoice_no || ''} onChange={(event) => updateReceipt({ invoice_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('company_reg_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
                     {fieldLabel(labels.regNoLabel, 'company_reg_no', `text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`)}
-                    <input {...reviewFieldProps('company_reg_no')} type="text" value={receipt.company_reg_no || ''} onChange={(event) => updateReceipt({ company_reg_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${taxIdInputClass(companyRegInvalid)} ${confidenceInputClass('company_reg_no')}`} />
+                    <input {...reviewFieldProps('company_reg_no')} type="text" value={receipt.company_reg_no || ''} onChange={(event) => updateReceipt({ company_reg_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${taxIdInputClass(companyRegInvalid)}`} />
                     {companyRegInvalid && <p className="text-[9px] font-bold text-amber-600">{labels.companyRegInvalidLabel || 'SSM format looks invalid.'}</p>}
                   </div>
                   <div className={`${isFieldVisible('tin_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
                     {fieldLabel(labels.tinLabel || 'TIN 号', 'tin_no', `text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`)}
-                    <input {...reviewFieldProps('tin_no')} type="text" value={receipt.tin_no || ''} onChange={(event) => updateReceipt({ tin_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'} ${confidenceInputClass('tin_no')}`} />
+                    <input {...reviewFieldProps('tin_no')} type="text" value={receipt.tin_no || ''} onChange={(event) => updateReceipt({ tin_no: event.target.value })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                   </div>
                   <div className={`${isFieldVisible('sst_no') ? '' : 'hidden'} col-span-6 xl:col-span-2 space-y-1.5`}>
                     {fieldLabel(labels.sstIdLabel || 'SST 编号', 'sst_no', `text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`)}
-                    <input {...reviewFieldProps('sst_no')} type="text" value={receipt.sst_no || ''} onChange={(event) => updateReceipt({ sst_no: event.target.value })} onBlur={() => updateReceipt({ sst_no: normalizeSstNo(receipt.sst_no) })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${taxIdInputClass(sstNoInvalid)} ${confidenceInputClass('sst_no')}`} />
+                    <input {...reviewFieldProps('sst_no')} type="text" value={receipt.sst_no || ''} onChange={(event) => updateReceipt({ sst_no: event.target.value })} onBlur={() => updateReceipt({ sst_no: normalizeSstNo(receipt.sst_no) })} className={`w-full border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${taxIdInputClass(sstNoInvalid)}`} />
                     {sstNoInvalid && <p className="text-[9px] font-bold text-amber-600">{labels.sstInvalidLabel || 'SST format should look like A00-0000-00000000.'}</p>}
                   </div>
                   <div className="col-span-6 xl:col-span-4 space-y-1.5">
                     {fieldLabel(labels.phonePaymentLabel, 'payment_method', `text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`)}
                     <div className="flex gap-2">
-                      <input {...reviewFieldProps('phone')} type="text" value={receipt.phone || ''} placeholder={labels.phonePlaceholder || 'Phone'} onChange={(event) => updateReceipt({ phone: event.target.value })} className={`${isFieldVisible('payment_method') ? 'w-1/2' : 'w-full'} border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'} ${confidenceInputClass('phone')}`} />
+                      <input {...reviewFieldProps('phone')} type="text" value={receipt.phone || ''} placeholder={labels.phonePlaceholder || 'Phone'} onChange={(event) => updateReceipt({ phone: event.target.value })} className={`${isFieldVisible('payment_method') ? 'w-1/2' : 'w-full'} border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                       {isFieldVisible('payment_method') && (
-                        <input {...reviewFieldProps('payment_method')} type="text" value={receipt.payment_method || ''} placeholder={labels.paymentPlaceholder || 'Payment'} onChange={(event) => updateReceipt({ payment_method: event.target.value })} className={`w-1/2 border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'} ${confidenceInputClass('payment_method')}`} />
+                        <input {...reviewFieldProps('payment_method')} type="text" value={receipt.payment_method || ''} placeholder={labels.paymentPlaceholder || 'Payment'} onChange={(event) => updateReceipt({ payment_method: event.target.value })} className={`w-1/2 border rounded-xl px-4 py-2.5 text-sm font-black focus:ring-2 outline-none transition-all ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700 text-white focus:ring-indigo-500/20' : 'bg-slate-50 border-slate-100 text-slate-800 focus:ring-indigo-500/10'}`} />
                       )}
                     </div>
                   </div>
@@ -714,7 +700,6 @@ function ReceiptReviewDrawerComponent({
             <div className="flex items-center justify-between mb-4">
               <h4 className={`text-[11px] font-black ${config.theme.text} uppercase tracking-[2px] flex items-center gap-2`}>
                 <ShoppingCart className="w-4 h-4" /> {labels.skuItems}
-                <FieldConfidenceIndicator confidence={confidenceFor('items')} labels={labels} />
               </h4>
               <span className={`text-[10px] font-bold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-400'}`}>
                 {labels.lineItemPasteHintLabel || 'Paste rows from Excel to append items'}
@@ -771,21 +756,14 @@ function ReceiptReviewDrawerComponent({
                 <tbody className={`divide-y ${config.colorMode === 'Dark' ? 'divide-slate-800' : 'divide-slate-50'}`}>
                   {(receipt.items || []).map((item: any, itemIndex: number) => {
                     const itemId = String(item.id || '')
-                    const lineConfidence = getLineItemConfidence(receipt, itemIndex)
-                    const lowLineConfidence = isLowLineItemConfidence(lineConfidence?.confidence)
                     return (
-                      <tr key={item.id} className={`group transition-colors ${lowLineConfidence ? config.colorMode === 'Dark' ? 'bg-amber-950/20' : 'bg-amber-50/70' : ''}`}>
+                      <tr key={item.id} className="group transition-colors">
                         <td className="px-3 py-2 text-center">
                           <input type="checkbox" checked={selectedItemIds.includes(itemId)} onChange={() => toggleLineItemSelection(itemId)} aria-label={`${labels.selectLineItemLabel || 'Select line item'} ${itemIndex + 1}`} />
                         </td>
                         <td className="px-5 py-2">
                           <div className="flex items-center gap-2">
-                            <input {...reviewFieldProps('items')} list={itemAutocompleteId} data-line-item-field="name" data-line-item-index={itemIndex} type="text" value={item.name || ''} onPaste={handleItemPaste} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'name')} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder={labels.itemNamePlaceholder || labels.itemName} className={`min-w-0 flex-1 bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'} ${confidenceInputClass('items')}`} />
-                            {lineConfidence && (
-                              <span title={lineConfidence.reason || labels.lineItemConfidenceHint || 'Review against original image'} className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-black ${lowLineConfidence ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                {Math.round(lineConfidence.confidence * 100)}%
-                              </span>
-                            )}
+                            <input {...reviewFieldProps('items')} list={itemAutocompleteId} data-line-item-field="name" data-line-item-index={itemIndex} type="text" value={item.name || ''} onPaste={handleItemPaste} onKeyDown={(event) => handleLineItemKeyDown(event, itemIndex, 'name')} onChange={(event) => updateItem(item.id, 'name', event.target.value)} placeholder={labels.itemNamePlaceholder || labels.itemName} className={`min-w-0 flex-1 bg-transparent border-none p-1.5 text-xs font-black focus:ring-1 rounded ${config.colorMode === 'Dark' ? 'text-slate-300 focus:ring-slate-700 focus:bg-slate-800' : 'text-slate-700 focus:ring-slate-200 focus:bg-white'}`} />
                           </div>
                         </td>
                         <td className="px-3 py-2">
@@ -834,28 +812,28 @@ function ReceiptReviewDrawerComponent({
 
             <div className={`grid grid-cols-6 gap-4 text-xs font-bold ${config.colorMode === 'Dark' ? 'text-slate-500' : 'text-slate-600'}`}>
               <div className={`${isFieldVisible('subtotal') ? '' : 'hidden'} space-y-1.5`}>
-                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.subtotal}</span><FieldConfidenceIndicator confidence={confidenceFor('subtotal')} labels={labels} /></div>
+                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.subtotal}</span></div>
                 <div className={`w-full border border-transparent rounded-lg px-3 py-2.5 text-right font-black transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-900'}`}>{receiptCurrency} {itemsTotal.toFixed(2)}</div>
               </div>
               <div className={`${isFieldVisible('discount') ? '' : 'hidden'} space-y-1.5`}>
-                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-rose-500 uppercase">{labels.discount}</span><FieldConfidenceIndicator confidence={confidenceFor('discount')} labels={labels} /></div>
-                <input {...reviewFieldProps('discount')} type="number" value={receipt.discount === 0 ? '' : receipt.discount} onChange={(event) => updateReceipt({ discount: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right text-rose-600 outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'} ${confidenceInputClass('discount')}`} placeholder="0" />
+                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-rose-500 uppercase">{labels.discount}</span></div>
+                <input {...reviewFieldProps('discount')} type="number" value={receipt.discount === 0 ? '' : receipt.discount} onChange={(event) => updateReceipt({ discount: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right text-rose-600 outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
               <div className={`${isFieldVisible('service_charge') ? '' : 'hidden'} space-y-1.5`}>
-                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.serviceCharge}</span><FieldConfidenceIndicator confidence={confidenceFor('service_charge')} labels={labels} /></div>
-                <input {...reviewFieldProps('service_charge')} type="number" value={receipt.service_charge === 0 ? '' : receipt.service_charge} onChange={(event) => updateReceipt({ service_charge: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'} ${confidenceInputClass('service_charge')}`} placeholder="0" />
+                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.serviceCharge}</span></div>
+                <input {...reviewFieldProps('service_charge')} type="number" value={receipt.service_charge === 0 ? '' : receipt.service_charge} onChange={(event) => updateReceipt({ service_charge: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
               <div className={`${isFieldVisible('tax') ? '' : 'hidden'} space-y-1.5`}>
-                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.taxSst}</span><FieldConfidenceIndicator confidence={confidenceFor('tax')} labels={labels} /></div>
-                <input {...reviewFieldProps('tax')} type="number" value={receipt.tax_sst === 0 ? '' : receipt.tax_sst} onChange={(event) => updateReceipt({ tax_sst: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'} ${confidenceInputClass('tax')}`} placeholder="0" />
+                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.taxSst}</span></div>
+                <input {...reviewFieldProps('tax')} type="number" value={receipt.tax_sst === 0 ? '' : receipt.tax_sst} onChange={(event) => updateReceipt({ tax_sst: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
               <div className={`${isFieldVisible('rounding') ? '' : 'hidden'} space-y-1.5`}>
-                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.rounding}</span><FieldConfidenceIndicator confidence={confidenceFor('rounding')} labels={labels} /></div>
-                <input {...reviewFieldProps('rounding')} type="number" value={receipt.rounding === 0 ? '' : receipt.rounding} onChange={(event) => updateReceipt({ rounding: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'} ${confidenceInputClass('rounding')}`} placeholder="0" />
+                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.rounding}</span></div>
+                <input {...reviewFieldProps('rounding')} type="number" value={receipt.rounding === 0 ? '' : receipt.rounding} onChange={(event) => updateReceipt({ rounding: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
               <div className={`${isFieldVisible('change') ? '' : 'hidden'} space-y-1.5`}>
-                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.change}</span><FieldConfidenceIndicator confidence={confidenceFor('change')} labels={labels} /></div>
-                <input {...reviewFieldProps('change')} type="number" value={receipt.change === 0 ? '' : receipt.change} onChange={(event) => updateReceipt({ change: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'} ${confidenceInputClass('change')}`} placeholder="0" />
+                <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.change}</span></div>
+                <input {...reviewFieldProps('change')} type="number" value={receipt.change === 0 ? '' : receipt.change} onChange={(event) => updateReceipt({ change: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
             </div>
 

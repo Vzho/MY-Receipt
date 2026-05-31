@@ -181,13 +181,14 @@ describe('ReceiptReviewDrawer i18n labels', () => {
     expect(html).toContain('状态')
     expect(html).toContain('1 条提醒')
     expect(html).toContain('0 条明细')
-    expect(html).toContain('58%')
+    expect(html).not.toContain('置信度')
+    expect(html).not.toContain('58%')
     expect(html).toContain('快捷校对')
     expect(html).not.toContain('TIN No')
     expect(html).not.toContain('Line item names look unreliable')
   })
 
-  it('renders line item confidence, quick add, and autocomplete hooks', () => {
+  it('renders quick add and autocomplete hooks without line item confidence badges', () => {
     const html = renderToStaticMarkup(
       <ReceiptReviewDrawer
         receipt={{
@@ -240,7 +241,7 @@ describe('ReceiptReviewDrawer i18n labels', () => {
       />,
     )
 
-    expect(html).toContain('42%')
+    expect(html).not.toContain('42%')
     expect(html).toContain('输入名称和金额')
     expect(html).toContain('添加明细')
     expect(html).toContain('Nasi Lemak')
