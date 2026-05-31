@@ -29,6 +29,9 @@ describe('Sidebar i18n', () => {
 
     expect(html).toContain('工作流')
     expect(html).toContain('已删除')
+    expect(html).toContain('h-full')
+    expect(html).toContain('overflow-y-auto')
+    expect(html).toContain('shrink-0')
     expect(html).not.toContain('Workflow')
     expect(html).not.toContain('Rejected')
   })
