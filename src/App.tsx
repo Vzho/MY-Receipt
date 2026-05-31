@@ -44,6 +44,7 @@ import { applyReceiptDraftToCollection, applyReceiptDraftToSelection } from './l
 import { getProcessingStageTimeoutHint } from './lib/processingTimeout';
 import { isLowValueBatchSyncCandidate } from './lib/autoSyncRules';
 import { analyzeReceiptPreflight, type ReceiptPreflightReason, type ReceiptPreflightResult } from './lib/receiptPreflight';
+import { filterVisibleReceiptWarningsForReceipt } from './lib/visibleWarnings';
 import {
   createAppNotification,
   loadAppNotifications,
@@ -173,7 +174,7 @@ function toDisplayReceipt(receipt: any) {
     tax,
     tax_sst: tax,
     subsidy_info: subsidyInfo,
-    warnings: receipt.warnings || evaluateReceiptWarnings({ ...receipt, receipt_items: items }),
+    warnings: evaluateReceiptWarnings({ ...receipt, tax, receipt_items: items }),
     items: items.map((item: any) => ({
       ...item,
       unit_price: Number(item.unit_price || 0),
@@ -189,7 +190,7 @@ function toApiReceipt(receipt: any) {
     status: DB_STATUS_BY_DISPLAY_STATUS[receipt.status] || receipt.status || 'pending_review',
     category: receipt.category || receipt.industry || 'Other',
     currency: receipt.currency || 'RM',
-    tax: receipt.tax ?? receipt.tax_sst ?? 0,
+    tax: receipt.tax_sst ?? receipt.tax ?? 0,
     subsidy_details: receipt.subsidy_details || (receipt.subsidy_info ? { description: receipt.subsidy_info } : null),
     receipt_items: receipt.receipt_items || receipt.items || [],
   };
@@ -369,7 +370,8 @@ const I18N: any = {
       'Calculated total does not match grand total': '计算总额与票面总额不一致',
       'QR total does not match OCR grand total': '二维码总额与票面识别总额不一致',
       'QR tax amount does not match OCR tax amount': '二维码税额与票面识别税额不一致',
-      'Image or item OCR quality is low': '图片或明细 OCR 质量较低',
+      'Receipt image appears blurry': '图片可能模糊',
+      'Image or item OCR quality is low': '图片可能模糊',
     },
     noWarningsLabel: '暂无提醒',
     warningCountLabel: (count: number) => `${count} 个提醒`,
@@ -877,6 +879,8 @@ const I18N: any = {
       qr_tax_rate_mismatch: 'QR tax rate mismatch',
     },
     warningMessages: {
+      'Receipt image appears blurry': 'Receipt image appears blurry',
+      'Image or item OCR quality is low': 'Receipt image appears blurry',
       'QR total does not match OCR grand total': 'QR total does not match OCR grand total',
       'QR tax amount does not match OCR tax amount': 'QR tax amount does not match OCR tax amount',
     },
@@ -1378,6 +1382,8 @@ const I18N: any = {
       qr_tax_rate_mismatch: 'Kadar cukai QR tidak padan',
     },
     warningMessages: {
+      'Receipt image appears blurry': 'Imej resit mungkin kabur',
+      'Image or item OCR quality is low': 'Imej resit mungkin kabur',
       'QR total does not match OCR grand total': 'Jumlah QR tidak sepadan dengan jumlah OCR',
       'QR tax amount does not match OCR tax amount': 'Amaun cukai QR tidak sepadan dengan cukai OCR',
     },
@@ -1920,9 +1926,18 @@ export default function App() {
   );
 
   const handleSelectedReceiptChange = (nextReceipt: any) => {
-    setSelectedReceipt(nextReceipt);
-    setHistory((current) => applyReceiptDraftToCollection(nextReceipt, current));
-    setDeletedReceipts((current) => applyReceiptDraftToCollection(nextReceipt, current));
+    const items = nextReceipt.items || nextReceipt.receipt_items || [];
+    const tax = nextReceipt.tax_sst ?? nextReceipt.tax ?? 0;
+    const receiptWithCurrentWarnings = {
+      ...nextReceipt,
+      tax,
+      tax_sst: tax,
+      receipt_items: items,
+      warnings: evaluateReceiptWarnings({ ...nextReceipt, tax, receipt_items: items }, items),
+    };
+    setSelectedReceipt(receiptWithCurrentWarnings);
+    setHistory((current) => applyReceiptDraftToCollection(receiptWithCurrentWarnings, current));
+    setDeletedReceipts((current) => applyReceiptDraftToCollection(receiptWithCurrentWarnings, current));
   };
 
   const syncToDatabase = async (data: any) => {
@@ -3356,7 +3371,7 @@ export default function App() {
       items: Array.from(itemSet).sort((left, right) => left.localeCompare(right)).slice(0, 240),
     };
   }, [history]);
-  const smartCropQualityWarning = smartCropTarget?.receipt?.warnings?.some((warning: any) => warning?.code === 'blurry_image')
+  const smartCropQualityWarning = filterVisibleReceiptWarningsForReceipt(smartCropTarget?.receipt).some((warning: any) => warning?.code === 'blurry_image')
     ? {
         title: t.blurryImageBannerTitle || t.warningLabels?.blurry_image || 'Image may be blurry',
         body: t.blurryImageBannerBody || 'Ask for a clearer photo or continue manual review.',

@@ -11,6 +11,7 @@ import {
   RefreshCcw,
   Trash2,
 } from 'lucide-react'
+import { filterVisibleReceiptWarningsForReceipt } from '../lib/visibleWarnings'
 import { ProcessingPanel } from './ProcessingPanel'
 import { WarningPanel } from './WarningPanel'
 
@@ -162,6 +163,7 @@ function ReceiptTableComponent({
             </tr>
           ) : pageItems.map((item, pageIndex) => {
             const thumbnailUrl = item.processed_image_url || item.image_url || item.original_image_url
+            const visibleWarnings = filterVisibleReceiptWarningsForReceipt(item)
             const rowNumber = (currentPage - 1) * normalizedPageSize + pageIndex + 1
             return (
               <tr
@@ -222,7 +224,7 @@ function ReceiptTableComponent({
                       </div>
                       <div className="mt-2 flex w-72 max-w-full flex-col gap-1.5">
                         <ProcessingPanel stage={item.processing_stage} status={item.status} compact labels={labels} />
-                        <WarningPanel warnings={item.warnings} compact labels={labels} />
+                        <WarningPanel warnings={visibleWarnings} compact labels={labels} />
                       </div>
                     </div>
                   </div>

@@ -136,7 +136,7 @@ describe('ReceiptReviewDrawer i18n labels', () => {
           change: 0,
           grand_total: 0,
           confidence_score: 0.9,
-          warnings: [{ code: 'blurry_image', severity: 'warning', message: 'Image or item OCR quality is low' }],
+          warnings: [],
           raw_ai: {
             field_confidence: { merchant_name: 0.58 },
             parser_meta: { item_quality: 'low' },
@@ -179,19 +179,72 @@ describe('ReceiptReviewDrawer i18n labels', () => {
     expect(html).toContain('SST 编号')
     expect(html).toContain('电子发票信息')
     expect(html).toContain('商品明细名称质量偏低')
-    expect(html).toContain('图片可能模糊')
-    expect(html).toContain('建议重新拍摄清晰照片')
+    expect(html).not.toContain('图片可能模糊')
+    expect(html).not.toContain('建议重新拍摄清晰照片')
     expect(html).toContain('智能')
     expect(html).toContain('金额')
     expect(html).toContain('完整')
     expect(html).toContain('状态')
-    expect(html).toContain('1 条提醒')
+    expect(html).toContain('0 条提醒')
     expect(html).toContain('0 条明细')
     expect(html).not.toContain('置信度')
     expect(html).not.toContain('58%')
     expect(html).toContain('快捷校对')
     expect(html).not.toContain('TIN No')
     expect(html).not.toContain('Line item names look unreliable')
+  })
+
+  it('shows blurry image banner only for image blur evidence', () => {
+    const html = renderToStaticMarkup(
+      <ReceiptReviewDrawer
+        receipt={{
+          id: 'receipt-blur',
+          status: 'Pending',
+          merchant_name: '咖啡店',
+          invoice_no: 'INV-BLUR',
+          date: '2026-05-18',
+          time: '10:20',
+          company_reg_no: null,
+          phone: '',
+          payment_method: '',
+          doc_type: 'Receipt',
+          industry: 'F&B',
+          tags: ['Business'],
+          items: [],
+          subtotal: 0,
+          discount: 0,
+          service_charge: 0,
+          tax_sst: 0,
+          rounding: 0,
+          change: 0,
+          grand_total: 0,
+          image_processing: { quality: 'blurred' },
+          warnings: [{ code: 'blurry_image', severity: 'warning', message: 'Receipt image appears blurry' }],
+        }}
+        config={baseConfig}
+        labels={labels}
+        documentTypeOptions={['Receipt']}
+        industries={['F&B']}
+        tagOptions={['Business']}
+        activeRepairProgress={null}
+        isExporting={false}
+        isSmartParsing={false}
+        isFieldVisible={() => true}
+        onReceiptChange={vi.fn()}
+        onClose={vi.fn()}
+        onSmartParse={vi.fn()}
+        onExport={vi.fn()}
+        onRestore={vi.fn()}
+        onPermanentDelete={vi.fn()}
+        onSync={vi.fn()}
+        onSaveCustomDocType={vi.fn()}
+        onZoomImage={vi.fn()}
+      />,
+    )
+
+    expect(html).toContain('图片可能模糊')
+    expect(html).toContain('建议重新拍摄清晰照片')
+    expect(html).toContain('1 条提醒')
   })
 
   it('renders quick add and autocomplete hooks without line item confidence badges', () => {

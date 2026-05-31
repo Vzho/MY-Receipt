@@ -1715,10 +1715,9 @@ function buildWarnings(
     })
   }
 
-  const imageQuality = String(context.imageProcessing?.quality ?? context.rawAi?.parser_meta?.image_quality ?? '').toLowerCase()
-  const itemQuality = String(context.rawAi?.parser_meta?.item_quality ?? '').toLowerCase()
-  if (imageQuality.includes('blur') || itemQuality === 'low') {
-    warnings.push({ code: 'blurry_image', severity: 'warning', message: 'Image or item OCR quality is low' })
+  const imageQuality = String(context.imageProcessing?.quality ?? context.rawAi?.parser_meta?.image_quality ?? '')
+  if (/\bblur(?:ry|red)?\b/i.test(imageQuality)) {
+    warnings.push({ code: 'blurry_image', severity: 'warning', message: 'Receipt image appears blurry' })
   }
 
   if (Number(context.rawAi?.parser_meta?.poor_ocr_text_score || 0) > 0.15) {
@@ -2073,20 +2072,35 @@ function calculateReceiptMath(input: {
   const rounding = normalizeMoney(input.rounding)
   const grandTotal = normalizeMoney(input.grandTotal)
   const baseTotal = itemTotal > 0 ? itemTotal : subtotal
-  const withoutDiscount = roundMoney(baseTotal + tax + serviceCharge + rounding)
-  const withDiscount = roundMoney(baseTotal - discount + tax + serviceCharge + rounding)
-  const discountAlreadyIncluded = discount > 0 && (
-    grandTotal > 0
-      ? Math.abs(withoutDiscount - grandTotal) <= Math.abs(withDiscount - grandTotal)
-      : itemTotal > 0 && subtotal > 0 && Math.abs(itemTotal - subtotal) <= 0.05
-  )
-  const effectiveDiscount = discountAlreadyIncluded ? 0 : discount
+  const discountCandidates = discount > 0 ? [0, discount] : [0]
+  const roundingCandidates = rounding === 0
+    ? [0]
+    : Array.from(new Set([rounding, -Math.abs(rounding)]))
+  const candidates = discountCandidates.flatMap((effectiveDiscount) => (
+    roundingCandidates.map((effectiveRounding) => ({
+      effectiveDiscount,
+      effectiveRounding,
+      calculatedTotal: roundMoney(baseTotal - effectiveDiscount + tax + serviceCharge + effectiveRounding),
+    }))
+  ))
+
+  const candidate = grandTotal > 0
+    ? candidates.sort((left, right) => (
+      Math.abs(left.calculatedTotal - grandTotal) - Math.abs(right.calculatedTotal - grandTotal)
+    ))[0]
+    : {
+        effectiveDiscount: discount > 0 && baseTotal > 0 ? 0 : discount,
+        effectiveRounding: rounding,
+        calculatedTotal: roundMoney(baseTotal - (discount > 0 && baseTotal > 0 ? 0 : discount) + tax + serviceCharge + rounding),
+      }
+  const discountAlreadyIncluded = discount > 0 && candidate.effectiveDiscount === 0
 
   return {
     baseTotal,
-    effectiveDiscount,
+    effectiveDiscount: candidate.effectiveDiscount,
+    effectiveRounding: candidate.effectiveRounding,
     discountAlreadyIncluded,
-    calculatedTotal: roundMoney(baseTotal - effectiveDiscount + tax + serviceCharge + rounding),
+    calculatedTotal: candidate.calculatedTotal,
   }
 }
 

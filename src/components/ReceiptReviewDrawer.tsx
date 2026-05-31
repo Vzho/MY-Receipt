@@ -15,7 +15,7 @@ import {
   ZoomIn,
 } from 'lucide-react'
 import { calculateReceiptMath } from '../lib/receiptMath'
-import { filterVisibleReceiptWarnings } from '../lib/visibleWarnings'
+import { filterVisibleReceiptWarningsForReceipt } from '../lib/visibleWarnings'
 import { getEInvoiceCompliance } from '../lib/einvoiceCompliance'
 import { getNextLineItemFieldIndex, shouldMoveLineItemFieldOnEnter } from '../lib/lineItemKeyboard'
 import { parseLineItemsFromClipboard } from '../lib/lineItemPaste'
@@ -183,7 +183,7 @@ function ReceiptReviewDrawerComponent({
   const subsidyPayable = useMemo(() => getSubsidyPayable(receipt.subsidy_details), [receipt.subsidy_details])
   const hasItemQualityWarning = receipt?.raw_ai?.parser_meta?.item_quality === 'low'
     || /line item names look unreliable/i.test(receipt?.raw_ai?.parser_note || '')
-  const visibleWarnings = useMemo(() => filterVisibleReceiptWarnings(receipt?.warnings), [receipt?.warnings])
+  const visibleWarnings = useMemo(() => filterVisibleReceiptWarningsForReceipt(receipt), [receipt])
   const hasBlurryImageWarning = visibleWarnings.some((warning) => warning.code === 'blurry_image')
   const highlightDetections = useMemo(() => (
     focusedFieldKey ? findReceiptFieldDetections(receipt, focusedFieldKey).filter((detection) => detection.box) : []
@@ -881,7 +881,7 @@ function ReceiptReviewDrawerComponent({
               </div>
               <div className={`${isFieldVisible('tax') ? '' : 'hidden'} space-y-1.5`}>
                 <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.taxSst}</span></div>
-                <input {...reviewFieldProps('tax')} type="number" value={receipt.tax_sst === 0 ? '' : receipt.tax_sst} onChange={(event) => updateReceipt({ tax_sst: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
+                <input {...reviewFieldProps('tax')} type="number" value={receipt.tax_sst === 0 ? '' : receipt.tax_sst} onChange={(event) => updateReceipt({ tax_sst: event.target.value, tax: event.target.value })} className={`w-full border rounded-lg px-3 py-2.5 text-right outline-none focus:ring-1 ${config.colorMode === 'Dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100 focus:ring-slate-200'}`} placeholder="0" />
               </div>
               <div className={`${isFieldVisible('rounding') ? '' : 'hidden'} space-y-1.5`}>
                 <div className="flex items-center justify-between gap-2"><span className="block text-[10px] text-slate-400 uppercase">{labels.rounding}</span></div>

@@ -74,6 +74,74 @@ describe('evaluateReceiptWarnings', () => {
     expect(warnings.map((warning) => warning.code)).not.toContain('low_confidence_field')
   })
 
+  it('does not treat low item OCR quality as a blurry image warning', () => {
+    const warnings = evaluateReceiptWarnings(createReceipt({
+      raw_ai: {
+        parser_meta: {
+          item_quality: 'low',
+        },
+      },
+    }))
+
+    expect(warnings.map((warning) => warning.code)).not.toContain('blurry_image')
+  })
+
+  it('flags blurry image only when image quality contains blur evidence', () => {
+    const warnings = evaluateReceiptWarnings(createReceipt({
+      image_processing: {
+        quality: 'blurred',
+      },
+    }))
+
+    expect(warnings).toContainEqual(expect.objectContaining({
+      code: 'blurry_image',
+      message: 'Receipt image appears blurry',
+    }))
+  })
+
+  it('hides legacy item-quality blurry warnings when there is no image blur evidence', () => {
+    const warnings = evaluateReceiptWarnings(createReceipt({
+      warnings: [{
+        code: 'blurry_image',
+        severity: 'warning',
+        message: 'Image or item OCR quality is low',
+      }],
+      raw_ai: {
+        parser_meta: {
+          item_quality: 'low',
+        },
+      },
+    }))
+
+    expect(warnings.map((warning) => warning.code)).not.toContain('blurry_image')
+  })
+
+  it('recomputes stale derived amount warnings from current receipt values', () => {
+    const warnings = evaluateReceiptWarnings(createReceipt({
+      subtotal: 10,
+      tax: 0,
+      grand_total: 10,
+      warnings: [{
+        code: 'amount_mismatch',
+        severity: 'warning',
+        message: 'Calculated total does not match grand total',
+      }],
+    }))
+
+    expect(warnings.map((warning) => warning.code)).not.toContain('amount_mismatch')
+  })
+
+  it('uses the edited tax_sst value before stale tax when evaluating totals', () => {
+    const warnings = evaluateReceiptWarnings(createReceipt({
+      subtotal: 10,
+      tax: 1,
+      tax_sst: 3,
+      grand_total: 13,
+    } as Partial<Receipt> & { tax_sst: number }))
+
+    expect(warnings.map((warning) => warning.code)).not.toContain('amount_mismatch')
+  })
+
   it('flags QR total mismatches against the OCR grand total', () => {
     const warnings = evaluateReceiptWarnings(createReceipt({
       doc_type: 'E-invoice',

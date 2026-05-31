@@ -1,6 +1,24 @@
 import type { Receipt, ReceiptItem, ReceiptWarning } from '../types/receipt'
 import { calculateReceiptMath, differs, roundMoney } from './receiptMath'
-import { filterVisibleReceiptWarnings } from './visibleWarnings'
+import { filterVisibleReceiptWarningsForReceipt, hasReceiptImageBlurEvidence } from './visibleWarnings'
+
+const RECALCULATED_WARNING_CODES = new Set<ReceiptWarning['code']>([
+  'ocr_failed',
+  'missing_required_field',
+  'total_mismatch',
+  'amount_mismatch',
+  'possible_duplicate',
+  'poor_ocr_text',
+  'blurry_image',
+  'qr_amount_mismatch',
+  'qr_tax_mismatch',
+  'qr_supplier_tin_mismatch',
+  'qr_buyer_tin_mismatch',
+  'qr_invoice_uuid_mismatch',
+  'qr_supplier_mismatch',
+  'qr_buyer_mismatch',
+  'qr_tax_rate_mismatch',
+])
 
 export function evaluateReceiptWarnings(receipt: Receipt, items: ReceiptItem[] = receipt.receipt_items ?? []): ReceiptWarning[] {
   const warnings: ReceiptWarning[] = []
@@ -27,7 +45,8 @@ export function evaluateReceiptWarnings(receipt: Receipt, items: ReceiptItem[] =
     })
   }
 
-  return filterVisibleReceiptWarnings(dedupeWarnings([...(receipt.warnings ?? []), ...warnings]))
+  const persistentWarnings = (receipt.warnings ?? []).filter((warning) => !RECALCULATED_WARNING_CODES.has(warning.code))
+  return filterVisibleReceiptWarningsForReceipt({ ...receipt, warnings: dedupeWarnings([...persistentWarnings, ...warnings]) })
 }
 
 function addMissingFieldWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
@@ -51,7 +70,7 @@ function addAmountWarnings(warnings: ReceiptWarning[], receipt: Receipt, items: 
     itemTotal,
     subtotal,
     discount: receipt.discount,
-    tax: receipt.tax,
+    tax: getReceiptTax(receipt),
     serviceCharge: receipt.service_charge,
     rounding: receipt.rounding,
     grandTotal: receipt.grand_total,
@@ -102,7 +121,7 @@ function addQrPayloadWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
   }
 
   const qrTaxAmount = numberFromUnknown(extraFields.qr_tax_amount ?? extraFields.tax_amount)
-  const tax = roundMoney(Number(receipt.tax || 0))
+  const tax = roundMoney(Number(getReceiptTax(receipt) || 0))
   if (qrTaxAmount > 0 && tax > 0 && differs(qrTaxAmount, tax)) {
     warnings.push({
       code: 'qr_tax_mismatch',
@@ -135,17 +154,19 @@ function addQrPayloadWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
   }
 }
 
+function getReceiptTax(receipt: Receipt) {
+  return (receipt as Receipt & { tax_sst?: number | string | null }).tax_sst ?? receipt.tax
+}
+
 function addImageWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
   const imageProcessing = receipt.image_processing ?? {}
   const parserMeta = (receipt.raw_ai?.parser_meta ?? {}) as Record<string, unknown>
-  const imageQuality = String(imageProcessing.quality ?? parserMeta.image_quality ?? '').toLowerCase()
-  const itemQuality = String(parserMeta.item_quality ?? '').toLowerCase()
 
-  if (imageQuality.includes('blur') || itemQuality === 'low') {
+  if (hasReceiptImageBlurEvidence({ image_processing: imageProcessing, raw_ai: { parser_meta: parserMeta } })) {
     warnings.push({
       code: 'blurry_image',
       severity: 'warning',
-      message: 'Image or item OCR quality is low',
+      message: 'Receipt image appears blurry',
     })
   }
 

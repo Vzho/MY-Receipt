@@ -1,5 +1,5 @@
 import type { ReceiptWarning } from '../types/receipt'
-import { filterVisibleReceiptWarnings } from './visibleWarnings'
+import { filterVisibleReceiptWarningsForReceipt } from './visibleWarnings'
 
 export type ReceiptQueueFilters = {
   search: string
@@ -27,6 +27,10 @@ type ReceiptLike = {
   doc_type?: string | null
   tags?: string[] | null
   warnings?: unknown[] | null
+  image_processing?: Record<string, unknown> | null
+  raw_ai?: {
+    parser_meta?: Record<string, unknown> | null
+  } | null
 }
 
 export function filterReceiptQueue<T extends ReceiptLike>(receipts: T[], filters: ReceiptQueueFilters): T[] {
@@ -49,7 +53,10 @@ export function receiptMatchesQueueFilters(receipt: ReceiptLike, filters: Receip
 }
 
 export function receiptNeedsAttention(receipt: ReceiptLike): boolean {
-  return receipt.status === 'Failed' || filterVisibleReceiptWarnings(receipt.warnings as ReceiptWarning[] | null | undefined).length > 0
+  return receipt.status === 'Failed' || filterVisibleReceiptWarningsForReceipt({
+    ...receipt,
+    warnings: receipt.warnings as ReceiptWarning[] | null | undefined,
+  }).length > 0
 }
 
 export function summarizeReceiptQueue(receipts: ReceiptLike[]): ReceiptQueueStats {
