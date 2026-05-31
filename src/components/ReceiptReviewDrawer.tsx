@@ -575,7 +575,7 @@ function ReceiptReviewDrawerComponent({
             {selectedReceiptImageUrl ? (
               <>
               <div
-                className={`relative flex max-h-full max-w-full items-center justify-center transition-transform duration-300 ease-out ${imageViewportMode !== 'full' && imageViewportTransform?.zoom && imageViewportTransform.zoom > 1 ? 'cursor-zoom-in' : ''}`}
+                className={`relative flex items-center justify-center transition-transform duration-300 ease-out ${imageViewportTransform ? '' : 'max-h-full max-w-full'} ${imageViewportMode !== 'full' && imageViewportTransform?.zoom && imageViewportTransform.zoom > 1 ? 'cursor-zoom-in' : ''}`}
                 style={imageViewportTransform ? {
                   width: `${imageViewportTransform.width}px`,
                   height: `${imageViewportTransform.height}px`,

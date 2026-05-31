@@ -47,7 +47,7 @@ export function getReceiptImageViewportBox(
 
   const detections = mode === 'amount'
     ? getAmountDetections(receipt)
-    : getReceiptOcrDetections(receipt)
+    : getSmartCoreDetections(receipt)
 
   return unionDetectionBoxes(detections)
 }
@@ -66,7 +66,7 @@ export function buildReceiptImageViewportTransform(
   const baseWidth = naturalSize.width * baseScale
   const baseHeight = naturalSize.height * baseScale
 
-  if (mode === 'full' || !focusBox) {
+  if (mode === 'full') {
     return {
       width: roundPixels(baseWidth),
       height: roundPixels(baseHeight),
@@ -76,11 +76,16 @@ export function buildReceiptImageViewportTransform(
     }
   }
 
-  const paddedBox = expandBox(focusBox, naturalSize, mode === 'amount' ? 0.55 : 0.28)
+  const resolvedFocusBox = focusBox && !shouldUseFallbackBox(focusBox, naturalSize)
+    ? focusBox
+    : getFallbackViewportBox(naturalSize, mode)
+  const paddedBox = expandBox(resolvedFocusBox, naturalSize, mode === 'amount' ? 0.16 : 0.12)
   const focusWidth = Math.max(1, paddedBox.width * baseScale)
   const focusHeight = Math.max(1, paddedBox.height * baseScale)
-  const maxZoom = mode === 'amount' ? 2.8 : 2.25
-  const zoom = clamp(Math.min(frameSize.width / focusWidth, frameSize.height / focusHeight), 1, maxZoom)
+  const maxZoom = mode === 'amount' ? 3.4 : 2.7
+  const minZoom = mode === 'amount' ? 1.65 : 1.35
+  const fitZoom = Math.min(frameSize.width / focusWidth, frameSize.height / focusHeight)
+  const zoom = clamp(Math.max(fitZoom, minZoom), 1, maxZoom)
   const focusCenterX = (paddedBox.x + paddedBox.width / 2) * baseScale
   const focusCenterY = (paddedBox.y + paddedBox.height / 2) * baseScale
   const maxDx = Math.max(0, (baseWidth * zoom - frameSize.width) / 2)
@@ -97,13 +102,39 @@ export function buildReceiptImageViewportTransform(
   }
 }
 
+function getSmartCoreDetections(receipt: any): OcrDetection[] {
+  const detections = getReceiptOcrDetections(receipt)
+    .filter((detection) => detection.box)
+  if (detections.length <= 2) return detections
+
+  const centers = detections
+    .map((detection) => getBoxCenterY(detection.box))
+    .filter((center): center is number => Number.isFinite(center))
+  if (centers.length <= 2) return detections
+
+  const minY = Math.min(...centers)
+  const maxY = Math.max(...centers)
+  const span = maxY - minY
+  if (span <= 0) return detections
+
+  const lowerBound = minY + span * 0.18
+  const upperBound = minY + span * 0.78
+  const core = detections.filter((detection) => {
+    const centerY = getBoxCenterY(detection.box)
+    return centerY !== null && centerY >= lowerBound && centerY <= upperBound
+  })
+
+  return core.length > 0 ? core : detections
+}
+
 function getAmountDetections(receipt: any): OcrDetection[] {
   const fieldDetections = AMOUNT_FIELD_KEYS.flatMap((fieldKey) => findReceiptFieldDetections(receipt, fieldKey))
     .filter((detection) => detection.box)
   if (fieldDetections.length > 0) return fieldDetections
 
-  return getReceiptOcrDetections(receipt)
+  const matches = getReceiptOcrDetections(receipt)
     .filter((detection) => detection.box && AMOUNT_TEXT_PATTERN.test(detection.text))
+  return getLowerClusterDetections(matches)
 }
 
 function unionDetectionBoxes(detections: OcrDetection[]): OcrBox | null {
@@ -118,8 +149,8 @@ function unionDetectionBoxes(detections: OcrDetection[]): OcrBox | null {
 }
 
 function expandBox(box: OcrBox, naturalSize: ImageSize, ratio: number): OcrBox {
-  const padX = Math.max(24, box.width * ratio)
-  const padY = Math.max(24, box.height * ratio)
+  const padX = Math.max(18, box.width * ratio)
+  const padY = Math.max(18, box.height * ratio)
   const x = clamp(box.x - padX, 0, naturalSize.width)
   const y = clamp(box.y - padY, 0, naturalSize.height)
   const right = clamp(box.x + box.width + padX, 0, naturalSize.width)
@@ -129,6 +160,52 @@ function expandBox(box: OcrBox, naturalSize: ImageSize, ratio: number): OcrBox {
     y,
     width: Math.max(1, right - x),
     height: Math.max(1, bottom - y),
+  }
+}
+
+function getLowerClusterDetections(detections: OcrDetection[]): OcrDetection[] {
+  if (detections.length <= 2) return detections
+
+  const centers = detections
+    .map((detection) => getBoxCenterY(detection.box))
+    .filter((center): center is number => Number.isFinite(center))
+  if (centers.length <= 2) return detections
+
+  const minY = Math.min(...centers)
+  const maxY = Math.max(...centers)
+  const threshold = minY + (maxY - minY) * 0.45
+  const lower = detections.filter((detection) => {
+    const centerY = getBoxCenterY(detection.box)
+    return centerY !== null && centerY >= threshold
+  })
+  return lower.length > 0 ? lower : detections
+}
+
+function getBoxCenterY(box?: OcrBox | null) {
+  return box ? box.y + box.height / 2 : null
+}
+
+function shouldUseFallbackBox(box: OcrBox, naturalSize: ImageSize) {
+  const widthCoverage = box.width / naturalSize.width
+  const heightCoverage = box.height / naturalSize.height
+  return widthCoverage > 0.9 && heightCoverage > 0.82
+}
+
+function getFallbackViewportBox(naturalSize: ImageSize, mode: Exclude<ReceiptImageViewportMode, 'full'>): OcrBox {
+  if (mode === 'amount') {
+    return {
+      x: naturalSize.width * 0.1,
+      y: naturalSize.height * 0.6,
+      width: naturalSize.width * 0.8,
+      height: naturalSize.height * 0.3,
+    }
+  }
+
+  return {
+    x: naturalSize.width * 0.08,
+    y: naturalSize.height * 0.18,
+    width: naturalSize.width * 0.84,
+    height: naturalSize.height * 0.56,
   }
 }
 
