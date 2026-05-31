@@ -26,6 +26,7 @@ import {
   validateReceiptFile,
 } from './lib/receiptApi';
 import { computeFileSha256, computeImageAverageHash } from './lib/duplicateDetection';
+import { extractReceiptImageFilesFromClipboard, isEditablePasteTarget } from './lib/clipboardUpload';
 import { evaluateReceiptWarnings } from './lib/warningRules';
 import { defaultFieldPreferences, isFieldEnabled, mergeFieldPreferences } from './lib/fieldConfig';
 import { decodeQrPayloadFromImageFile, looksLikeEInvoiceQrPayload } from './lib/qrPayload';
@@ -613,6 +614,8 @@ const I18N: any = {
     smartParseFailedLabel: '智能解析失败',
     uploadQueuedMessage: (filename: string) => `${filename} 已上传，OCR 已开始。`,
     uploadQueuedTitle: '收据已加入 OCR 队列',
+    pasteUploadQueuedMessage: (count: number) => `${count} 张粘贴图片已加入上传队列。`,
+    pasteUnsupportedImageLabel: '剪贴板图片格式暂不支持，请使用 PNG 或 JPEG。',
     uploadFailedLabel: '上传失败。',
     uploadFailedTitle: '收据上传失败',
     uploadPreflightTitle: '确认是否继续解析',
@@ -1108,6 +1111,8 @@ const I18N: any = {
     smartParseFailedLabel: 'Smart parse failed',
     uploadQueuedMessage: (filename: string) => `${filename} uploaded. OCR started.`,
     uploadQueuedTitle: 'Receipt upload queued',
+    pasteUploadQueuedMessage: (count: number) => `${count} pasted image${count > 1 ? 's' : ''} added to the upload queue.`,
+    pasteUnsupportedImageLabel: 'Clipboard image type is not supported. Please paste PNG or JPEG.',
     uploadFailedLabel: 'Upload failed.',
     uploadFailedTitle: 'Receipt upload failed',
     uploadPreflightTitle: 'Confirm parsing',
@@ -1604,6 +1609,8 @@ const I18N: any = {
     smartParseFailedLabel: 'Huraian pintar gagal',
     uploadQueuedMessage: (filename: string) => `${filename} dimuat naik. OCR bermula.`,
     uploadQueuedTitle: 'Resit dimasukkan ke giliran OCR',
+    pasteUploadQueuedMessage: (count: number) => `${count} imej tampal ditambah ke giliran muat naik.`,
+    pasteUnsupportedImageLabel: 'Jenis imej papan klip tidak disokong. Sila tampal PNG atau JPEG.',
     uploadFailedLabel: 'Muat naik gagal.',
     uploadFailedTitle: 'Muat naik resit gagal',
     uploadPreflightTitle: 'Sahkan huraian',
@@ -2292,39 +2299,69 @@ export default function App() {
     void prepareReceiptUpload(file, uploadId, previewUrl);
   };
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    const files = Array.from(e.target.files).slice(0, 20) as File[];
-    e.target.value = '';
+  const queueReceiptFiles = useCallback(async (files: File[]) => {
+    const limitedFiles = files.slice(0, 20);
+    if (limitedFiles.length === 0) return;
 
-    const invalid = files.map(validateReceiptFile).find(Boolean);
+    const invalid = limitedFiles.map(validateReceiptFile).find(Boolean);
     if (invalid) {
       showToast(invalid, 'error');
       return;
     }
 
-    void (async () => {
-      for (const file of files) {
-        try {
-          const preflight = await analyzeReceiptPreflight(file);
-          if (preflight.shouldConfirm) {
-            const confirmed = await requestPreflightConfirmation(file, preflight);
-            if (!confirmed) {
-              const message = typeof t.uploadPreflightCancelledLabel === 'function'
-                ? t.uploadPreflightCancelledLabel(file.name)
-                : `${file.name} cancelled.`;
-              showToast(message, 'info');
-              continue;
-            }
+    for (const file of limitedFiles) {
+      try {
+        const preflight = await analyzeReceiptPreflight(file);
+        if (preflight.shouldConfirm) {
+          const confirmed = await requestPreflightConfirmation(file, preflight);
+          if (!confirmed) {
+            const message = typeof t.uploadPreflightCancelledLabel === 'function'
+              ? t.uploadPreflightCancelledLabel(file.name)
+              : `${file.name} cancelled.`;
+            showToast(message, 'info');
+            continue;
           }
-          enqueueReceiptUpload(file);
-        } catch (error) {
-          console.warn('Receipt upload preflight failed; continuing with upload.', error);
-          enqueueReceiptUpload(file);
         }
+        enqueueReceiptUpload(file);
+      } catch (error) {
+        console.warn('Receipt upload preflight failed; continuing with upload.', error);
+        enqueueReceiptUpload(file);
       }
-    })();
+    }
+  }, [requestPreflightConfirmation, showToast, t]);
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files).slice(0, 20) as File[];
+    e.target.value = '';
+    void queueReceiptFiles(files);
   };
+
+  useEffect(() => {
+    const handlePasteUpload = (event: ClipboardEvent) => {
+      if (isEditablePasteTarget(event.target)) return;
+
+      const { files, unsupportedImageTypes } = extractReceiptImageFilesFromClipboard(event.clipboardData);
+      if (files.length === 0) {
+        if (unsupportedImageTypes.length > 0) {
+          showToast(t.pasteUnsupportedImageLabel || 'Clipboard image type is not supported. Please paste PNG or JPEG.', 'info');
+        }
+        return;
+      }
+
+      event.preventDefault();
+      showToast(
+        typeof t.pasteUploadQueuedMessage === 'function'
+          ? t.pasteUploadQueuedMessage(files.length)
+          : `${files.length} pasted image${files.length > 1 ? 's' : ''} added to the upload queue.`,
+        'success',
+      );
+      void queueReceiptFiles(files);
+    };
+
+    window.addEventListener('paste', handlePasteUpload);
+    return () => window.removeEventListener('paste', handlePasteUpload);
+  }, [queueReceiptFiles, showToast, t]);
 
   const prepareReceiptUpload = async (file: File, uploadId: string, previewUrl: string) => {
     let reservedHash: string | null = null;
