@@ -39,6 +39,9 @@ const labels: Record<string, any> = {
   add: '添加',
   originalImg: '单据原图',
   processedImgLabel: '识别图',
+  imageViewportSmartLabel: '智能',
+  imageViewportAmountLabel: '金额',
+  imageViewportFullLabel: '完整',
   zoomTip: '详情预览',
   noImgLabel: '暂无原图记录',
   skuItems: '明细列表',
@@ -178,6 +181,9 @@ describe('ReceiptReviewDrawer i18n labels', () => {
     expect(html).toContain('商品明细名称质量偏低')
     expect(html).toContain('图片可能模糊')
     expect(html).toContain('建议重新拍摄清晰照片')
+    expect(html).toContain('智能')
+    expect(html).toContain('金额')
+    expect(html).toContain('完整')
     expect(html).toContain('状态')
     expect(html).toContain('1 条提醒')
     expect(html).toContain('0 条明细')

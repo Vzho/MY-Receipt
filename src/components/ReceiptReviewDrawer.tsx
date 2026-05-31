@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useMemo, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
+import { memo, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import {
   AlertTriangle,
   Building2,
@@ -21,6 +21,11 @@ import { getNextLineItemFieldIndex, shouldMoveLineItemFieldOnEnter } from '../li
 import { parseLineItemsFromClipboard } from '../lib/lineItemPaste'
 import { isLikelyMalaysiaCompanyRegNo, isValidSstNo, normalizeSstNo } from '../lib/malaysiaTaxIds'
 import { findReceiptFieldDetections, toOverlayStyle } from '../lib/ocrDetections'
+import {
+  buildReceiptImageViewportTransform,
+  getReceiptImageViewportBox,
+  type ReceiptImageViewportMode,
+} from '../lib/receiptImageViewport'
 import { getReviewShortcutAction } from '../lib/reviewNavigation'
 import { buildSubsidyRows, formatSubsidyHeadline, getSubsidyPayable, hasSubsidyDetails } from '../lib/subsidyDetails'
 import type { FieldKey } from '../types/fieldConfig'
@@ -111,8 +116,11 @@ function ReceiptReviewDrawerComponent({
   const [newTagInput, setNewTagInput] = useState('')
   const [focusedFieldKey, setFocusedFieldKey] = useState<string | null>(null)
   const [imageNaturalSize, setImageNaturalSize] = useState<{ width: number; height: number } | null>(null)
+  const [imageFrameSize, setImageFrameSize] = useState<{ width: number; height: number } | null>(null)
+  const [imageViewportMode, setImageViewportMode] = useState<ReceiptImageViewportMode>('smart')
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
   const [quickItemInput, setQuickItemInput] = useState('')
+  const imageFrameRef = useRef<HTMLDivElement | null>(null)
   const merchantAutocompleteId = useId()
   const itemAutocompleteId = useId()
 
@@ -127,9 +135,25 @@ function ReceiptReviewDrawerComponent({
   useEffect(() => {
     setFocusedFieldKey(null)
     setImageNaturalSize(null)
+    setImageViewportMode('smart')
     setSelectedItemIds([])
     setQuickItemInput('')
   }, [receipt.id, imagePreviewMode])
+
+  useEffect(() => {
+    const node = imageFrameRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+
+    const updateFrameSize = () => setImageFrameSize({
+      width: node.clientWidth,
+      height: node.clientHeight,
+    })
+    updateFrameSize()
+
+    const observer = new ResizeObserver(updateFrameSize)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   const selectedReceiptImageUrl = useMemo(() => {
     if (imagePreviewMode === 'original') {
@@ -164,6 +188,12 @@ function ReceiptReviewDrawerComponent({
   const highlightDetections = useMemo(() => (
     focusedFieldKey ? findReceiptFieldDetections(receipt, focusedFieldKey).filter((detection) => detection.box) : []
   ), [focusedFieldKey, receipt])
+  const imageViewportBox = useMemo(() => (
+    getReceiptImageViewportBox(receipt, imageViewportMode, focusedFieldKey)
+  ), [focusedFieldKey, imageViewportMode, receipt])
+  const imageViewportTransform = useMemo(() => (
+    buildReceiptImageViewportTransform(imageNaturalSize, imageFrameSize, imageViewportMode, imageViewportBox)
+  ), [imageFrameSize, imageNaturalSize, imageViewportBox, imageViewportMode])
 
   const updateReceipt = (patch: Record<string, unknown>) => {
     onReceiptChange({ ...receipt, ...patch })
@@ -491,9 +521,27 @@ function ReceiptReviewDrawerComponent({
 
       <div className="flex-1 flex overflow-hidden">
         <div className={`w-[38%] min-w-[360px] max-w-[46%] p-6 flex flex-col border-r relative transition-colors ${config.colorMode === 'Dark' ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-100/80 border-slate-200'}`}>
-          <h4 className={`text-[11px] font-black uppercase tracking-[2px] flex items-center gap-2 mb-4 ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-500'}`}>
-            <Eye className="w-4 h-4" /> {imagePreviewMode === 'processed' ? labels.processedImgLabel || 'Processed image' : labels.originalImg}
-          </h4>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h4 className={`min-w-0 text-[11px] font-black uppercase tracking-[2px] flex items-center gap-2 ${config.colorMode === 'Dark' ? 'text-slate-600' : 'text-slate-500'}`}>
+              <Eye className="w-4 h-4" /> {imagePreviewMode === 'processed' ? labels.processedImgLabel || 'Processed image' : labels.originalImg}
+            </h4>
+            <div className={`grid shrink-0 grid-cols-3 rounded-xl p-1 text-[9px] font-black uppercase ${config.colorMode === 'Dark' ? 'bg-slate-900' : 'bg-white'}`}>
+              {(['smart', 'amount', 'full'] as ReceiptImageViewportMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setImageViewportMode(mode)}
+                  className={`rounded-lg px-2.5 py-1.5 transition ${imageViewportMode === mode ? `${config.theme.color} text-white shadow-sm` : config.colorMode === 'Dark' ? 'text-slate-500 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}
+                >
+                  {mode === 'smart'
+                    ? labels.imageViewportSmartLabel || '智能'
+                    : mode === 'amount'
+                      ? labels.imageViewportAmountLabel || '金额'
+                      : labels.imageViewportFullLabel || '完整'}
+                </button>
+              ))}
+            </div>
+          </div>
           {receipt.processed_image_url && receipt.original_image_url && (
             <div className={`mb-4 grid grid-cols-2 gap-1 rounded-xl p-1 text-[10px] font-black uppercase ${config.colorMode === 'Dark' ? 'bg-slate-900' : 'bg-white'}`}>
               <button
@@ -523,14 +571,22 @@ function ReceiptReviewDrawerComponent({
               </div>
             </div>
           )}
-          <div className={`flex-1 rounded-[24px] overflow-hidden border shadow-sm flex items-center justify-center relative group ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+          <div ref={imageFrameRef} className={`flex-1 rounded-[24px] overflow-hidden border shadow-sm flex items-center justify-center relative group ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
             {selectedReceiptImageUrl ? (
-              <div className="relative flex max-h-full max-w-full items-center justify-center">
+              <>
+              <div
+                className={`relative flex max-h-full max-w-full items-center justify-center transition-transform duration-300 ease-out ${imageViewportMode !== 'full' && imageViewportTransform?.zoom && imageViewportTransform.zoom > 1 ? 'cursor-zoom-in' : ''}`}
+                style={imageViewportTransform ? {
+                  width: `${imageViewportTransform.width}px`,
+                  height: `${imageViewportTransform.height}px`,
+                  transform: imageViewportTransform.transform,
+                } : undefined}
+              >
                 <img
                   src={selectedReceiptImageUrl}
                   onError={(event: any) => { event.target.onerror = null; event.target.src = '/input_file_2.png' }}
                   alt={imagePreviewMode === 'processed' ? labels.processedImgLabel || 'Processed image' : labels.originalImg}
-                  className="max-h-full max-w-full cursor-zoom-in object-contain"
+                  className={`${imageViewportTransform ? 'h-full w-full' : 'max-h-full max-w-full'} cursor-zoom-in object-contain`}
                   onClick={() => onZoomImage(selectedReceiptImageUrl)}
                   onLoad={(event) => setImageNaturalSize({
                     width: event.currentTarget.naturalWidth,
@@ -546,14 +602,14 @@ function ReceiptReviewDrawerComponent({
                     title={detection.text}
                   />
                 ))}
-
-                <button
-                  onClick={() => onZoomImage(selectedReceiptImageUrl)}
-                  className="absolute bottom-4 right-4 px-3 py-2 bg-slate-900/70 hover:bg-slate-900 text-white rounded-xl backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2 text-[10px] font-black uppercase shadow-xl"
-                >
-                  <ZoomIn className="w-4 h-4" /> {labels.zoomTip}
-                </button>
               </div>
+              <button
+                onClick={() => onZoomImage(selectedReceiptImageUrl)}
+                className="absolute bottom-4 right-4 px-3 py-2 bg-slate-900/70 hover:bg-slate-900 text-white rounded-xl backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2 text-[10px] font-black uppercase shadow-xl"
+              >
+                <ZoomIn className="w-4 h-4" /> {labels.zoomTip}
+              </button>
+              </>
             ) : (
               <div className="text-slate-400 text-[10px] font-bold flex flex-col items-center gap-2">
                 <Eye className="w-6 h-6 opacity-20" />
