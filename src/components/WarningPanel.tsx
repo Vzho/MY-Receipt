@@ -1,4 +1,5 @@
 import { AlertTriangle, Info, ShieldAlert } from 'lucide-react'
+import { filterVisibleReceiptWarnings } from '../lib/visibleWarnings'
 import type { ReceiptWarning } from '../types/receipt'
 
 interface WarningPanelProps {
@@ -8,7 +9,7 @@ interface WarningPanelProps {
 }
 
 export function WarningPanel({ warnings = [], compact = false, labels }: WarningPanelProps) {
-  const visibleWarnings = warnings ?? []
+  const visibleWarnings = filterVisibleReceiptWarnings(warnings)
   if (visibleWarnings.length === 0) {
     if (compact) return null
     return (
@@ -48,7 +49,6 @@ function formatWarningLabel(warning: ReceiptWarning, labels?: any) {
   const defaultLabels: Partial<Record<ReceiptWarning['code'], string>> = {
     total_mismatch: '⚠ Total mismatch detected',
     amount_mismatch: '⚠ Amount mismatch',
-    low_confidence_field: '⚠ Low confidence field',
     blurry_image: '⚠ Blurry image',
     ocr_failed: '⚠ OCR failed',
     missing_required_field: '⚠ Missing required field',

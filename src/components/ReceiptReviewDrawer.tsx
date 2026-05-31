@@ -15,6 +15,7 @@ import {
   ZoomIn,
 } from 'lucide-react'
 import { calculateReceiptMath } from '../lib/receiptMath'
+import { filterVisibleReceiptWarnings } from '../lib/visibleWarnings'
 import { getFieldConfidence, getFieldConfidenceTone } from '../lib/fieldConfidence'
 import { getEInvoiceCompliance } from '../lib/einvoiceCompliance'
 import { getNextLineItemFieldIndex, shouldMoveLineItemFieldOnEnter } from '../lib/lineItemKeyboard'
@@ -161,8 +162,8 @@ function ReceiptReviewDrawerComponent({
   const subsidyPayable = useMemo(() => getSubsidyPayable(receipt.subsidy_details), [receipt.subsidy_details])
   const hasItemQualityWarning = receipt?.raw_ai?.parser_meta?.item_quality === 'low'
     || /line item names look unreliable/i.test(receipt?.raw_ai?.parser_note || '')
-  const hasBlurryImageWarning = Array.isArray(receipt?.warnings)
-    && receipt.warnings.some((warning: any) => warning?.code === 'blurry_image')
+  const visibleWarnings = useMemo(() => filterVisibleReceiptWarnings(receipt?.warnings), [receipt?.warnings])
+  const hasBlurryImageWarning = visibleWarnings.some((warning) => warning.code === 'blurry_image')
   const highlightDetections = useMemo(() => (
     focusedFieldKey ? findReceiptFieldDetections(receipt, focusedFieldKey).filter((detection) => detection.box) : []
   ), [focusedFieldKey, receipt])
@@ -324,7 +325,7 @@ function ReceiptReviewDrawerComponent({
 
   const mathDelta = manualTotal - grandTotal
   const mathPassed = Math.abs(mathDelta) < 0.05
-  const warningCount = Array.isArray(receipt.warnings) ? receipt.warnings.length : 0
+  const warningCount = visibleWarnings.length
   const itemCount = Array.isArray(receipt.items) ? receipt.items.length : 0
   const statusLabel = labels.optionLabels?.[receipt.status] || labels.statusLabels?.[receipt.status] || receipt.status
   const eInvoiceCompliance = useMemo(() => getEInvoiceCompliance(receipt), [receipt])
@@ -494,7 +495,7 @@ function ReceiptReviewDrawerComponent({
 
       <div className={`flex flex-wrap items-start gap-2 border-b px-8 py-2.5 ${config.colorMode === 'Dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
         <ProcessingPanel stage={receipt.processing_stage} status={receipt.status} compact labels={labels} />
-        <WarningPanel warnings={receipt.warnings} compact labels={labels} />
+        <WarningPanel warnings={visibleWarnings} compact labels={labels} />
         {receipt.deleted_at && (
           <div className={`rounded-2xl border px-4 py-3 text-xs font-bold ${config.colorMode === 'Dark' ? 'border-rose-900/60 bg-rose-950/20 text-rose-200' : 'border-rose-100 bg-rose-50 text-rose-700'}`}>
             {labels.rejectedReasonLabel || 'Rejected reason'}: {receipt.deleted_reason || 'other'}{receipt.deleted_note ? ` / ${receipt.deleted_note}` : ''} / {receipt.deleted_at.slice(0, 10)}

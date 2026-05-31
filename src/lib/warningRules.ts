@@ -1,6 +1,6 @@
 import type { Receipt, ReceiptItem, ReceiptWarning } from '../types/receipt'
-import { getLowConfidenceFields } from './fieldConfidence'
 import { calculateReceiptMath, differs, roundMoney } from './receiptMath'
+import { filterVisibleReceiptWarnings } from './visibleWarnings'
 
 export function evaluateReceiptWarnings(receipt: Receipt, items: ReceiptItem[] = receipt.receipt_items ?? []): ReceiptWarning[] {
   const warnings: ReceiptWarning[] = []
@@ -14,7 +14,6 @@ export function evaluateReceiptWarnings(receipt: Receipt, items: ReceiptItem[] =
   }
 
   addMissingFieldWarnings(warnings, receipt)
-  addConfidenceWarnings(warnings, receipt)
   addAmountWarnings(warnings, receipt, items)
   addQrPayloadWarnings(warnings, receipt)
   addImageWarnings(warnings, receipt)
@@ -28,7 +27,7 @@ export function evaluateReceiptWarnings(receipt: Receipt, items: ReceiptItem[] =
     })
   }
 
-  return dedupeWarnings([...(receipt.warnings ?? []), ...warnings])
+  return filterVisibleReceiptWarnings(dedupeWarnings([...(receipt.warnings ?? []), ...warnings]))
 }
 
 function addMissingFieldWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
@@ -42,31 +41,6 @@ function addMissingFieldWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
     if (!receipt[field]) {
       warnings.push({ code: 'missing_required_field', severity: 'warning', message, field: String(field) })
     }
-  }
-}
-
-function addConfidenceWarnings(warnings: ReceiptWarning[], receipt: Receipt) {
-  const lowConfidenceFields = getLowConfidenceFields(receipt)
-  for (const { field, confidence } of lowConfidenceFields) {
-    warnings.push({
-      code: 'low_confidence_field',
-      severity: 'warning',
-      message: 'Low confidence extraction',
-      field,
-      details: { confidence_score: confidence },
-    })
-  }
-
-  if (lowConfidenceFields.length > 0) return
-
-  if (Number(receipt.confidence_score || 0) > 0 && Number(receipt.confidence_score || 0) < 0.65) {
-    warnings.push({
-      code: 'low_confidence_field',
-      severity: 'warning',
-      message: 'Low confidence extraction',
-      field: 'confidence_score',
-      details: { confidence_score: receipt.confidence_score },
-    })
   }
 }
 

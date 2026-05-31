@@ -80,4 +80,36 @@ describe('processing and warning panel i18n', () => {
     expect(html).toContain('计算总额与票面总额不一致')
     expect(html).not.toContain('Amount mismatch')
   })
+
+  it('hides legacy low confidence warnings from the main warning panel', () => {
+    const html = renderToStaticMarkup(
+      <WarningPanel
+        warnings={[
+          {
+            code: 'low_confidence_field',
+            severity: 'warning',
+            message: 'Low confidence extraction',
+            field: 'merchant_name',
+          },
+          {
+            code: 'blurry_image',
+            severity: 'warning',
+            message: 'Image or item OCR quality is low',
+          },
+        ]}
+        labels={{
+          warningCountLabel: (count: number) => `${count} 个提醒`,
+          warningLabels: {
+            low_confidence_field: '低置信度字段',
+            blurry_image: '图片模糊',
+          },
+        }}
+      />,
+    )
+
+    expect(html).toContain('1 个提醒')
+    expect(html).toContain('图片模糊')
+    expect(html).not.toContain('低置信度字段')
+    expect(html).not.toContain('Low confidence extraction')
+  })
 })

@@ -13,6 +13,7 @@ describe('receipt queue filters', () => {
     { id: 'processing-1', status: 'Processing', merchant_name: 'Fuel', invoice_no: 'INV-3', filename: 'c.jpg', doc_type: 'Receipt', tags: [], warnings: [] },
     { id: 'failed-1', status: 'Failed', merchant_name: 'Grocery', invoice_no: 'INV-4', filename: 'd.jpg', doc_type: 'Receipt', tags: ['Personal'], warnings: [] },
     { id: 'synced-1', status: 'Synced', merchant_name: 'Synced', invoice_no: 'INV-5', filename: 'e.jpg', doc_type: 'Receipt', tags: [], warnings: [] },
+    { id: 'hidden-low-confidence', status: 'Pending', merchant_name: 'Hidden', invoice_no: 'INV-6', filename: 'f.jpg', doc_type: 'Receipt', tags: [], warnings: [{ code: 'low_confidence_field' }] },
   ]
 
   it('filters by attention without losing other filter dimensions', () => {
@@ -26,13 +27,14 @@ describe('receipt queue filters', () => {
 
     expect(result.map((receipt) => receipt.id)).toEqual(['warn-1'])
     expect(receiptNeedsAttention(receipts[3])).toBe(true)
+    expect(receiptNeedsAttention(receipts[5])).toBe(false)
   })
 
   it('summarizes the active queue and excludes synced receipts', () => {
     expect(summarizeReceiptQueue(receipts)).toEqual({
-      active: 4,
+      active: 5,
       attention: 2,
-      ready: 2,
+      ready: 3,
       processing: 1,
       failed: 1,
     })

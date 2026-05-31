@@ -1641,16 +1641,6 @@ function buildWarnings(
     }
   }
 
-  if (Number(receipt.confidence_score || 0) > 0 && Number(receipt.confidence_score || 0) < 0.65) {
-    warnings.push({
-      code: 'low_confidence_field',
-      severity: 'warning',
-      message: 'Low confidence extraction',
-      field: 'confidence_score',
-      details: { confidence_score: receipt.confidence_score },
-    })
-  }
-
   const itemTotal = roundMoney(items.reduce((sum, item) => sum + Number(item.line_total || 0), 0))
   const subtotal = roundMoney(Number(receipt.subtotal || 0))
   const receiptMath = calculateReceiptMath({
@@ -1723,19 +1713,6 @@ function buildWarnings(
       field: 'tax_rate',
       details: { qr_tax_rate: qrTaxRate, tax_rate: taxRate },
     })
-  }
-
-  const fieldConfidence = rawFieldConfidenceMap(context.rawAi?.field_confidence ?? context.rawAi?.parser_meta?.field_confidence)
-  for (const [field, confidence] of Object.entries(fieldConfidence)) {
-    if (confidence > 0 && confidence < 0.65) {
-      warnings.push({
-        code: 'low_confidence_field',
-        severity: 'warning',
-        message: 'Low confidence extraction',
-        field,
-        details: { confidence_score: confidence },
-      })
-    }
   }
 
   const imageQuality = String(context.imageProcessing?.quality ?? context.rawAi?.parser_meta?.image_quality ?? '').toLowerCase()

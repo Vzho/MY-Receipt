@@ -3,7 +3,7 @@ import { evaluateReceiptWarnings } from '../lib/warningRules'
 import type { Receipt } from '../types/receipt'
 
 describe('evaluateReceiptWarnings', () => {
-  it('flags missing required fields and low confidence', () => {
+  it('flags missing required fields without low confidence noise', () => {
     const warnings = evaluateReceiptWarnings(createReceipt({
       merchant_name: null,
       invoice_no: null,
@@ -11,9 +11,9 @@ describe('evaluateReceiptWarnings', () => {
       confidence_score: 0.4,
     }))
 
-    expect(warnings.map((warning) => warning.code)).toEqual(
-      expect.arrayContaining(['missing_required_field', 'low_confidence_field']),
-    )
+    const warningCodes = warnings.map((warning) => warning.code)
+    expect(warningCodes).toEqual(expect.arrayContaining(['missing_required_field']))
+    expect(warningCodes).not.toContain('low_confidence_field')
   })
 
   it('flags total and amount mismatches', () => {
@@ -60,21 +60,18 @@ describe('evaluateReceiptWarnings', () => {
     }))
   })
 
-  it('flags the exact field when field confidence is low', () => {
+  it('filters legacy low confidence warnings from stored receipts', () => {
     const warnings = evaluateReceiptWarnings(createReceipt({
-      raw_ai: {
-        field_confidence: {
-          merchant_name: 0.52,
-          invoice_no: 0.91,
-        },
-      },
+      warnings: [{
+        code: 'low_confidence_field',
+        severity: 'warning',
+        message: 'Low confidence extraction',
+        field: 'merchant_name',
+        details: { confidence_score: 0.52 },
+      }],
     }))
 
-    expect(warnings).toContainEqual(expect.objectContaining({
-      code: 'low_confidence_field',
-      field: 'merchant_name',
-      details: { confidence_score: 0.52 },
-    }))
+    expect(warnings.map((warning) => warning.code)).not.toContain('low_confidence_field')
   })
 
   it('flags QR total mismatches against the OCR grand total', () => {
