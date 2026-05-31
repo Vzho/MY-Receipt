@@ -27,6 +27,7 @@ import {
 } from './lib/receiptApi';
 import { computeFileSha256, computeImageAverageHash } from './lib/duplicateDetection';
 import { extractReceiptImageFilesFromClipboard, isEditablePasteTarget } from './lib/clipboardUpload';
+import { dragEventHasFiles, extractDroppedFiles } from './lib/fileDrop';
 import { evaluateReceiptWarnings } from './lib/warningRules';
 import { defaultFieldPreferences, isFieldEnabled, mergeFieldPreferences } from './lib/fieldConfig';
 import { decodeQrPayloadFromImageFile, looksLikeEInvoiceQrPayload } from './lib/qrPayload';
@@ -1766,6 +1767,7 @@ export default function App() {
   const [preflightPrompt, setPreflightPrompt] = useState<PreflightPromptState | null>(null);
   const [pdfMergePrompt, setPdfMergePrompt] = useState<PdfMergePromptState | null>(null);
   const [isCropModalBusy, setIsCropModalBusy] = useState(false);
+  const [isUploadDragActive, setIsUploadDragActive] = useState(false);
   const [smartParsingReceiptId, setSmartParsingReceiptId] = useState<string | null>(null);
   const [repairProgress, setRepairProgress] = useState<RepairProgress | null>(null);
   const repairProgressTimerRef = useRef<number | null>(null);
@@ -2345,6 +2347,44 @@ export default function App() {
     e.target.value = '';
     void queueReceiptFiles(files);
   };
+
+  const handleUploadDrag = (event: React.DragEvent<HTMLElement>) => {
+    if (!dragEventHasFiles(event.nativeEvent)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'copy';
+    setIsUploadDragActive(true);
+  };
+
+  const handleUploadDragLeave = (event: React.DragEvent<HTMLElement>) => {
+    if (!dragEventHasFiles(event.nativeEvent)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsUploadDragActive(false);
+  };
+
+  const handleUploadDrop = (event: React.DragEvent<HTMLElement>) => {
+    if (!dragEventHasFiles(event.nativeEvent)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsUploadDragActive(false);
+    void queueReceiptFiles(extractDroppedFiles(event.dataTransfer));
+  };
+
+  useEffect(() => {
+    const preventBrowserFileNavigation = (event: DragEvent) => {
+      if (!dragEventHasFiles(event)) return;
+      event.preventDefault();
+      if (event.type === 'drop') setIsUploadDragActive(false);
+    };
+
+    window.addEventListener('dragover', preventBrowserFileNavigation);
+    window.addEventListener('drop', preventBrowserFileNavigation);
+    return () => {
+      window.removeEventListener('dragover', preventBrowserFileNavigation);
+      window.removeEventListener('drop', preventBrowserFileNavigation);
+    };
+  }, []);
 
   useEffect(() => {
     const handlePasteUpload = (event: ClipboardEvent) => {
@@ -3587,7 +3627,21 @@ export default function App() {
           <main className="flex-1 overflow-y-auto p-8 lg:p-10">
             {activeTab === 'upload' ? (
               <div className="mx-auto max-w-[1520px] space-y-8 animate-in fade-in duration-500">
-                <label className={`group relative block border-2 border-dashed rounded-[32px] p-16 text-center transition-all cursor-pointer shadow-sm ${config.colorMode === 'Dark' ? 'bg-slate-900 border-slate-700 hover:border-indigo-500' : 'bg-white border-slate-300 hover:border-indigo-400'}`}>
+                <label
+                  onDragEnter={handleUploadDrag}
+                  onDragOver={handleUploadDrag}
+                  onDragLeave={handleUploadDragLeave}
+                  onDrop={handleUploadDrop}
+                  className={`group relative block border-2 border-dashed rounded-[32px] p-16 text-center transition-all cursor-pointer shadow-sm ${
+                    isUploadDragActive
+                      ? config.colorMode === 'Dark'
+                        ? 'bg-indigo-950/30 border-indigo-400 ring-4 ring-indigo-500/20'
+                        : 'bg-indigo-50 border-indigo-500 ring-4 ring-indigo-500/10'
+                      : config.colorMode === 'Dark'
+                        ? 'bg-slate-900 border-slate-700 hover:border-indigo-500'
+                        : 'bg-white border-slate-300 hover:border-indigo-400'
+                  }`}
+                >
                   <div className={`w-16 h-16 ${config.theme.light} rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-all duration-300 ${config.colorMode === 'Dark' ? 'bg-indigo-900/30' : ''}`}>
                     <Upload className={`w-8 h-8 ${config.theme.text}`} />
                   </div>
