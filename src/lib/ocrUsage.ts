@@ -3,6 +3,7 @@ import type { OcrQuotaSummary, OcrUsageMonthly } from '../types/ocrUsage'
 export const DEFAULT_OCR_QUOTAS: Record<string, { label: string; limit: number }> = {
   tencent: { label: 'Tencent OCR', limit: 900 },
   qwen_vl: { label: 'Qwen VL', limit: 100 },
+  openai_vision: { label: 'OpenAI Vision', limit: 300 },
   deepseek_v4: { label: 'DeepSeek Repair', limit: 500 },
 }
 

@@ -38,9 +38,9 @@
 
 | 值 | 行为 |
 |----|------|
-| `"ocr"` | 根据环境变量 `OCR_PROVIDER` 选择（`tencent` / 规则解析） |
-| `"vision"` | 使用 `VISION_PROVIDER`（当前仅支持 `qwen`）直接解析图片 |
-| `"smart"` | Qwen VL + DeepSeek 双重校验 |
+| `"ocr"` | 根据环境变量 `OCR_PROVIDER` 选择（推荐 `openai`，旧模式支持 `tencent` / 规则解析） |
+| `"vision"` | 使用 `VISION_PROVIDER`（推荐 `openai`，旧模式支持 `qwen`）直接解析图片 |
+| `"smart"` | 智能视觉解析；OpenAI-only 模式使用 OpenAI Vision，旧模式可用 Qwen VL + DeepSeek 校验 |
 | `"repair"` | 基于已有 `raw_ocr` 文本 + DeepSeek 修复 |
 
 ### 成功响应 (200)
@@ -266,8 +266,11 @@ const { data: { signedUrl } } = await supabase.storage
 |----------|---------|------|
 | `VITE_SUPABASE_URL` | 前端 | Supabase 项目 URL |
 | `VITE_SUPABASE_ANON_KEY` | 前端 | 匿名 Key (可公开) |
-| `OCR_PROVIDER` | Edge Function | 默认 OCR Provider，当前生产推荐 `tencent` |
-| `OPENAI_API_KEY` | Edge Function | 可选 OpenAI Vision Key，默认不启用 |
+| `OCR_PROVIDER` | Edge Function | 默认 OCR Provider，客户简化安装推荐 `openai` |
+| `OPENAI_API_KEY` | Edge Function | OpenAI-only 模式必填，只存 Supabase Edge Function Secrets |
+| `OPENAI_MODEL` | Edge Function | OpenAI Vision 使用的模型，默认 `gpt-4o-mini` |
+| `OPENAI_VISION_MONTHLY_LIMIT` | Edge Function | OpenAI Vision 每用户月度额度，默认 300 |
+| `VISION_PROVIDER` | Edge Function | 智能解析 Provider，推荐 `openai`，旧模式可用 `qwen` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Edge Function | Supabase 服务角色密钥 |
 | `TENCENT_SECRET_ID` | Edge Function | 腾讯云 SecretId |
 | `TENCENT_SECRET_KEY` | Edge Function | 腾讯云 SecretKey |

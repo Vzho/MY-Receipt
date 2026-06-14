@@ -43,7 +43,33 @@ DATABASE_URL
 
 ## 3. Supabase Edge Function Secrets
 
-腾讯云 OCR 模式下，以下密钥只存入 Supabase Edge Function Secrets：
+推荐客户安装使用 OpenAI-only 模式。完整一键脚本说明见：
+
+```text
+docs/RESITAI_OPENAI_ONLY_ONE_CLICK_DEPLOY.md
+```
+
+OpenAI-only 模式下，以下密钥只存入 Supabase Edge Function Secrets：
+
+```text
+OCR_PROVIDER=openai
+USE_OPENAI_VISION=true
+VISION_PROVIDER=openai
+OPENAI_API_KEY
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_VISION_MONTHLY_LIMIT=300
+VISION_FETCH_TIMEOUT_MS=90000
+VISION_FETCH_RETRIES=0
+OCR_AI_FETCH_RETRIES=2
+```
+
+一键脚本会自动写入这些 secrets：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-openai-only.ps1
+```
+
+旧的腾讯云 OCR 模式仍可保留给已有客户。该模式下，以下密钥只存入 Supabase Edge Function Secrets：
 
 ```text
 OCR_PROVIDER=tencent

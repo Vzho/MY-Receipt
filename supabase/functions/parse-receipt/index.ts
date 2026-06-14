@@ -9,6 +9,13 @@ const validDocTypes = ['Receipt', 'Invoice', 'Credit Note', 'Expense', 'E-invoic
 const validTags = ['Business', 'Personal', 'Tax Deductible', 'Pending']
 const DEFAULT_EXTERNAL_FETCH_TIMEOUT_MS = 30000
 const DEFAULT_VISION_FETCH_TIMEOUT_MS = 90000
+const OPENAI_VISION_PROVIDER_ALIASES = ['openai', 'openai_vision', 'openai-vision']
+
+type OpenAIVisionParseOptions = {
+  parser?: string
+  parserNote?: string
+  rawOcr?: string
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -73,8 +80,8 @@ serve(async (req) => {
 
     await updateReceipt(serviceClient, receiptId, { status: 'processing', processing_stage: 'ocr_scanning', error_message: null })
 
-    const ocrProvider = Deno.env.get('OCR_PROVIDER')?.toLowerCase()
-    const useOpenAIVision = Deno.env.get('USE_OPENAI_VISION') === 'true'
+    const ocrProvider = normalizeProviderName(Deno.env.get('OCR_PROVIDER'))
+    const useOpenAIVision = isOpenAIVisionProvider(ocrProvider) || Deno.env.get('USE_OPENAI_VISION') === 'true'
     const storedQrPayload = receipt.extra_fields && typeof receipt.extra_fields === 'object'
       ? stringOrNull((receipt.extra_fields as Record<string, unknown>).qr_payload)
       : null
@@ -91,6 +98,8 @@ serve(async (req) => {
       ? await parseWithVisionModel(serviceClient, receipt, parseOptions)
       : parseMode === 'repair'
         ? await parseWithDeepSeekRepairMode(serviceClient, receipt, parseOptions)
+      : isOpenAIVisionProvider(ocrProvider)
+      ? await parseWithOpenAIVision(serviceClient, receipt, parseOptions)
       : ocrProvider === 'tencent'
       ? await parseWithTencentOCR(serviceClient, receipt, parseOptions)
       : useOpenAIVision
@@ -253,16 +262,17 @@ async function parseWithTencentOCR(client: any, receipt: any, options: ReceiptPr
 
   const repaired = await maybeRepairWithDeepSeek(client, receipt, rawOcr, aiJson, options)
   const poorOcrScore = poorOcrTextScore(rawOcr)
-  if (poorOcrScore > 0.15 && Deno.env.get('DASHSCOPE_API_KEY') && Deno.env.get('OCR_GARBLED_FALLBACK') !== 'false') {
+  if (poorOcrScore > 0.15 && hasConfiguredVisionProvider() && Deno.env.get('OCR_GARBLED_FALLBACK') !== 'false') {
     const visionResult = await parseWithVisionModel(client, receipt, options)
     visionResult.aiJson.parser_meta = {
       ...(visionResult.aiJson.parser_meta ?? {}),
       fallback_from: repaired.parser ?? 'tencent_ocr',
       poor_ocr_text_score: poorOcrScore,
     }
+    const fallbackProvider = visionResult.aiJson.parser_meta?.provider === 'openai_vision' ? 'OpenAI Vision' : 'Qwen VL'
     visionResult.aiJson.parser_note = visionResult.aiJson.parser_note
-      ? `${visionResult.aiJson.parser_note} Tencent OCR text looked garbled, so Qwen VL fallback was used.`
-      : 'Tencent OCR text looked garbled, so Qwen VL fallback was used.'
+      ? `${visionResult.aiJson.parser_note} Tencent OCR text looked garbled, so ${fallbackProvider} fallback was used.`
+      : `Tencent OCR text looked garbled, so ${fallbackProvider} fallback was used.`
     return visionResult
   }
   return { aiJson: repaired, rawOcr }
@@ -355,7 +365,16 @@ async function parseWithVisionModel(
   receipt: any,
   options: ReceiptPromptOptions & { forceDeepSeek?: boolean } = {},
 ): Promise<{ aiJson: Record<string, any>; rawOcr: string }> {
-  const provider = Deno.env.get('VISION_PROVIDER')?.toLowerCase() || 'qwen'
+  const provider = configuredVisionProvider()
+  if (isOpenAIVisionProvider(provider)) {
+    return parseWithOpenAIVision(client, receipt, options, {
+      parser: options.forceDeepSeek ? 'smart_openai_vision' : 'openai_vision',
+      parserNote: options.forceDeepSeek
+        ? 'Smart parse used OpenAI Vision to read and structure the receipt image. Please review against the receipt image.'
+        : 'OpenAI Vision parsed the receipt image directly. Please review against the receipt image.',
+      rawOcr: 'Parsed directly from receipt image with OpenAI Vision. No separate OCR text was generated.',
+    })
+  }
   if (provider !== 'qwen') {
     throw new Error(`Unsupported VISION_PROVIDER: ${provider}`)
   }
@@ -457,8 +476,31 @@ async function maybePolishVisionWithDeepSeek(
   }
 }
 
-async function parseWithOpenAIVision(client: any, receipt: any, options: ReceiptPromptOptions = {}): Promise<{ aiJson: Record<string, any>; rawOcr: string }> {
+async function parseWithOpenAIVision(
+  client: any,
+  receipt: any,
+  options: ReceiptPromptOptions = {},
+  parseMeta: OpenAIVisionParseOptions = {},
+): Promise<{ aiJson: Record<string, any>; rawOcr: string }> {
   assertEnv('OPENAI_API_KEY')
+
+  const monthlyLimit = normalizeLimit(Deno.env.get('OPENAI_VISION_MONTHLY_LIMIT') || Deno.env.get('VISION_MONTHLY_LIMIT'), 300)
+  const period = new Date().toISOString().slice(0, 7)
+  const { data: quota, error: quotaError } = await client.rpc('consume_ocr_quota', {
+    p_user_id: receipt.user_id,
+    p_period: period,
+    p_provider: 'openai_vision',
+    p_units: 1,
+    p_limit: monthlyLimit,
+  })
+
+  if (quotaError) throw quotaError
+  if (typeof quota !== 'number' || quota <= 0) {
+    return parseManualDraftWithNote(
+      receipt.filename,
+      `OpenAI Vision monthly quota reached (${Math.abs(Number(quota) || 0)}/${monthlyLimit}). No vision model request was sent.`,
+    )
+  }
 
   const { fileBlob, mimeType, sourcePath } = await downloadReceiptImage(client, receipt)
 
@@ -467,12 +509,17 @@ async function parseWithOpenAIVision(client: any, receipt: any, options: Receipt
   const aiJson = await runOpenAIVision(base64File, mimeType, options)
   aiJson.parser_meta = {
     ...(aiJson.parser_meta ?? {}),
+    provider: 'openai_vision',
+    quota_units_used: quota,
+    quota_monthly_limit: monthlyLimit,
     image_source: sourcePath === receipt.processed_file_path ? 'processed' : 'original',
     image_processing: receipt.image_processing ?? null,
   }
+  aiJson.parser = parseMeta.parser ?? 'openai_vision'
+  aiJson.parser_note = parseMeta.parserNote ?? 'OpenAI Vision parsed the receipt image directly. Please review against the receipt image.'
   return {
     aiJson,
-    rawOcr: 'Parsed directly from receipt image with OpenAI vision. No separate OCR text was generated.',
+    rawOcr: parseMeta.rawOcr ?? 'Parsed directly from receipt image with OpenAI Vision. No separate OCR text was generated.',
   }
 }
 
@@ -2203,6 +2250,29 @@ function assertEnv(name: string) {
   if (!Deno.env.get(name)) {
     throw new Error(`Missing ${name}`)
   }
+}
+
+function normalizeProviderName(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase()
+  return normalized || null
+}
+
+function isOpenAIVisionProvider(provider: string | null | undefined) {
+  return Boolean(provider && OPENAI_VISION_PROVIDER_ALIASES.includes(provider))
+}
+
+function configuredVisionProvider() {
+  const configured = normalizeProviderName(Deno.env.get('VISION_PROVIDER'))
+  if (configured) return configured
+  if (Deno.env.get('OPENAI_API_KEY') && !Deno.env.get('DASHSCOPE_API_KEY')) return 'openai'
+  return 'qwen'
+}
+
+function hasConfiguredVisionProvider() {
+  const provider = configuredVisionProvider()
+  if (isOpenAIVisionProvider(provider)) return Boolean(Deno.env.get('OPENAI_API_KEY'))
+  if (provider === 'qwen') return Boolean(Deno.env.get('DASHSCOPE_API_KEY'))
+  return false
 }
 
 function normalizeLimit(value: string | undefined, fallback: number): number {

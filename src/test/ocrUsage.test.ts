@@ -6,10 +6,12 @@ describe('ocr usage helpers', () => {
     const rows = summarizeOcrUsage([
       { user_id: 'user-1', period: '2026-05', provider: 'tencent', units: 90 },
       { user_id: 'user-1', period: '2026-05', provider: 'qwen_vl', units: 25 },
+      { user_id: 'user-1', period: '2026-05', provider: 'openai_vision', units: 30 },
     ])
 
     expect(rows.find((row) => row.provider === 'tencent')).toMatchObject({ used: 90, limit: 900, percent: 10 })
     expect(rows.find((row) => row.provider === 'qwen_vl')).toMatchObject({ used: 25, limit: 100, percent: 25 })
+    expect(rows.find((row) => row.provider === 'openai_vision')).toMatchObject({ used: 30, limit: 300, percent: 10 })
   })
 
   it('uses persisted backend monthly limits when available', () => {

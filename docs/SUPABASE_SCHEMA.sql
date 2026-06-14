@@ -160,6 +160,26 @@ create index if not exists idx_receipt_field_changes_receipt
 create index if not exists idx_receipt_field_changes_user
   on public.receipt_field_changes (user_id, changed_at desc);
 
+drop policy if exists "Users can read own receipts" on public.receipts;
+drop policy if exists "Users can insert own receipts" on public.receipts;
+drop policy if exists "Users can update own receipts" on public.receipts;
+drop policy if exists "Users can delete own receipts" on public.receipts;
+drop policy if exists "Users can read own receipt items" on public.receipt_items;
+drop policy if exists "Users can insert own receipt items" on public.receipt_items;
+drop policy if exists "Users can update own receipt items" on public.receipt_items;
+drop policy if exists "Users can delete own receipt items" on public.receipt_items;
+drop policy if exists "Users can read own receipt field changes" on public.receipt_field_changes;
+drop policy if exists "Users can insert own receipt field changes" on public.receipt_field_changes;
+drop policy if exists "Users can read own OCR usage" on public.ocr_usage_monthly;
+drop policy if exists "Users can read own custom document types" on public.custom_document_types;
+drop policy if exists "Users can insert own custom document types" on public.custom_document_types;
+drop policy if exists "Users can update own custom document types" on public.custom_document_types;
+drop policy if exists "Users can delete own custom document types" on public.custom_document_types;
+drop policy if exists "Users can read own field preferences" on public.user_field_preferences;
+drop policy if exists "Users can insert own field preferences" on public.user_field_preferences;
+drop policy if exists "Users can update own field preferences" on public.user_field_preferences;
+drop policy if exists "Users can delete own field preferences" on public.user_field_preferences;
+
 create policy "Users can read own receipts"
   on public.receipts for select
   to authenticated
@@ -399,6 +419,11 @@ create trigger user_field_preferences_set_updated_at
 insert into storage.buckets (id, name, public)
 values ('receipts', 'receipts', false)
 on conflict (id) do update set public = false;
+
+drop policy if exists "Users can read own receipt files" on storage.objects;
+drop policy if exists "Users can upload own receipt files" on storage.objects;
+drop policy if exists "Users can update own receipt files" on storage.objects;
+drop policy if exists "Users can delete own receipt files" on storage.objects;
 
 create policy "Users can read own receipt files"
   on storage.objects for select

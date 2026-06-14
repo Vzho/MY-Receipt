@@ -6,11 +6,12 @@ update public.ocr_usage_monthly
 set monthly_limit = case provider
   when 'tencent' then 900
   when 'qwen_vl' then 100
+  when 'openai_vision' then 300
   when 'deepseek_v4' then 500
   else monthly_limit
 end
 where monthly_limit is null
-  and provider in ('tencent', 'qwen_vl', 'deepseek_v4');
+  and provider in ('tencent', 'qwen_vl', 'openai_vision', 'deepseek_v4');
 
 create or replace function public.consume_ocr_quota(
   p_user_id uuid,

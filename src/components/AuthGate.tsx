@@ -60,7 +60,7 @@ export function AuthGate({ children }: AuthGateProps) {
           <h1 className="text-lg font-black">缺少 Supabase 配置</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             请先配置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`。前端只允许使用 anon key；
-            腾讯云 OCR、OpenAI、service role key 必须放在 Supabase Edge Function Secrets。
+            OpenAI API key、腾讯云 OCR、service role key 必须放在 Supabase Edge Function Secrets。
           </p>
         </div>
       </div>
