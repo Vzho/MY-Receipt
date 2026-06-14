@@ -18,6 +18,12 @@
 - OpenAI Platform：https://platform.openai.com/
 - Cloudflare：https://dash.cloudflare.com/
 
+本安装包对应源码：
+
+```text
+https://github.com/Vzho/MY-Receipt/tree/codex/openai-only-deploy
+```
+
 ## 二、Supabase 信息
 
 | 项目 | 填写 |
@@ -25,6 +31,12 @@
 | Project ref |  |
 | Project URL |  |
 | Publishable key / anon public key |  |
+
+查找位置：
+
+- Project URL：Supabase 项目的 `Connect` 对话框，或 `Integrations -> Data API`。
+- Publishable key：`Project Settings -> API Keys -> Publishable and secret API keys`。
+- 旧版 anon public key：`Project Settings -> API Keys -> Legacy anon, service_role API keys`。
 
 Project URL 正确示例：
 
@@ -66,13 +78,13 @@ https://wkopucjwjwpcrsqzenic.supabase.co/rest/v1/
 GitHub 仓库地址：
 
 ```text
-
+https://github.com/Vzho/MY-Receipt.git
 ```
 
 部署分支：
 
 ```text
-codex-receipt-smart-parse-flow
+codex/openai-only-deploy
 ```
 
 如果正式生产使用 `main`，这里改成：

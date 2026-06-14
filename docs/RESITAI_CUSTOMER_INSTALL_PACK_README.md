@@ -2,6 +2,18 @@
 
 这个资料包用于安装 ResitAI OpenAI-only 版本。
 
+对应源码分支：
+
+```text
+https://github.com/Vzho/MY-Receipt/tree/codex/openai-only-deploy
+```
+
+Git clone 地址：
+
+```text
+https://github.com/Vzho/MY-Receipt.git
+```
+
 ## 资料包内容
 
 | 文件 | 用途 |
@@ -40,6 +52,12 @@ Git 是可选项。
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check-openai-only-prerequisites.ps1
 npm run install:openai-only
+```
+
+如果使用 Git 拉源码，默认分支为：
+
+```text
+codex/openai-only-deploy
 ```
 
 ## 不要让客户写进文档或发到群里的内容

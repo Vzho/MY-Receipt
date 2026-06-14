@@ -49,6 +49,12 @@ DATABASE_URL
 docs/RESITAI_OPENAI_ONLY_ONE_CLICK_DEPLOY.md
 ```
 
+当前 OpenAI-only 安装分支：
+
+```text
+https://github.com/Vzho/MY-Receipt/tree/codex/openai-only-deploy
+```
+
 OpenAI-only 模式下，以下密钥只存入 Supabase Edge Function Secrets：
 
 ```text
@@ -104,7 +110,11 @@ supabase secrets set QWEN_VL_MODEL=qwen3.6-plus
 supabase secrets set VISION_MONTHLY_LIMIT=100
 ```
 
-DeepSeek V4 默认处理腾讯 OCR 文本；当明细为空、金额校验失败或置信度偏低时自动修复一次，并通过 `consume_ocr_quota` 默认限制每用户每月 500 次。高精度重解析不会自动调用，只有用户在审核页点击“Qwen 视觉重解析”时才会使用 Qwen VL，并默认限制每用户每月 100 次；如果设置 `VISION_REPAIR_PROVIDER=deepseek`，Qwen 视觉 JSON 会再交给 DeepSeek 做结构和数学校验，但不会让 DeepSeek 重写商品名。若后续要启用 OpenAI Vision，可额外设置 `OPENAI_API_KEY` 和 `USE_OPENAI_VISION=true`。`SUPABASE_SERVICE_ROLE_KEY` 是 Supabase Edge Functions 的内置环境变量，不要在 Supabase Dashboard 手动创建 `SUPABASE_` 前缀的 secret。本地开发可以使用 `.env.local`，但必须加入 `.gitignore`。仓库只保留 `.env.example`。
+DeepSeek V4 默认处理腾讯 OCR 文本；当明细为空、金额校验失败或置信度偏低时自动修复一次，并通过 `consume_ocr_quota` 默认限制每用户每月 500 次。高精度重解析不会自动调用，只有用户在审核页点击“Qwen 视觉重解析”时才会使用 Qwen VL，并默认限制每用户每月 100 次；如果设置 `VISION_REPAIR_PROVIDER=deepseek`，Qwen 视觉 JSON 会再交给 DeepSeek 做结构和数学校验，但不会让 DeepSeek 重写商品名。
+
+旧模式迁移到 OpenAI-only 时，不建议只追加几个 OpenAI secret 混跑；请按 `docs/RESITAI_OPENAI_ONLY_ONE_CLICK_DEPLOY.md` 重新设置 `OCR_PROVIDER=openai`、`VISION_PROVIDER=openai` 和 `OPENAI_API_KEY`。
+
+`SUPABASE_SERVICE_ROLE_KEY` 是 Supabase Edge Functions 的内置环境变量，不要在 Supabase Dashboard 手动创建 `SUPABASE_` 前缀的 secret。本地开发可以使用 `.env.local`，但必须加入 `.gitignore`。仓库只保留 `.env.example`。
 
 ## 4. Supabase 资源
 

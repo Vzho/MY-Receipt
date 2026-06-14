@@ -12,6 +12,18 @@
 - 前端部署到 Cloudflare Pages。
 - 后端使用 Supabase。
 
+本资料包对应的源码地址：
+
+```text
+https://github.com/Vzho/MY-Receipt/tree/codex/openai-only-deploy
+```
+
+如果后续已经合并到 `main`，部署分支可以改用 `main`。在当前 OpenAI-only 安装包中，默认使用：
+
+```text
+codex/openai-only-deploy
+```
+
 ## 0. 最简单的理解
 
 ResitAI 由三部分组成：
@@ -119,24 +131,37 @@ Git 只用于从 GitHub 拉代码。
 
 ```powershell
 cd C:\Users\Public
-git clone <这里填写 ResitAI GitHub 仓库地址> resitai
+git clone https://github.com/Vzho/MY-Receipt.git resitai
 cd C:\Users\Public\resitai
-git checkout codex-receipt-smart-parse-flow
-git pull
+git checkout codex/openai-only-deploy
+git pull origin codex/openai-only-deploy
 ```
 
 注意：
 
-- `<这里填写 ResitAI GitHub 仓库地址>` 需要替换成真实仓库地址。
-- 如果客户正式部署使用 `main` 分支，就把 `codex-receipt-smart-parse-flow` 改成 `main`。
+- 当前 OpenAI-only 安装包默认使用 `codex/openai-only-deploy` 分支。
+- 如果客户正式部署使用 `main` 分支，就把 `codex/openai-only-deploy` 改成 `main`。
 
 ### 方式 B：客户电脑没有 Git
 
-1. 打开 GitHub 仓库页面。
+1. 打开 GitHub 分支页面：
+
+```text
+https://github.com/Vzho/MY-Receipt/tree/codex/openai-only-deploy
+```
+
 2. 点击绿色 `Code` 按钮。
 3. 点击 `Download ZIP`。
 4. 解压 ZIP。
 5. 进入解压后的项目目录。
+
+如果后续正式版已经合并到 `main`，也可以打开：
+
+```text
+https://github.com/Vzho/MY-Receipt
+```
+
+然后在分支下拉框选择要部署的分支。
 
 例如解压到：
 
@@ -186,13 +211,11 @@ resitai
 
 ## 6. 复制 Supabase 三个信息
 
-进入 Supabase 项目后，打开：
+进入 Supabase 项目后，需要复制：
 
-```text
-Project Settings -> API Keys
-```
-
-需要复制 3 个信息。
+1. Project ref。
+2. Project URL。
+3. Publishable key，或旧版 anon public key。
 
 ### 6.1 Project ref
 
@@ -210,7 +233,14 @@ wkopucjwjwpcrsqzenic
 
 也就是 `.supabase.co` 前面的那一段。
 
+也可以在项目 URL、Data API URL 或 Edge Function URL 里看到这一段。
+
 ### 6.2 Project URL
+
+当前 Supabase 后台里，Project URL 通常在下面任一位置可以找到：
+
+- 项目顶部或侧边栏的 `Connect` 对话框。
+- `Integrations -> Data API` 页面里的 API URL / Project URL。
 
 正确格式：
 
@@ -226,9 +256,20 @@ https://wkopucjwjwpcrsqzenic.supabase.co/rest/v1/
 
 如果复制错了，脚本会提示错误。
 
+注意：
+
+- `API Keys` 页面主要用于复制 key，不一定显示 Project URL。
+- 如果只看到 `https://...supabase.co/rest/v1/`，请去掉末尾的 `/rest/v1/`。
+
 ### 6.3 Publishable key
 
-在 `API Keys` 页面复制：
+进入：
+
+```text
+Project Settings -> API Keys
+```
+
+在 `Publishable and secret API keys` 标签页复制：
 
 ```text
 Publishable key
@@ -371,26 +412,34 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-openai-only.ps1 -Depl
 4. 选择 `Pages`。
 5. 选择 `Connect to Git`。
 6. 选择 ResitAI GitHub 仓库。
-7. Build command 填：
+7. 选择部署分支：
+
+```text
+codex/openai-only-deploy
+```
+
+如果 OpenAI-only 版本已经合并进 `main`，这里选择 `main`。
+
+8. Build command 填：
 
 ```text
 npm run build
 ```
 
-8. Build output directory 填：
+9. Build output directory 填：
 
 ```text
 dist
 ```
 
-9. Environment variables 添加：
+10. Environment variables 添加：
 
 ```text
 VITE_SUPABASE_URL=https://客户项目.supabase.co
 VITE_SUPABASE_ANON_KEY=客户 publishable key
 ```
 
-10. 点击 Deploy。
+11. 点击 Deploy。
 
 ## 12. 正式上线后收紧 CORS
 
