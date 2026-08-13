@@ -1,0 +1,27 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Keep the free Supabase project active with a lightweight database RPC.
+    - cron: "17 */12 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase keepalive RPC
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_ANON_KEY"
+          curl --fail-with-body --show-error --silent --request POST \
+            "$SUPABASE_URL/rest/v1/rpc/keepalive_ping" \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            --header "Content-Type: application/json" \
+            --data '{}'
+          echo "Supabase keepalive ping completed."
