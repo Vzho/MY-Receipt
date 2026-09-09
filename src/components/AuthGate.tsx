@@ -6,6 +6,17 @@ interface AuthGateProps {
   children: ReactNode
 }
 
+const SESSION_CHECK_TIMEOUT_MS = 10000
+
+function withSessionTimeout<T>(promise: Promise<T>) {
+  return Promise.race([
+    promise,
+    new Promise<T>((_resolve, reject) => {
+      window.setTimeout(() => reject(new Error('Supabase Auth session check timed out')), SESSION_CHECK_TIMEOUT_MS)
+    }),
+  ])
+}
+
 export function AuthGate({ children }: AuthGateProps) {
   const [email, setEmail] = useState('')
   const [session, setSession] = useState<Session | null>(null)
@@ -15,17 +26,35 @@ export function AuthGate({ children }: AuthGateProps) {
   useEffect(() => {
     if (!supabase) return
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
-    })
+    let active = true
+
+    withSessionTimeout(supabase.auth.getSession())
+      .then(({ data, error }) => {
+        if (!active) return
+        setSession(data.session)
+        if (error) {
+          setMessage(error.message)
+        }
+      })
+      .catch(() => {
+        if (!active) return
+        setMessage('无法连接 Supabase Auth。请检查网络、代理或 Supabase 配置后刷新页面。')
+      })
+      .finally(() => {
+        if (!active) return
+        setLoading(false)
+      })
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return
       setSession(nextSession)
       setLoading(false)
     })
 
-    return () => subscription.subscription.unsubscribe()
+    return () => {
+      active = false
+      subscription.subscription.unsubscribe()
+    }
   }, [])
 
   async function sendMagicLink() {
@@ -33,14 +62,19 @@ export function AuthGate({ children }: AuthGateProps) {
 
     setLoading(true)
     setMessage(null)
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
-    })
-    setLoading(false)
-    setMessage(error ? error.message : '登录链接已发送，请检查邮箱。')
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      })
+      setMessage(error ? error.message : '登录链接已发送，请检查邮箱。')
+    } catch {
+      setMessage('无法连接 Supabase Auth。请检查网络、代理或 Supabase 配置后重试。')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function signInAnonymously() {
@@ -48,9 +82,14 @@ export function AuthGate({ children }: AuthGateProps) {
 
     setLoading(true)
     setMessage(null)
-    const { error } = await supabase.auth.signInAnonymously()
-    setLoading(false)
-    setMessage(error ? error.message : null)
+    try {
+      const { error } = await supabase.auth.signInAnonymously()
+      setMessage(error ? error.message : null)
+    } catch {
+      setMessage('无法连接 Supabase Auth。请检查网络、代理或 Supabase 配置后重试。')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (!isSupabaseConfigured) {

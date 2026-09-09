@@ -1,6 +1,6 @@
 {
-  "name": "ResitMY OCR",
-  "description": "Professional Malaysian English receipt OCR and expense management app powered by Gemini AI.",
+  "name": "ResitAI",
+  "description": "Malaysian English receipt / e-invoice intelligent extraction and review platform. React 19 + Vite + Supabase Auth/Storage/Postgres/Edge Functions + Tencent OCR + Qwen VL + DeepSeek.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
